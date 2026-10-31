@@ -22,12 +22,15 @@ Después de revisarlo se aplicará [Spec Kit](https://github.com/github/spec-kit
 - Implementar y completar el README ejecutable con el recorrido del evaluador.
 
 Todavía no hay aplicación ejecutable ni infraestructura desplegada.
-Los servicios AWS, Floci y Terraform siguen siendo propuestas por evaluar.
+Floci se usará para emulación local y OpenAI para la inferencia real del prototipo.
+Los servicios AWS concretos y el uso de Terraform se definirán en el diseño.
+El control del bot mediante conversaciones pending ya existe en el Chatwoot externo.
 
 ## Entrega futura para el evaluador
 
 El README ejecutable documentará arranque, entorno privado, datos ficticios, verificación
-de identidad, campaña, pago completo, descuento, captura del comprobante, consulta del pago,
+de identidad, edición del teléfono de un cliente ficticio por el WhatsApp del evaluador,
+campaña, pago completo sin condonación, acuerdo con descuento, captura del comprobante, consulta del pago,
 audio, imágenes, escalamiento humano, observabilidad y restauración de los escenarios.
 
 El repositorio no contendrá claves reales, códigos de recuperación ni las fuentes privadas

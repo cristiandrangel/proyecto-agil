@@ -168,7 +168,7 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 ### 7.3. Cliente: acuerdo y descuento
 
 1. Tras autenticar y seleccionar una deuda, indica que no puede pagar el total.
-2. El agente pide el importe concreto y aclara moneda o servicio si hace falta.
+2. El agente pide el importe concreto en USD y aclara el servicio si hace falta.
 3. La herramienta calcula el porcentaje sobre el saldo vigente seleccionado.
 4. Si la oferta está entre el 80% y el 100%, comunica el pago acordado y el valor que se condonará al cumplirlo.
 5. El cliente confirma la opción y recibe la orden por ese importe.
@@ -190,11 +190,11 @@ La caducidad de sesión y orden es TBD. Mantener memoria no equivale a mantener 
 1. El cliente ofrece menos del 80%, disputa la deuda, pide asesor o presenta una situación que no puede verificarse.
 2. Si afirma que ya pagó, el agente intenta consultar antes de concluir que hay discrepancia.
 3. El backend crea un caso y una nota privada con motivo, deuda seleccionada, oferta y verificaciones realizadas.
-4. Se transfiere la conversación a atención humana y se informa al cliente.
-5. El agente suspende sus respuestas automáticas mientras el caso está bajo control humano.
+4. Se informa al cliente y se cambia la conversación de pending a open para transferirla a atención humana.
+5. El bot solo puede gestionar conversaciones en pending. Al salir de ese estado pierde el control y suspende sus respuestas automáticas.
 6. El asesor responde desde Chatwoot. Una devolución al bot debe ser explícita y conservar el contexto.
 
-Chatwoot documenta conversaciones en pending para gestión del bot y cambio a open para atención humana; asignación de equipo y tiempos de atención deben configurarse. [W2]
+El mecanismo de control mediante pending ya está resuelto y desplegado en la integración de Chatwoot existente. Se reutiliza: el alcance nuevo es conectar los motivos de escalamiento, registrar el contexto y verificar que el agente respete ese control, incluso si el estado cambia mientras procesa un mensaje. El retorno al bot es una acción explícita que devuelve la conversación a pending y conserva el contexto. La asignación de equipo y los tiempos de atención son configuración operativa. [C, W2]
 
 ## 8. Alcance del MVP — MoSCoW
 
@@ -206,7 +206,7 @@ Chatwoot documenta conversaciones en pending para gestión del bot y cambio a op
 | M-02 | Datos ficticios editables, clientes con varios servicios, columna de días de mora por deuda y API de cartera | C |
 | M-03 | Segmentación por días de mora y otros atributos, previsualización y lanzamiento con plantilla aprobada | C |
 | M-04 | Conversación por WhatsApp mediante Chatwoot existente | C y G |
-| M-05 | Agente único LangGraph, LLM real y herramientas invocadas realmente | C y G |
+| M-05 | Agente único LangGraph, inferencia real mediante OpenAI y herramientas invocadas realmente | C y G |
 | M-06 | Localización por identidad del canal y PIN ficticio para la demostración | C |
 | M-07 | Memoria PostgreSQL separada de la base de cartera en el entorno local | C |
 | M-08 | Texto, audio e imagen con normalización previa al agente | C |
@@ -218,12 +218,14 @@ Chatwoot documenta conversaciones en pending para gestión del bot y cambio a op
 | M-14 | README reproducible, datos semilla y reinicio de escenarios | C y G |
 | M-15 | Repo público personal sin secretos ni fuentes operativas privadas | C |
 | M-16 | Documento de arquitectura AWS justificado, diagramas y guion de sustentación | G y C |
+| M-17 | Floci como emulador local de los servicios AWS seleccionados para la demo | C |
+| M-18 | Resumen por campaña de envíos, contactabilidad, pagos totales sin condonación, acuerdos con descuento, solicitudes de asesor y casos sin resultado | C |
 
 ### Should Have
 
 - Entrada local de mensajes simulados y archivos para evaluar el núcleo sin cambiar Chatwoot.
 - Botón de descarga del comprobante como imagen; la captura manual debe funcionar en todo caso.
-- Vista resumida de resultados y enlaces de correlación a trazas.
+- Enlaces de correlación entre los resultados de campaña y las trazas.
 - Pausa de campaña que impida nuevos envíos aún no ejecutados.
 - Comprobación previa de conexión, identidad de demo y disponibilidad del proveedor.
 - Grabación corta de respaldo y pruebas de repetición de los recorridos.
@@ -232,7 +234,6 @@ Chatwoot documenta conversaciones en pending para gestión del bot y cambio a op
 
 - Más reglas de segmentación, horarios y políticas por cartera.
 - Reanudación asistida por el operador y seguimiento de acuerdos con recordatorios autorizados.
-- Emulación adicional de infraestructura AWS con Floci.
 - Infraestructura declarativa si aporta a la entrega y al tiempo disponible.
 
 ### Won't Have en esta versión
@@ -293,7 +294,7 @@ El diagrama representa responsabilidades de producto. Su despliegue en servicios
 
 | ID | Módulo | Requisito y exposición |
 |---|---|---|
-| FR-01 | Cartera | Mostrar y editar fixtures en la central: cliente, identificación ficticia, contacto, tipo de cliente, contrato/servicio, saldo, moneda, vencimiento, días de mora y estados de deuda/servicio separados |
+| FR-01 | Cartera | Mostrar y editar fixtures en la central: cliente, identificación ficticia, contacto, tipo de cliente, contrato/servicio, saldo en USD, vencimiento, días de mora y estados de deuda/servicio separados; la moneda es fija |
 | FR-02 | Cartera | Usar identificador único de deuda/fila y de cliente; identificar a la persona por tipo y número de documento, con varios servicios vinculados |
 | FR-03 | Cartera | Exponer consultas y actualizaciones por API; la integración del agente utiliza esa frontera de sistema externo |
 | FR-04 | Campañas | Filtrar por rangos del campo días de mora, servicio, tipo de cliente, tipo de identificación y estado de deuda; previsualizar personas únicas y deudas asociadas |
@@ -303,17 +304,18 @@ El diagrama representa responsabilidades de producto. Su despliegue en servicios
 | FR-08 | Identidad | Localizar por teléfono o identificador disponible del canal; comprobar PIN y limitar intentos; no devolver PIN al modelo |
 | FR-09 | Autorización | Limitar herramientas a deudas y órdenes del cliente autenticado; renovar verificación cuando corresponda |
 | FR-10 | Medios | Procesar texto, audio e imágenes por tipo real; conservar mensaje acompañante y procedencia; manejar archivos no soportados o ilegibles |
-| FR-11 | Agente | Interpretar lenguaje libre, aclarar ambigüedades y seleccionar herramientas mediante llamadas reales a un LLM |
+| FR-11 | Agente | Interpretar lenguaje libre, aclarar ambigüedades y seleccionar herramientas mediante llamadas reales a OpenAI; usar también OpenAI para transcribir audio e interpretar imágenes antes del agente principal |
 | FR-12 | Memoria | Mantener continuidad por conversación y separación entre clientes; la sesión de identidad es independiente de la memoria |
-| FR-13 | Política | Validar en código deuda, saldo vigente, moneda y oferta; rechazar importes no positivos o superiores al saldo y aclarar datos ambiguos |
+| FR-13 | Política | Validar en código deuda, saldo vigente y oferta en USD; rechazar importes no positivos o superiores al saldo; aclarar datos ambiguos y no convertir otras monedas |
 | FR-14 | Acuerdo | Aplicar umbral del 80% a la deuda elegida; presentar condiciones y obtener conformidad antes de emitir la orden con descuento |
 | FR-15 | Orden | Crear enlace asociado a una orden con importe autorizado, token opaco y caducidad; impedir que el navegador altere el importe |
 | FR-16 | Pago | Simular aprobación/rechazo; registrar y aplicar pago/condonación una sola vez; mostrar resultado y comprobante legible |
 | FR-17 | Verificación | Tras recibir la captura, extraer referencia/contexto y consultar pago, titularidad y deuda antes de comunicar liquidación |
-| FR-18 | Handoff | Crear caso y nota, transferir conversación y detener respuestas del bot; permitir devolución explícita por un asesor |
+| FR-18 | Handoff | Crear caso y nota; usar el control ya desplegado de Chatwoot: solo pending permite al bot responder, open deriva a humano; comprobar el control antes de enviar y permitir devolución explícita por un asesor |
 | FR-19 | Observabilidad | Registrar trazas correlacionadas del turno, medios, inferencias, herramientas, errores, latencias y uso/costo disponible |
-| FR-20 | Entrega | Arranque documentado, seeds, prueba de salud y restauración; distinguir qué es real, ficticio, externo y local |
+| FR-20 | Entrega | Arranque documentado, seeds, prueba de salud y restauración; exigir que el evaluador sustituya el teléfono de un cliente ficticio por su propio WhatsApp desde la central antes de lanzar la campaña; distinguir qué es real, ficticio, externo y local |
 | FR-21 | Cartera y campañas | Persistir dias_mora como campo entero no negativo en cada fila de deuda; mostrarlo como columna editable en la central, exponerlo en la API y usarlo como origen del filtro por antigüedad |
+| FR-22 | Métricas | Mostrar en la central los contadores y tasas de §10 por campaña, con deduplicación por persona, distinción entre solicitud humana y escalamiento automático, y separación entre hitos y resultados al corte |
 
 Las salvaguardas específicas que completan los requisitos confirmados son propuestas verificables del borrador. El diseño elegirá sus mecanismos sin cambiar los límites de producto.
 
@@ -342,12 +344,14 @@ En el MVP, la simulación del sistema central mantiene este campo mediante fixtu
 
 ### 9.4. Política financiera propuesta
 
-Sea S el saldo pendiente vigente de la deuda seleccionada y O la oferta, expresados en la misma moneda.
+Todo el MVP opera en dólares estadounidenses (USD): cartera, ofertas, órdenes, pagos, descuentos, comprobantes y métricas monetarias. No hay selección de moneda ni conversión cambiaria. Un importe sin símbolo se interpreta en USD; si el cliente menciona otra moneda se le pide expresar la oferta en USD antes de continuar.
+
+Sea S el saldo pendiente vigente de la deuda seleccionada y O la oferta, ambos expresados en USD.
 
 | Condición | Acción |
 |---|---|
 | S es cero o la deuda está liquidada | Informar que no hay saldo; no crear otro cobro |
-| O no es claro, no tiene moneda compatible o refiere a otra deuda | Aclarar antes de actuar |
+| O no es claro, está expresado en otra moneda o refiere a otra deuda | Aclarar y pedir importe en USD para la deuda elegida antes de actuar |
 | O es menor o igual a cero, o mayor que S | Rechazar la propuesta y pedir corrección |
 | O es igual a S | Orden de pago completo |
 | O es al menos 80% de S y menor que S | Acuerdo con pago O y condonación S menos O |
@@ -359,19 +363,39 @@ La deuda se liquida al aplicar el pago aprobado y la condonación autorizada. Ac
 
 ### 9.5. Estados y concurrencia
 
-Se mantienen conceptos separados: deuda, acuerdo, orden, pago y control de conversación. La nomenclatura exacta de los estados es una propuesta, no un esquema de base ya implementado.
+Un estado indica en qué situación está cada elemento. Crear un enlace no significa haber pagado; aceptar un descuento tampoco significa que se haya liquidado la deuda. Se mantienen conceptos separados para representar esas diferencias:
+
+| Elemento | Situaciones que deben distinguirse |
+|---|---|
+| Deuda | Pendiente o liquidada; conserva el saldo hasta aplicar el pago |
+| Acuerdo | Aceptado pendiente de pago, cumplido o vencido |
+| Orden | Vigente, pagada o vencida; abandonar la página no equivale a pagar |
+| Intento de pago | Aprobado o rechazado; un rechazo permite reintentar mientras la orden sea válida |
+| Conversación | pending permite al bot gestionar; fuera de pending el bot no responde; open corresponde a atención humana |
+
+Los nombres de estados financieros se concretarán en el diseño. Los estados de Chatwoot reutilizan el comportamiento existente.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Pendiente
-    Pendiente --> OrdenVigente: Orden completa o acuerdo aceptado
-    OrdenVigente --> Pendiente: Rechazo, abandono o vencimiento
-    OrdenVigente --> Liquidada: Pago aplicado y condonación si corresponde
+    Pendiente --> Pendiente: Enlace creado o acuerdo aceptado
+    Pendiente --> Pendiente: Pago rechazado, abandono o vencimiento
+    Pendiente --> Liquidada: Pago aplicado y condonación si corresponde
     Liquidada --> Liquidada: Evento o comprobante repetido
     Liquidada --> [*]
 ```
 
-Este diagrama describe el estado funcional del recorrido de una deuda. Durante OrdenVigente, el saldo contable sigue pendiente. Si el pago o el saldo cambian por otro canal, el agente debe consultar el estado nuevo antes de emitir o confirmar condiciones.
+El diagrama representa solo la deuda. Por ejemplo, sobre USD 100, aceptar pagar USD 90 crea un acuerdo y una orden, pero la deuda sigue pendiente por USD 100. Al aprobar y aplicar el pago, se registran USD 90 recibidos y USD 10 condonados: el saldo queda en cero y la deuda se liquida. Enviar una captura solo provoca una consulta del resultado.
+
+La concurrencia aparece cuando dos acciones ocurren casi al mismo tiempo. El comportamiento esperado es:
+
+- Si el cliente paga mientras el agente prepara otro enlace, se vuelve a comprobar el saldo y no se crea un cobro basado en información anterior.
+- Si llegan dos veces la aprobación o el mismo mensaje, su efecto se aplica una sola vez. Esta propiedad se llama idempotencia.
+- Si el cliente envía dos mensajes seguidos, se procesa la conversación en orden; distintos clientes sí pueden atenderse en paralelo.
+- Si un asesor toma el control mientras el LLM está preparando una respuesta, el bot comprueba el estado antes de enviarla y se detiene al no estar en pending.
+- Si dos órdenes intentan liquidar la misma deuda, se verifica su saldo vigente al aplicar el pago; no se admite una segunda liquidación ni una segunda condonación.
+
+La actualización del pago, la condonación y el saldo debe ser consistente: no puede mostrarse una deuda liquidada con un pago sin registrar. La implementación decidirá los mecanismos de transacción, secuenciación y deduplicación.
 
 El simulador muestra liquidación confirmada únicamente cuando la aplicación al sistema central es durable. Si el pago queda registrado pero su aplicación no se confirma, se muestra una situación pendiente de conciliación y se evita volver a cobrar automáticamente.
 
@@ -422,26 +446,50 @@ Langfuse autoalojado tiene varias dependencias, incluyendo web, worker y almacen
 
 En el prototipo se calcula sobre pagos ficticios y demuestra trazabilidad. En producción, asociar un pago a una campaña no prueba causalidad; el incremento atribuible requiere un piloto con comparación adecuada.
 
-### Métricas y metas
+### Embudo de negocio por campaña
 
-Todas las metas siguientes son propuestas para revisión. No existen baselines propios de producción.
+La central muestra mensajes enviados, personas únicas destinatarias y personas que respondieron al menos una vez. Los mensajes de campaña aceptados por el canal se cuentan como enviados; entrega y fallo se registran por separado. Los mensajes de seguimiento del bot y del asesor tienen un contador separado para no inflar los envíos de campaña.
 
-| Dimensión | Métrica y definición | Baseline | Meta inicial propuesta |
-|---|---|---|---|
-| Activación del evaluador | Completa arranque y primer recorrido siguiendo README | TBD: primera ejecución externa | Completar todos los pasos sin instrucciones verbales adicionales |
-| Contacto | Entregados sobre envíos elegibles; respuestas sobre entregados | TBD en piloto | Medir por segmento; objetivo comercial TBD |
-| Recuperación | Pago aplicado, separado de descuento y saldo pendiente | TBD real; fixtures conocidos en demo | Coincidencia exacta con el registro de pagos del demo |
-| Acuerdos | Acuerdos cumplidos sobre aceptados; valor condonado | TBD | Reportar cumplimiento y costo de la condonación por separado |
-| Continuidad | Retoma una conversación conservando contexto y verificando vigencia | TBD: dataset inicial | Resolver todos los casos de reanudación de la batería de aceptación |
-| Calidad factual | Importes, servicio y estado coinciden con la respuesta de herramientas | TBD: evaluación inicial | Cero contradicciones financieras en casos críticos del dataset |
-| Seguridad | Acciones o revelaciones fuera de identidad/política autorizada | TBD: evaluación adversarial | Cero en la batería de aceptación |
-| Escalamiento | Casos que debían derivarse y efectivamente se derivan | TBD: evaluación inicial | Todos los casos obligatorios de la batería |
-| Experiencia | Claridad y utilidad mediante rúbrica humana | TBD | Aprobar cada recorrido crítico; umbral agregado TBD |
-| Desempeño | Latencia p50/p95 por texto, audio e imagen | TBD: benchmark | Elegir objetivo después de medir proveedor y entorno |
-| Costo | Costo por turno, recorrido y caso resuelto | TBD: llamadas instrumentadas | Mantener la ejecución de evaluación dentro del presupuesto de IA asignado |
-| Operación | Errores, reintentos, pendientes y tiempo de atención humana | TBD | Detectar fallos inyectados y mostrar su estado |
+**Contactabilidad = personas destinatarias que respondieron al menos un mensaje / personas destinatarias con al menos un envío de campaña aceptado × 100.** Texto, audio e imagen cuentan como respuesta; varios mensajes de una persona cuentan como un solo contacto. No se divide entre el total de mensajes, porque una persona puede recibir varios. Sin destinatarios enviados, la tasa se muestra como no aplicable.
 
-La continuidad técnica sustituye a una métrica SaaS de retención en esta fase. El impacto en retención de clientes telco es una hipótesis de piloto, no un resultado atribuible al prototipo. [G §03, C, P §10]
+Entre quienes respondieron se sigue este embudo:
+
+| Métrica | Definición | Tasa |
+|---|---|---|
+| Saldaron sin condonación | Personas que liquidaron la deuda seleccionada mediante pago del 100%, sin descuento | Personas con pago total / personas que respondieron |
+| Lograron acuerdo con condonación | Personas que aceptaron un acuerdo con descuento; se desglosan en pendientes de pago, cumplidos y vencidos | Personas con acuerdo / personas que respondieron |
+| Solicitaron atención humana | Personas que pidieron explícitamente un asesor, aunque luego resolvieran su deuda | Personas que solicitaron asesor / personas que respondieron |
+| Sin resultado | Personas que respondieron, pero al cierre no liquidaron, no mantienen un acuerdo vigente o cumplido y no tienen atención humana activa | Personas sin resultado / personas que respondieron |
+
+“Saldó la deuda” se reserva en el reporte de negocio al pago completo sin condonación. “Logró un acuerdo” identifica la ruta con descuento. En el registro financiero ambas rutas pueden dejar la deuda liquidada; esa equivalencia contable no mezcla las dos métricas comerciales. La condonación solo se registra al aplicar el pago aprobado del acuerdo. Un acuerdo aceptado sin pago aparece como pendiente, sin importe recuperado ni condonado todavía. [C]
+
+Los escalados automáticos por política, disputa o incidencia se muestran por separado de las solicitudes expresas del cliente. Cada caso registra su motivo y origen. La métrica de solicitudes humanas es un hito histórico y puede coexistir con un pago posterior; no se suman los hitos como si fueran personas distintas.
+
+Como resumen del resultado actual de cada caso se usa una sola categoría: pago total sin condonación, acuerdo cumplido con condonación, atención humana activa, acuerdo pendiente de pago, sin resultado al cierre o en gestión. Se prioriza una liquidación aplicada; si no la hay, un caso humano activo precede a un acuerdo pendiente. Un acuerdo vencido o un caso humano cerrado sin pago ni acuerdo vigente termina sin resultado al cierre. Los casos sin respuesta se muestran aparte, fuera del grupo contactado. La ventana de seguimiento y el criterio temporal de cierre se fijan en D-10; hasta entonces, un caso activo no se etiqueta como fracaso.
+
+La unidad operativa es persona, campaña y deuda seleccionada. Si un cliente tiene varios servicios se muestran los resultados por deuda y un total de personas únicas por categoría, sin presentar la suma de categorías como un total de personas: podría pagar íntegramente un servicio y negociar otro. Las tasas utilizan siempre destinatarios de la misma campaña y periodo.
+
+Cada envío, respuesta, acuerdo, solicitud, derivación y pago se vincula a campaña, persona, conversación y deuda cuando corresponda. En la demo se mantiene una sola campaña activa por persona para evitar atribuir una respuesta a varias campañas. Los datos conservan el segmento utilizado al lanzar la campaña.
+
+Como métricas monetarias se muestran USD efectivamente recibidos, USD condonados y saldo pendiente por separado. No se suma la condonación al dinero recuperado. No hay baselines reales ni metas comerciales inventadas; la aceptación exige que los contadores coincidan con los eventos y pagos del escenario.
+
+### Métricas técnicas y de calidad
+
+Estas métricas complementan el embudo comercial y se observan mediante trazas y evaluación:
+
+| Dimensión | Medición y criterio de aceptación |
+|---|---|
+| Activación del evaluador | Completa preparación del número, arranque y recorridos con el README, sin instrucciones verbales adicionales |
+| Continuidad | Retoma contexto y verifica identidad y saldo vigentes en todos los casos de reanudación |
+| Calidad factual | Importes, servicio y estado coinciden con herramientas; cero contradicciones financieras en casos críticos |
+| Seguridad | Cero acciones o revelaciones fuera de identidad o política autorizada en la batería |
+| Escalamiento | Se derivan todos los casos obligatorios y se respeta el control pending existente |
+| Experiencia | La revisión humana valida claridad, siguiente paso y explicación del resultado en cada recorrido crítico |
+| Desempeño | Medir latencia p50/p95 por texto, audio e imagen; fijar objetivos después del benchmark |
+| Costo | Contabilizar agente, audio, visión y reintentos por turno y recorrido frente al presupuesto de USD 5 |
+| Operación | Detectar errores, reintentos y pendientes; registrar tiempo bajo atención humana |
+
+El impacto en retención de clientes telco es una hipótesis de piloto, no un resultado atribuible al prototipo. [G §03, C, P §10]
 
 ## 11. Plan de evaluación del agente
 
@@ -472,7 +520,7 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-15 | Audio más texto acompañante | Contexto conservado y gestión correcta | FR-10–11 |
 | AC-16 | Imagen ilegible o medio no soportado | Pide aclaración o deriva; no inventa contenido | FR-10 |
 | AC-17 | Solicitud de asesor o disputa de deuda | Caso, resumen y suspensión del bot | FR-18 |
-| AC-18 | Conversación ya tomada por humano | Sin respuestas automáticas de negociación | FR-07, FR-18 |
+| AC-18 | Conversación fuera de pending, incluso durante una inferencia | Sin respuestas automáticas; retorno explícito a pending conserva contexto | FR-07, FR-18 |
 | AC-19 | Reinicio y reanudación | Memoria persistente; validación de sesión y saldo actual | FR-09, FR-12 |
 | AC-20 | Campaña con varios servicios del mismo cliente | Destinatario agrupado; sin contactos duplicados por error | FR-04–06 |
 | AC-21 | Baja, deuda ya pagada o lanzamiento repetido | Exclusión o deduplicación observable | FR-05–06 |
@@ -481,6 +529,10 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-24 | Traza y consumo del recorrido | Medios, LLM y herramientas correlacionados sin secretos | FR-19 |
 | AC-25 | Columna Días de mora por deuda | Edición persistente, API con el mismo valor y rechazo de datos negativos, fraccionarios o vacíos | FR-01, FR-21 |
 | AC-26 | Campaña por antigüedad y límites de rango | El filtro 30–59 incluye 30 y 59, excluye 29 y 60, y conserva solo el servicio elegible de una persona; pagados y cero días no reciben campaña de vencidos | FR-04–05, FR-21 |
+| AC-27 | Embudo con mensajes repetidos, pago íntegro y acuerdo con descuento | Una persona contactada por campaña; pago total sin condonación separado de acuerdo pendiente/cumplido; solicitud humana diferenciada de escalamiento automático; contadores coinciden con eventos | FR-06–07, FR-14, FR-16, FR-18, FR-22 |
+| AC-28 | Evaluador cambia el teléfono de un cliente ficticio | Cambio persistente y compartido por sus servicios; campaña llega a su WhatsApp y la consulta encuentra al mismo cliente | FR-01–02, FR-08, FR-20 |
+| AC-29 | Oferta menciona una moneda distinta de USD | Pide oferta en USD; no convierte ni crea una orden en otra moneda | FR-13 |
+| AC-30 | Pago concurrente con nueva orden y dos intentos de liquidación | Saldo revalidado, sin segundo cobro ni doble condonación; resultado consistente en cartera y pagos | FR-13, FR-15–16 |
 
 ### Método de QA
 
@@ -552,7 +604,7 @@ El volumen, las metas y la disponibilidad del piloto dependen de datos y aprobac
 | Leer y escribir sistemas existentes | API de cartera y registro de pago/condonación | FR-03, FR-16–17 |
 | Gestión y control | Operador, campañas, política y supervisión humana | §§03, 06, 09 |
 | Riesgos y mitigaciones | Validación, idempotencia, fallos, privacidad y recuperación | §§11–12 |
-| Métricas de negocio | Pago aplicado, acuerdos, condonación, calidad y costo | §10 |
+| Métricas de negocio | Envíos, contactabilidad, pago total sin condonación, acuerdos con descuento, solicitudes humanas y casos sin resultado | §10; FR-22; AC-27 |
 | Infraestructura propuesta AWS | Diseño posterior justificado, incluyendo canal e IA | Documento de arquitectura pendiente tras revisión del PRD |
 | WhatsApp y agente de IA | Chatwoot/Meta y agente LangGraph con inferencia real | Demo principal y trazas |
 | Prototipo, README y sustentación | Fixtures, recorridos, ejecución y guion para comité mixto | FR-20 y hitos de entrega |
@@ -561,18 +613,20 @@ Se conserva la distinción entre la exigencia mínima de la guía y el MVP ampli
 
 ## 15. Decisiones pendientes y alternativas
 
-Estas decisiones no impiden redactar el PRD, pero deben cerrarse en el momento indicado.
+USD como única moneda, OpenAI para la inferencia del prototipo, Floci para emulación local y el control existente de Chatwoot mediante pending son decisiones fijadas. La tabla recoge únicamente lo que falta concretar.
+
+Floci ejecuta localmente la emulación de los servicios AWS que se seleccionen; no sustituye el diseño de la aplicación ni decide qué servicios convienen en AWS. Debe distinguirse la ejecución de contenedores y PostgreSQL locales de las APIs efectivamente ejercitadas contra Floci. La cobertura de cada servicio y el despliegue real se verifican por separado. [W7]
 
 | ID | TBD | Opciones razonables | Recomendación provisional | Momento de cierre |
 |---|---|---|---|---|
 | D-01 | Enfoque interno y adaptación de ICP | Producto interno telco; plataforma comercial general | Producto interno aplicado al caso de LLA | Revisión del PRD |
 | D-02 | Grano de la deuda | Agregada por contrato; factura por fila; detalle de facturas asociado | Agregada por contrato para el MVP | Antes de modelo de datos |
-| D-03 | Moneda e identificaciones de fixtures | USD y tipos de Panamá; catálogo configurable; identificadores puramente de demo | Ejemplos USD y documentos inequívocamente ficticios | Antes de seeds y pantallas |
+| D-03 | Tipos de identificación de fixtures | Tipos de Panamá; catálogo configurable; identificadores de demo | Documentos inequívocamente ficticios; moneda fija USD | Antes de seeds y pantallas |
 | D-04 | Fecha límite y tiempo disponible | Fecha de entrega; fecha de sustentación; ambas | Registrar las fechas reales aportadas | Antes de calendarizar tareas |
-| D-05 | Proveedor/modelos y límite de USD 5 | API real externa para demo; Bedrock real; adaptadores intercambiables | Elegir por tool use, medios, costo y límite efectivo | Antes de integrar IA |
+| D-05 | Modelos OpenAI y mecanismo de control del presupuesto de USD 5 | Modelos configurables para agente, transcripción y visión | Una API key privada de OpenAI; seleccionar modelos por capacidad y costo, y concretar el control de consumo | Antes de integrar IA |
 | D-06 | Asociación del identificador alternativo | Fixture preasociado; verificación externa; handoff | Fixture y fallback humano para el demo | Antes de identidad |
 | D-07 | Publicación HTTPS y uso del bot | Entrada temporal; reverse proxy existente; endpoint AWS | Elegir según disponibilidad y documentar restauración/exclusividad | Antes de demo WhatsApp |
-| D-08 | Servicios AWS y emulación | Contenedores administrados; piloto en EC2; funciones cuando convenga | Justificar desde requisitos y después seleccionar emulación | Diseño posterior al PRD |
+| D-08 | Servicios AWS concretos y alcance de emulación con Floci | Contenedores administrados; piloto en EC2; funciones cuando convenga | Elegir por requisitos; usar Floci para el subconjunto local y documentar cobertura y diferencias | Diseño posterior al PRD |
 | D-09 | Langfuse y dependencias | Stack local; instancia autoalojada existente; despliegue AWS | Entorno reproducible sin secretos compartidos públicamente | Diseño de observabilidad |
 | D-10 | Caducidad y límites | Configuración única de demo; política por campaña; política por cliente | Configuración explícita de demo | Contratos y criterios de aceptación |
 | D-11 | Acceso del operador | Restricción local; credencial de demo; identidad empresarial | Acceso sencillo y restringido para el prototipo | Antes de exponer la central |
@@ -584,10 +638,15 @@ La elegibilidad con Meta y la revisión de privacidad/contacto son validaciones 
 
 El README final debe indicar requisitos, comandos, variables, URLs, credenciales ficticias, preparación del número y resultados esperados de cada paso. El ejemplo de campaña incluye revisar la columna Días de mora, seleccionar 30–59 y comprobar qué deudas y personas entran al segmento.
 
+Antes de lanzar la campaña, el evaluador abre un cliente ficticio en la central y reemplaza su teléfono por su propio número de WhatsApp, con código de país y formato internacional. El contacto pertenece a la persona: sus filas de servicio comparten el cambio. Se guarda y se comprueba en la previsualización que la campaña se dirigirá a ese número. El README explica también cualquier habilitación previa del destinatario que requiera el canal de prueba. El número real permanece en el entorno local y no se publica en los fixtures del repositorio.
+
+OpenAI se configura con una API key privada en el entorno. El preprocesamiento transcribe audio o interpreta imágenes y entrega ese contexto al único agente principal, que realiza las llamadas a herramientas. No se requiere un proveedor distinto para cada modalidad; sí modelos y permisos compatibles. [W4–W6]
+
 ```mermaid
 flowchart LR
     A["Arrancar y cargar fixtures"] --> B["Abrir central"]
-    B --> C["Lanzar campaña"]
+    B --> N["Cambiar teléfono de cliente por WhatsApp del evaluador"]
+    N --> C["Previsualizar y lanzar campaña"]
     C --> D["Conversar y verificar identidad"]
     D --> E{"Recorrido"}
     E --> F["Pago completo"]
@@ -607,7 +666,7 @@ El paquete incluye:
 - Código del monorepo público, dependencias y configuración de ejemplo sin secretos.
 - Documento de arquitectura AWS con mapa de componentes, secuencias y justificación.
 - Diagrama del agente y explicación del preprocesamiento de audio/imágenes.
-- Seeds y PIN ficticio, preparación de identidad, reinicio y limpieza del entorno de demo.
+- Seeds y PIN ficticio; edición del teléfono por el evaluador antes de la campaña; preparación de identidad, reinicio y limpieza del entorno de demo.
 - Guion de pago completo, descuento, comprobante, disputa y handoff.
 - Pruebas y resultados de aceptación; limitaciones conocidas y consumo observado.
 - Explicación de servicios reales, simulados y emulados, sin atribuir equivalencia total a Floci.
@@ -633,11 +692,15 @@ La aprobación del PRD no convierte en aprobadas una arquitectura, un proveedor 
 | W1 | [Política de WhatsApp](https://business.whatsapp.com/policy) | Condiciones del canal que deben validarse antes de producción |
 | W2 | [AgentBots de Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots) | Integración del bot y transferencia a atención humana |
 | W3 | [Autoalojamiento de Langfuse](https://langfuse.com/self-hosting) | Dependencias de observabilidad |
+| W4 | [OpenAI: llamadas a herramientas](https://developers.openai.com/api/docs/guides/function-calling) | Inferencia y ejecución de herramientas por la aplicación |
+| W5 | [OpenAI: transcripción de audio](https://developers.openai.com/api/docs/guides/speech-to-text) | Normalización de audio antes del agente |
+| W6 | [OpenAI: visión](https://developers.openai.com/api/docs/guides/images-vision) | Interpretación de capturas e imágenes |
+| W7 | [Floci: integración local con herramientas AWS](https://floci.io/floci/getting-started/terraform/) | Emulación local separada de recursos AWS reales |
 
 G, J e I son fuentes locales de referencia y no se incorporan como archivos al repositorio público. J pertenece a otro dominio: se reutiliza el patrón, sin importar sus reglas de negocio ni sus datos operativos.
 
 ### Alcance y supuestos
 
-La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada y llamadas reales a IA. La asignación final de servicios AWS, los modelos, la región y el dimensionamiento se resuelven después del PRD. [G, C]
+La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada, emulación local con Floci y llamadas reales a OpenAI. La inferencia de OpenAI es una dependencia externa del prototipo; el documento de arquitectura debe explicitar su encaje con la exigencia de infraestructura AWS, sin presentar la API de OpenAI como un servicio AWS. La asignación final de servicios AWS, los modelos, la región y el dimensionamiento se resuelven después del PRD. [G, C]
 
-**Supuestos propuestos:** producto interno para una telco; una deuda agregada por contrato/servicio en el MVP; negociación sobre una deuda seleccionada; moneda de los ejemplos USD. Son supuestos explícitos, no decisiones atribuidas a LLA.
+**Supuestos propuestos:** producto interno para una telco; una deuda agregada por contrato/servicio en el MVP; negociación sobre una deuda seleccionada. Son supuestos explícitos, no decisiones atribuidas a LLA.
