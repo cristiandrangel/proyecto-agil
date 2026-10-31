@@ -112,7 +112,7 @@ quadrantChart
 
 | ID | Caso y actor | Trigger | Pasos principales | Resultado esperado | KPI asociado |
 |---|---|---|---|---|---|
-| UC-01 | Campaña segmentada; operador | Hay deudas elegibles | Filtrar; previsualizar; confirmar; enviar plantilla aprobada; revisar resultados | Contactos trazables sin duplicar accidentalmente personas | Entrega y respuesta por campaña |
+| UC-01 | Campaña segmentada; operador | Hay deudas elegibles | Filtrar por servicio, cliente o días de mora; previsualizar; confirmar; enviar plantilla aprobada; revisar resultados | Contactos trazables sin duplicar accidentalmente personas | Entrega y respuesta por campaña y rango de mora |
 | UC-02 | Consulta y pago completo; cliente | Responde al aviso | Verificar identidad; consultar servicios; elegir deuda; abrir enlace; pagar y enviar comprobante | Pago completo confirmado mediante consulta al sistema | Importe recuperado y resolución |
 | UC-03 | Acuerdo autorizado; cliente | Expresa dificultad y ofrece un importe | Seleccionar deuda; precisar oferta; validar umbral; aceptar acuerdo; pagar y verificar | Liquidación con pago y condonación registrados por separado | Cumplimiento de acuerdos y valor condonado |
 | UC-04 | Verificación multimodal; cliente | Envía audio o imagen | Identificar medio; transcribir o interpretar; conservar contexto; consultar herramienta; responder | Interpretación útil seguida de verificación cuando hay una afirmación de pago | Exactitud de extracción y consulta correcta |
@@ -158,7 +158,7 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 
 1. Accede a la central con el mecanismo de acceso del demo.
 2. Revisa o edita los datos ficticios y las deudas por servicio.
-3. Filtra por servicio, tipo de cliente, identificación o estado; los filtros exactos se enumeran en el módulo de campaña.
+3. Revisa la columna Días de mora de cada deuda y filtra por rango de mora, servicio, tipo de cliente, identificación o estado.
 4. Previsualiza personas únicas, deudas incluidas y exclusiones.
 5. Selecciona una plantilla aprobada y confirma el lanzamiento.
 6. Observa aceptación de envío, entrega y errores cuando el canal los reporte.
@@ -203,8 +203,8 @@ Chatwoot documenta conversaciones en pending para gestión del bot y cambio a op
 | ID | Capacidad | Origen |
 |---|---|---|
 | M-01 | Dos interfaces web pequeñas: central/campañas y pago simulado | C |
-| M-02 | Datos ficticios editables, clientes con varios servicios y API de cartera | C |
-| M-03 | Segmentación, previsualización y lanzamiento con plantilla aprobada | C |
+| M-02 | Datos ficticios editables, clientes con varios servicios, columna de días de mora por deuda y API de cartera | C |
+| M-03 | Segmentación por días de mora y otros atributos, previsualización y lanzamiento con plantilla aprobada | C |
 | M-04 | Conversación por WhatsApp mediante Chatwoot existente | C y G |
 | M-05 | Agente único LangGraph, LLM real y herramientas invocadas realmente | C y G |
 | M-06 | Localización por identidad del canal y PIN ficticio para la demostración | C |
@@ -293,10 +293,10 @@ El diagrama representa responsabilidades de producto. Su despliegue en servicios
 
 | ID | Módulo | Requisito y exposición |
 |---|---|---|
-| FR-01 | Cartera | Mostrar y editar fixtures en la central: cliente, identificación ficticia, contacto, tipo de cliente, contrato/servicio, saldo, moneda, vencimiento y estados de deuda/servicio separados |
+| FR-01 | Cartera | Mostrar y editar fixtures en la central: cliente, identificación ficticia, contacto, tipo de cliente, contrato/servicio, saldo, moneda, vencimiento, días de mora y estados de deuda/servicio separados |
 | FR-02 | Cartera | Usar identificador único de deuda/fila y de cliente; identificar a la persona por tipo y número de documento, con varios servicios vinculados |
 | FR-03 | Cartera | Exponer consultas y actualizaciones por API; la integración del agente utiliza esa frontera de sistema externo |
-| FR-04 | Campañas | Filtrar por servicio, tipo de cliente, tipo de identificación y estado de deuda; previsualizar personas únicas y deudas asociadas |
+| FR-04 | Campañas | Filtrar por rangos del campo días de mora, servicio, tipo de cliente, tipo de identificación y estado de deuda; previsualizar personas únicas y deudas asociadas |
 | FR-05 | Campañas | Excluir pagados, bajas y destinatarios sin habilitación de contacto de prueba; revalidar antes del envío; impedir doble lanzamiento accidental |
 | FR-06 | Campañas | Seleccionar plantilla preparada y aprobada; registrar estados de envío y errores sin equiparar aceptación con entrega |
 | FR-07 | Canal | Recibir y validar eventos; distinguir entradas del cliente, salidas y notas privadas; deduplicar por identidad de mensaje |
@@ -313,8 +313,32 @@ El diagrama representa responsabilidades de producto. Su despliegue en servicios
 | FR-18 | Handoff | Crear caso y nota, transferir conversación y detener respuestas del bot; permitir devolución explícita por un asesor |
 | FR-19 | Observabilidad | Registrar trazas correlacionadas del turno, medios, inferencias, herramientas, errores, latencias y uso/costo disponible |
 | FR-20 | Entrega | Arranque documentado, seeds, prueba de salud y restauración; distinguir qué es real, ficticio, externo y local |
+| FR-21 | Cartera y campañas | Persistir dias_mora como campo entero no negativo en cada fila de deuda; mostrarlo como columna editable en la central, exponerlo en la API y usarlo como origen del filtro por antigüedad |
 
 Las salvaguardas específicas que completan los requisitos confirmados son propuestas verificables del borrador. El diseño elegirá sus mecanismos sin cambiar los límites de producto.
+
+#### Campo Días de mora y filtros
+
+Cada fila de deuda incorpora el campo **dias_mora**, visible como **Días de mora**. Es un dato por deuda/contrato, no un atributo general de la persona. En el demo se guarda en la base de cartera y puede editarse desde la central para representar la información recibida de un ERP/CRM. La API lo devuelve en las consultas de cartera; el agente usa ese dato y no lo estima.
+
+El campo admite enteros mayores o iguales a cero. Cero indica que la obligación no tiene días de atraso; los valores negativos, fraccionarios o vacíos se rechazan al guardar. Los cambios se conservan al recargar y se reflejan en la siguiente previsualización de campaña.
+
+Rangos iniciales propuestos, sin solapamiento:
+
+| Rango visible | Valores incluidos |
+|---|---|
+| Sin mora | 0 |
+| 1–29 días | Desde 1 hasta 29 |
+| 30–59 días | Desde 30 hasta 59 |
+| 60–89 días | Desde 60 hasta 89 |
+| 90–119 días | Desde 90 hasta 119 |
+| 120 días o más | Desde 120 |
+
+Los límites son inclusivos tal como se muestran. Así, una deuda de 60 días pertenece a 60–89 y no a 30–59. El operador puede combinar el rango con los otros filtros; una campaña de cartera vencida incluye únicamente deudas con saldo pendiente y al menos un día de mora.
+
+Si una persona tiene un servicio con 45 días y otro con 75, el filtro 30–59 selecciona la deuda del primero. La previsualización distingue las deudas incluidas aunque el destinatario se agrupe por persona. Tras autenticar, el cliente puede consultar sus otros servicios.
+
+En el MVP, la simulación del sistema central mantiene este campo mediante fixtures y edición manual; un cambio de día no lo incrementa automáticamente. La sincronización o cálculo desde vencimiento y fecha de corte se define para una integración real. La selección por rango no cambia por sí sola el umbral del 80% ni autoriza un descuento diferente. [C]
 
 ### 9.4. Política financiera propuesta
 
@@ -423,7 +447,7 @@ La continuidad técnica sustituye a una métrica SaaS de retención en esta fase
 
 ### Dataset inicial propuesto
 
-Fixtures ficticios que cubran: una persona con dos servicios; otra persona para probar aislamiento; deuda pagada; saldo cambiado; pago aprobado/rechazado; orden vencida; identidad asociada a teléfono y a identificador alternativo.
+Fixtures ficticios que cubran: una persona con dos servicios y distintos días de mora; otra persona para probar aislamiento; deuda pagada; saldo cambiado; pago aprobado/rechazado; orden vencida; identidad asociada a teléfono y a identificador alternativo. Incluir deudas en los límites 0, 29, 30, 59, 60, 89, 90, 119 y 120 días para verificar la segmentación.
 
 Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambiguos, comprobantes legibles/ilegibles y capturas con referencia ajena. Ningún dato real de clientes se necesita.
 
@@ -455,6 +479,8 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-22 | Caída del sistema central o del LLM | Sin afirmar éxito; reintento limitado o atención humana | FR-11, FR-16–18 |
 | AC-23 | Instrucción maliciosa en chat, imagen o herramienta | No cambia permisos ni reglas de descuento | FR-09–14 |
 | AC-24 | Traza y consumo del recorrido | Medios, LLM y herramientas correlacionados sin secretos | FR-19 |
+| AC-25 | Columna Días de mora por deuda | Edición persistente, API con el mismo valor y rechazo de datos negativos, fraccionarios o vacíos | FR-01, FR-21 |
+| AC-26 | Campaña por antigüedad y límites de rango | El filtro 30–59 incluye 30 y 59, excluye 29 y 60, y conserva solo el servicio elegible de una persona; pagados y cero días no reciben campaña de vencidos | FR-04–05, FR-21 |
 
 ### Método de QA
 
@@ -521,7 +547,7 @@ El volumen, las metas y la disponibilidad del piloto dependen de datos y aprobac
 
 | Exigencia o pregunta de la guía | Respuesta en el producto | Evidencia prevista |
 |---|---|---|
-| Saber con quién hablar y qué decir | Cartera, identidad, segmentación, plantillas y contexto verificado | UC-01/02; FR-01–08 |
+| Saber con quién hablar y qué decir | Cartera, días de mora, identidad, segmentación, plantillas y contexto verificado | UC-01/02; FR-01–08, FR-21 |
 | Agente interno, herramientas, límites y memoria | Nodo único con LLM real, políticas del backend y PostgreSQL | FR-08–14; trazas y casos AC |
 | Leer y escribir sistemas existentes | API de cartera y registro de pago/condonación | FR-03, FR-16–17 |
 | Gestión y control | Operador, campañas, política y supervisión humana | §§03, 06, 09 |
@@ -556,7 +582,7 @@ La elegibilidad con Meta y la revisión de privacidad/contacto son validaciones 
 
 ## 16. Recorrido y paquete de entrega para el evaluador
 
-El README final debe indicar requisitos, comandos, variables, URLs, credenciales ficticias, preparación del número y resultados esperados de cada paso.
+El README final debe indicar requisitos, comandos, variables, URLs, credenciales ficticias, preparación del número y resultados esperados de cada paso. El ejemplo de campaña incluye revisar la columna Días de mora, seleccionar 30–59 y comprobar qué deudas y personas entran al segmento.
 
 ```mermaid
 flowchart LR
