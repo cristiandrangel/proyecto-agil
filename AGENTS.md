@@ -25,6 +25,8 @@ La solicitud de mapa AWS con diagramas Mermaid sigue pendiente para después del
 
 ## Documentación
 
+- El PRD debe centrarse en el producto; omitir historia de la conversación y del proceso de redacción.
+
 - Distinguir requisitos confirmados, recomendaciones y TBD.
 - Citar las fuentes que influyen en cada sección.
 - Mantener trazabilidad entre PRD, especificación y criterios de evaluación.

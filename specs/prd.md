@@ -5,37 +5,6 @@
 **Estado:** definición de producto; no implica aprobación de diseño técnico ni aplicación implementada.
 **Ámbito:** gestión asistida de cartera telco y prototipo para evaluación técnica.
 
-## 0. Cómo leer este documento
-
-Se consolida el PRD completo por la indicación posterior de Cristian de construirlo con el contexto disponible. Sustituye la revisión obligatoria segmento por segmento como método de elaboración; conserva el contenido de la plantilla original y los hallazgos del [Paso 0](prd-paso-0-conflictos.md).
-
-Se distinguen tres niveles:
-
-- **Confirmado:** instrucción de Cristian o exigencia de la guía.
-- **Propuesta:** regla adicional o supuesto de trabajo redactado para completar el producto, pendiente de revisión.
-- **TBD:** dato o decisión todavía desconocida. No se inventan resultados, cifras de negocio o garantías de producción.
-
-### 0.1. Fuentes y trazabilidad
-
-| ID | Fuente | Alcance |
-|---|---|---|
-| G | Guía técnica AI Engineer de Liberty Latin America, secciones 01–06 y entregable de código/demo | Contexto, restricciones, preguntas y evaluación |
-| C | Conversación de definición con Cristian del 31 de octubre de 2026 | Requisitos y aclaraciones explícitas del producto |
-| J | Workflow de n8n aportado como referencia | Mecanismo de normalización de mensajes, audio, identidad, memoria y herramientas |
-| I | Foto del tablero de arquitectura aportada por Cristian | Relación conceptual entre central, pagos, agente, inbox y observabilidad |
-| P | [Prompt de construcción del PRD](../promptprd.md) | Estructura de 13 segmentos y tratamiento de vacíos |
-| W1 | [Política de WhatsApp](https://business.whatsapp.com/policy) | Condiciones del canal que deben validarse antes de producción |
-| W2 | [AgentBots de Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots) | Integración del bot y transferencia a atención humana |
-| W3 | [Autoalojamiento de Langfuse](https://langfuse.com/self-hosting) | Dependencias de observabilidad |
-
-G, J e I son fuentes locales de referencia y no se incorporan como archivos al repositorio público. J pertenece a otro dominio: se reutiliza el patrón, sin importar sus reglas de negocio ni sus datos operativos.
-
-### 0.2. Límites del borrador
-
-La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada y llamadas reales a IA. La asignación final de servicios AWS, los modelos, la región y el dimensionamiento se resuelven después del PRD. [G, C]
-
-**Supuestos propuestos:** producto interno para una telco; una deuda agregada por contrato/servicio en el MVP; negociación sobre una deuda seleccionada; moneda de los ejemplos USD. Son supuestos explícitos, no decisiones atribuidas a LLA.
-
 ## 1. Producto, JTBD y misión
 
 ### Definición del producto
@@ -85,8 +54,6 @@ El detonante documentado es la decisión de LLA de explorar agentes en WhatsApp 
 - Bot de guion fijo: alternativa conceptual; su cobertura y desempeño no han sido medidos.
 
 ## 3. Organización objetivo, usuarios y patrocinadores
-
-Se adapta el concepto de ICP a un producto interno, según la propuesta de enfoque del Paso 0.
 
 | Dimensión | Definición |
 |---|---|
@@ -625,3 +592,26 @@ El paquete incluye:
 Este borrador permite revisar el producto completo. Antes de iniciar el diseño se confirma el alcance, se corrigen los supuestos que alteren el comportamiento y se priorizan los TBD por dependencia.
 
 La aprobación del PRD no convierte en aprobadas una arquitectura, un proveedor o unas metas que siguen marcadas como propuestas. La especificación posterior debe conservar los IDs funcionales y de aceptación para verificar consistencia.
+
+## 18. Referencias y supuestos de alcance
+
+### Referencias
+
+| ID | Fuente | Alcance |
+|---|---|---|
+| G | Guía técnica AI Engineer de Liberty Latin America, secciones 01–06 y entregable de código/demo | Contexto, restricciones, preguntas y evaluación |
+| C | Conversación de definición con Cristian del 31 de octubre de 2026 | Requisitos y aclaraciones explícitas del producto |
+| J | Workflow de n8n aportado como referencia | Mecanismo de normalización de mensajes, audio, identidad, memoria y herramientas |
+| I | Foto del tablero de arquitectura aportada por Cristian | Relación conceptual entre central, pagos, agente, inbox y observabilidad |
+| P | [Prompt de construcción del PRD](../promptprd.md) | Estructura de 13 segmentos y tratamiento de vacíos |
+| W1 | [Política de WhatsApp](https://business.whatsapp.com/policy) | Condiciones del canal que deben validarse antes de producción |
+| W2 | [AgentBots de Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677497472-how-to-use-agent-bots) | Integración del bot y transferencia a atención humana |
+| W3 | [Autoalojamiento de Langfuse](https://langfuse.com/self-hosting) | Dependencias de observabilidad |
+
+G, J e I son fuentes locales de referencia y no se incorporan como archivos al repositorio público. J pertenece a otro dominio: se reutiliza el patrón, sin importar sus reglas de negocio ni sus datos operativos.
+
+### Alcance y supuestos
+
+La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada y llamadas reales a IA. La asignación final de servicios AWS, los modelos, la región y el dimensionamiento se resuelven después del PRD. [G, C]
+
+**Supuestos propuestos:** producto interno para una telco; una deuda agregada por contrato/servicio en el MVP; negociación sobre una deuda seleccionada; moneda de los ejemplos USD. Son supuestos explícitos, no decisiones atribuidas a LLA.
