@@ -60,3 +60,9 @@ El entorno real, tokens, claves, datos recibidos y fuentes originales no se publ
 Se aportarán mediante configuración privada al integrar. Los seeds y el PIN de demo
 son ficticios; el número real del evaluador queda en su entorno. Las claves nunca
 se envían por chat ni se incluyen en el repo.
+
+La plantilla [.env.example](.env.example) contiene las variables previstas para la
+implementación. Completar en el `.env` privado OpenAI, Chatwoot, plantilla y dominio;
+las claves internas del entorno local ya se generaron sin incluirlas en el repo.
+El teléfono del evaluador se configura desde la central cuando esté implementada.
+La aplicación y la validación de esta configuración siguen pendientes de construcción.
