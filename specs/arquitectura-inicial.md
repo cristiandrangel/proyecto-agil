@@ -2,6 +2,8 @@
 
 La base acordada es **una máquina EC2 con todos los componentes propios ejecutados mediante Docker Compose**. Las dos interfaces web, el backend con el agente, el sistema central simulado, las bases de datos y la observabilidad comparten la máquina. Los contenedores y los datos mantienen límites separados.
 
+Se elige EC2 por la flexibilidad para arrancar e iterar rápido sobre el stack completo. La evolución prevista es evaluar servicios especializados que permitan reducir el costo total y la carga operativa según el uso medido. El ahorro es un objetivo por validar, sin una migración comprometida para esta entrega.
+
 Este mapa establece la distribución inicial. Los contratos, imágenes, puertos internos, versiones y tareas se detallarán con Spec Kit a partir del [PRD](prd.md). Todavía no representa infraestructura desplegada.
 
 ## Componentes y ubicación
@@ -135,6 +137,8 @@ En un despliegue sobre EC2 real, Floci no es necesario para ejecutar la aplicaci
 
 Mover los contenedores a ejecución administrada puede conservar gran parte del código. Separar PostgreSQL, almacenamiento o procesamiento exige además migrar datos, ajustar red y permisos, y verificar concurrencia y recuperación. Es una evolución prevista, sin compromiso de migración automática ni inclusión de esos servicios en el alcance inicial.
 
+La gestión mediante infraestructura como código (IaC) queda como plan futuro, fuera de los requisitos de esta entrega. La herramienta y el momento de adopción se definirán al retomar esa evolución; Terraform no se da por elegido.
+
 ## Pendientes concretos del diseño
 
-Región, sistema operativo, CPU/RAM/disco medidos con todo el stack, nombres de dominio y TLS, política de copias, límites de medios y trazas, y automatización del aprovisionamiento. La EC2 es un punto único de fallo y todos los componentes comparten recursos. Su tamaño y costo se determinarán con mediciones; no se asume que una instancia mínima baste para Langfuse y la aplicación.
+Región, sistema operativo, CPU/RAM/disco medidos con todo el stack, nombres de dominio y TLS, política de copias y límites de medios y trazas. La EC2 es un punto único de fallo y todos los componentes comparten recursos. Su tamaño y costo se determinarán con mediciones; no se asume que una instancia mínima baste para Langfuse y la aplicación.

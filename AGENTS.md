@@ -16,6 +16,8 @@ La base acordada es una sola EC2 con todos los componentes propios en contenedor
 El mapa inicial solicitado está en specs/arquitectura-inicial.md; sus detalles de contratos,
 capacidad y despliegue se desarrollarán con Spec Kit. La segmentación en servicios
 AWS especializados se evaluará después. Chatwoot existente, Meta y OpenAI son externos.
+EC2 se elige para arrancar e iterar rápido. La optimización posterior con servicios
+especializados e infraestructura como código son planes futuros, no requisitos de esta entrega.
 
 ## Fuentes y privacidad
 

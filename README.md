@@ -26,8 +26,10 @@ Todavía no hay aplicación ejecutable ni infraestructura desplegada.
 Floci se usará para emulación local y OpenAI para la inferencia real del prototipo.
 El despliegue inicial será una sola EC2 con Docker Compose para las webs, backend,
 agente, sistema central simulado, bases de datos y Langfuse con sus dependencias.
-Los datos persistentes usarán EBS; la región, capacidad y el uso de Terraform se definirán en el diseño.
-La separación en servicios AWS especializados se evaluará después.
+Elegimos EC2 por su flexibilidad para arrancar e iterar rápido.
+Los datos persistentes usarán EBS; la región y capacidad se definirán en el diseño.
+La migración a servicios especializados para optimizar costos y la gestión mediante
+infraestructura como código son planes futuros, sin requisito de implementación en esta entrega.
 El control del bot mediante conversaciones pending ya existe en el Chatwoot externo.
 
 ## Entrega futura para el evaluador

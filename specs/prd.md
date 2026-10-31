@@ -234,7 +234,6 @@ El mecanismo de control mediante pending ya está resuelto y desplegado en la in
 
 - Más reglas de segmentación, horarios y políticas por cartera.
 - Reanudación asistida por el operador y seguimiento de acuerdos con recordatorios autorizados.
-- Infraestructura declarativa si aporta a la entrega y al tiempo disponible.
 
 ### Won't Have en esta versión
 
@@ -248,6 +247,8 @@ El mecanismo de control mediante pending ya está resuelto y desplegado en la in
 - Garantías de producción, escala o cumplimiento normativo no verificadas.
 
 La preparación para producción contempla creación programática de plantillas con gestión de sus estados; su implementación queda fuera del demo acordado.
+
+La adopción de infraestructura como código (IaC) y la migración a servicios especializados quedan como planes de evolución futuros, sin requisito de implementación en esta entrega. La herramienta de IaC se elegirá al retomar ese plan. [C]
 
 ## 9. Módulos y requisitos funcionales
 
@@ -618,6 +619,8 @@ Una sola EC2 para todos los componentes propios, USD como única moneda, OpenAI 
 Floci ejecuta localmente la emulación de los servicios AWS que se seleccionen; no sustituye el diseño de la aplicación ni decide qué servicios convienen en AWS. Debe distinguirse la ejecución de contenedores y PostgreSQL locales de las APIs efectivamente ejercitadas contra Floci. La cobertura de cada servicio y el despliegue real se verifican por separado. [W7]
 
 La EC2 inicial ejecutará mediante Docker Compose las dos webs, el backend y agente, la API del sistema central simulado, PostgreSQL de cartera, PostgreSQL de memoria y Langfuse con sus dependencias. Los datos persistentes usarán volúmenes separados respaldados por EBS. Chatwoot se reutiliza donde ya está desplegado; Meta y OpenAI permanecen externos. No se exige inicialmente ECS, Lambda, RDS ni separar componentes entre máquinas. [C, W8]
+
+La elección de EC2 prioriza flexibilidad para arrancar e iterar rápido. Después se evaluará una migración a servicios especializados para optimizar costo total y operación con evidencia de uso. El ahorro se validará antes de migrar. IaC queda como plan futuro y no condiciona la aceptación de esta entrega. [C]
 
 La separación lógica se conserva dentro de la máquina: conexión al sistema central por API, configuración de conexiones por entorno y datos fuera de las imágenes. Esto facilita una evolución posterior, sin garantizar una migración automática: mover bases, almacenamiento, redes, credenciales y despliegue requiere validación. Una sola máquina concentra el fallo y los recursos; la capacidad se medirá con el stack completo, incluido Langfuse. [C]
 
