@@ -56,11 +56,17 @@ previsualizar destinatarios, lanzar y comprobar el mensaje y sus estados.
    su teléfono, **Then** ambas filas comparten el contacto guardado y el siguiente
    aviso se dirige a ese número habilitado para pruebas.
 2. **Given** deudas de 29, 30, 59 y 60 días, **When** filtra 30–59, **Then** solo
-   entran 30 y 59, con saldo pendiente y habilitación de contacto de prueba.
+   entran 30 y 59 con saldo pendiente; los ficticios se simulan y el destino real
+   exige habilitación de contacto de prueba.
 3. **Given** varios servicios elegibles de una persona, **When** lanza campaña,
    **Then** recibe un solo aviso inicial asociado a las deudas del segmento.
 4. **Given** el mismo lanzamiento repetido, **When** se reintenta, **Then** no se
    duplica el envío; aceptación, entrega y fallo se muestran por separado.
+
+5. **Given** un lote con números ficticios y el del evaluador, **When** inicia
+   campaña, **Then** procesa una persona a la vez, registra simulación sin llamar
+   al canal para los ficticios y envía realmente solo al evaluador. El progreso
+   se conserva al reiniciar y lo simulado no cuenta como contacto real.
 
 ### User Story 3 - Negociar un acuerdo con descuento (Priority: P1)
 
@@ -195,10 +201,13 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   mediante la integración con el sistema central simulado, con resultados verificables.
 - **FR-04**: El operador DEBE filtrar por mora, servicio, tipo de cliente,
   identificación y estado y previsualizar personas únicas y deudas seleccionadas.
-- **FR-05**: Las campañas DEBEN excluir pagos completos, bajas y contactos sin
-  habilitación de prueba; revalidar elegibilidad antes de enviar y evitar duplicados.
-- **FR-06**: Las campañas DEBEN usar plantillas preaprobadas y registrar por
-  separado aceptación, entrega y error.
+- **FR-05**: Las campañas DEBEN excluir pagos completos y bajas; los números
+  ficticios solo se simulan y el destino real exige habilitación de prueba.
+  Se revalida elegibilidad antes de enviar y se evitan duplicados.
+- **FR-06**: Las campañas DEBEN recorrer los destinatarios uno por uno, con
+  plantillas preaprobadas y progreso persistente. Se separan envíos simulados,
+  aceptación real, entrega y error; se continúa con el siguiente tras registrar
+  un fallo o resultado incierto, sin repetir automáticamente este último.
 - **FR-07**: El canal DEBE distinguir mensajes entrantes, salidas y notas privadas,
   deduplicar e impedir negociaciones simultáneas incoherentes en una conversación.
 - **FR-08**: La identidad DEBE localizarse por datos del canal o identificación
@@ -272,7 +281,7 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   40% de contactabilidad aunque una de ellas envíe cinco mensajes.
 - **SC-07**: La evaluación registra el consumo de agente, audio, imagen y reintentos
   frente a USD 5 y detiene nuevas llamadas cuando su control local agota el presupuesto.
-- **SC-08**: Los 30 casos AC-01 a AC-30 del PRD tienen resultado y evidencia antes
+- **SC-08**: Los 31 casos AC-01 a AC-31 del PRD tienen resultado y evidencia antes
   de declarar la entrega verificada; ningún resultado se presupone por documentarlo.
 
 ## Assumptions
@@ -282,6 +291,10 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
 - Una deuda es el saldo vencido agregado por contrato, no una factura individual.
   Se usa un catálogo de identificación ficticia claramente marcado como demo.
 - Los datos de cartera y días de mora se mantienen por fixtures y edición manual.
+- Los fixtures empiezan en modo simulated y solo el contacto marcado como evaluador
+  se habilita en live. La edición de su celular permite elegir ese modo en el mismo
+  formulario. No se infiere el modo por el formato del teléfono ni se contactan
+  números ficticios. Los KPI de contacto usan solo destinatarios reales.
 - La demo tiene una campaña activa por persona y una deuda seleccionada por gestión;
   varios servicios pueden producir resultados distintos sin duplicar contactos.
 - Valores iniciales configurables: sesión verificada de 30 minutos, orden/acuerdo
@@ -295,7 +308,7 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
 - La infraestructura inicial y las dependencias confirmadas se detallan en el plan;
   IaC y migración a servicios especializados permanecen fuera de esta entrega.
 - Los casos de aceptación completos se mantienen en [PRD §11](../prd.md#11-plan-de-evaluación-del-agente).
-  Sus IDs AC-01–30 se conservan en pruebas, tareas y evidencia.
+  Sus IDs AC-01–31 se conservan en pruebas, tareas y evidencia.
 - Se exigen pruebas relevantes de reglas financieras, identidad, aislamiento,
   idempotencia y concurrencia, más recorridos reales de canal e inferencia. No
   se exige una frase literal del modelo ni pruebas triviales del diseño visual.

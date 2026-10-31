@@ -10,7 +10,7 @@ reales del flujo completadas en esta fase.
 
 ## Producto y arquitectura
 
-- [PRD](specs/prd.md), con FR-01–22 y AC-01–30.
+- [PRD](specs/prd.md), con FR-01–22 y AC-01–31.
 - [Arquitectura inicial: una sola EC2, con Mermaid](specs/arquitectura-inicial.md).
 - [Análisis inicial de conflictos](specs/prd-paso-0-conflictos.md).
 - [Prompt original del PRD](promptprd.md).
@@ -50,7 +50,8 @@ no elimina capacidades de la entrega. El README ejecutable se completará con lo
 comandos verificados; el quickstart actual señala sus comandos de aplicación como futuros.
 
 El evaluador pondrá su WhatsApp en el teléfono de un cliente ficticio desde la central,
-lanzará la campaña y recorrerá PIN, deuda, pago, captura y consulta real. Podrá repetir
+lanzará la campaña con despacho uno por uno —simulado para números ficticios y
+real solo para su contacto habilitado— y recorrerá PIN, deuda, pago, captura y consulta real. Podrá repetir
 con descuento, atención humana y medios, inspeccionar métricas/trazas y restaurar.
 
 ## Configuración privada

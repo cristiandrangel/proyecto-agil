@@ -14,19 +14,23 @@ en mutaciones. HTTPS en público, cookies Secure; modo local explícito para HTT
 | GET, POST /login | Formulario y sesión de operador; no confundir con PIN del deudor |
 | POST /logout | Cerrar sesión |
 | GET /api/debts | Proyección autorizada desde central; filtros y paginación |
-| PATCH /api/customers/{id} | Editar contacto/nombre; invalidar binding al cambiar contact_version |
+| PATCH /api/customers/{id} | Editar contacto/nombre y modo simulated/live de demo; invalidar binding al cambiar contact_version |
 | PATCH /api/debts/{id} | Cambiar fixture de deuda/mora según permisos y versión |
-| POST /api/campaigns/preview | Filtros → personas únicas, deuda elegible, destino enmascarado y exclusiones |
+| POST /api/campaigns/preview | Filtros → personas únicas, deuda elegible, destino enmascarado, modo simulated/live y exclusiones |
 | POST /api/campaigns | Guardar snapshot y configuración de plantilla aprobada |
-| POST /api/campaigns/{id}/launch | Idempotency-Key; reservar destinatarios y encolar; no implica entrega |
+| POST /api/campaigns/{id}/launch | Idempotency-Key; reservar destinatarios ordenados y encolar despacho uno por uno; no implica entrega |
 | POST /api/campaigns/{id}/close | Fijar corte explícito; detener nuevos envíos pendientes y conservar eventos |
-| GET /api/campaigns/{id} | Estado de destinatarios, send/failed/uncertain y mensajes asociados |
+| GET /api/campaigns/{id} | Progreso procesados/total, pendientes y estados simulated/sent/failed/uncertain/skipped por destinatario |
 | GET /api/campaigns/{id}/metrics | Contadores, personas únicas, tasas, categorías e importes USD |
 | POST /api/demo/reset | Solo modo demo y confirmación explícita; nunca borra consumo |
 
 Mora: 0, 1–29, 30–59, 60–89, 90–119, 120+. Vista previa muestra qué deuda de cada
 persona entra al segmento. Al enviar se revalida, sin expandir silenciosamente el
 segmento a nuevas deudas. Un pago o baja posterior puede excluir al destinatario.
+
+El lote tiene un solo envío en curso. Los contactos ficticios se registran como
+simulated sin llamar al canal; el modo live exige un contacto de evaluador habilitado.
+Los errores se registran y el bucle continúa; la reanudación usa el estado persistido.
 
 ## Pago público simulado
 
@@ -61,9 +65,13 @@ traceback, PIN, grant, token de servicio o respuesta cruda del proveedor.
 
 ## Métricas
 
-Cada respuesta incluye campaign_id, as_of, cohort, messages_sent, delivered_known,
+Cada respuesta incluye campaign_id, as_of, cohort, recipients_total,
+recipients_processed, recipients_pending, simulated_sends, messages_sent, delivered_known,
 failed, unique_sent, unique_replied, contactability_pct (null si unique_sent=0),
 paid_full_without_discount, agreements_accepted/pending/fulfilled/expired,
 human_requests, automatic_escalations, ongoing, no_result_closed, received_cents,
 forgiven_cents y outstanding_cents. Cifras por deuda y personas únicas se etiquetan
 por separado; las categorías de hitos no se suman como personas distintas.
+
+messages_sent y unique_sent cuentan solo envíos reales aceptados. simulated_sends
+se muestra aparte y no entra a contactabilidad ni a resultados comerciales.

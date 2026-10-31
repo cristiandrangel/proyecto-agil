@@ -39,7 +39,7 @@ simultáneas, con una sola ejecución por conversación.
 con corte local conservador 4.50; cinco llamadas del agente por turno; sin OTP,
 dinero real, ERP completo, IaC o migración a otros servicios en esta entrega.
 **Scale/Scope**: Fixtures pequeños, evaluador y número habilitado de prueba;
-30 casos AC y seis recorridos. Se dimensiona la EC2 con observabilidad incluida.
+31 casos AC y seis recorridos. Se dimensiona la EC2 con observabilidad incluida.
 
 ## Constitution Check
 
@@ -54,7 +54,7 @@ Estas comprobaciones evalúan diseño, no ejecución del software.
 | IV. Entrega pequeña | Dos servicios y webs renderizadas, una EC2 y Compose; extras futuros fuera | Cumple en diseño |
 | V. Evidencia y métricas | Eventos de negocio, trazas correlacionadas, reservas de consumo comunes | Cumple en diseño |
 | VI. Privacidad | Entorno privado, fixtures ficticios, descargas restringidas y redacción | Cumple en diseño |
-| VII. Verificación | AC-01–30 mapeados a tareas y evidencia; pruebas financieras y de aislamiento | Cumple en diseño |
+| VII. Verificación | AC-01–31 mapeados a tareas y evidencia; pruebas financieras y de aislamiento | Cumple en diseño |
 
 No se identifican excepciones constitucionales. La comprobación de pending por HTTP
 no es atómica con el envío externo; se verificará la protección existente de Chatwoot,
@@ -174,10 +174,23 @@ de recepción persistida y se ejecuta el nodo bajo advisory lock de sesión. Las
 herramientas mutantes llevan clave estable por mensaje y acción; al reejecutar un
 nodo después de caída recuperan el mismo resultado en lugar de crear otra orden.
 
-Campañas reservan destinatario por persona; el worker revalida saldo, mora, contacto,
+Campañas reservan destinatario por persona y posición estable del lote. Un único
+slot de despacho de campañas, compartido entre workers mediante lock durable,
+recorre una persona a la vez; los dos slots conversacionales no paralelizan envíos
+de campaña. Intervalo entre destinatarios configurable; no representa un límite
+atribuido a Meta. El worker revalida saldo, mora, contacto,
 habilitación y control humano antes de publicar. La cuenta de personas enviadas usa
 IDs de mensajes aceptados; entregas se actualizan solo con evidencia del canal.
 El vencimiento de ventana no borra eventos; el cierre del operador fija el corte.
+
+Destinos con delivery_mode=simulated registran campaign_send_simulated sin llamar
+a Chatwoot/Meta ni OpenAI. Solo el destino live del evaluador y habilitado recorre
+el adaptador real. El modo se configura explícitamente al editar el contacto y
+se revalida al despachar; una edición posterior invalida el binding previo.
+Se persisten posición, intento y resultado por destinatario. Un fallo no aborta
+el resto del lote; un resultado de red incierto queda visible sin reenvío ciego.
+La central muestra procesados/total, pendientes, simulados, reales y errores.
+Solo los reales aceptados entran en contactabilidad y resultados comerciales.
 
 ### Transacciones y eventos financieros
 
@@ -215,7 +228,7 @@ respaldo y entrega. Es orden orientativo, sin promesa de horas ni reducción de 
 
 Preflight privado prueba acceso a modelos, Chatwoot y plantilla; no envía campañas
 ni consume inferencia de forma silenciosa. Las pruebas pagadas y de mensajería se
-activan explícitamente. Se registran resultados reales de AC-01–30 en docs/evaluacion.md.
+activan explícitamente. Se registran resultados reales de AC-01–31 en docs/evaluacion.md.
 El [quickstart](quickstart.md) es contrato de validación previsto, sin comandos que
 se presenten como funcionales antes de implementarse.
 

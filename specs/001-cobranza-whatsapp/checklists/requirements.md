@@ -24,7 +24,7 @@
 
 - [x] Las seis historias cubren los recorridos solicitados; P2 no excluye capacidades de entrega.
 - [x] Pago total sin condonación y acuerdo con descuento tienen definiciones distintas.
-- [x] Los 30 AC del PRD se conservan como batería de implementación y evaluación.
+- [x] Los 31 AC del PRD se conservan como batería de implementación y evaluación.
 - [x] Se puede avanzar al plan sin claves ni datos de clientes reales.
 
 ## Notes

@@ -38,3 +38,9 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 - Diseño de entrega: specs/001-cobranza-whatsapp/. Las tareas de implementación se marcan completas solo con código y verificación.
 - Entrega: lunes 2026-11-02 (America/Bogota), hora pendiente.
 - .specify/feature.json es estado local ignorado; seleccionar la feature con SPECIFY_FEATURE_DIRECTORY al retomar en otro checkout.
+
+## Campañas de demo
+
+Despacho secuencial, una persona por vez, con progreso persistente. Los destinos
+ficticios solo simulan el envío; el contacto del evaluador en modo live habilitado
+usa Chatwoot real. Las simulaciones se muestran aparte de los KPI reales.

@@ -16,7 +16,7 @@ Importes en centavos enteros, currency=USD fijo; sin float ni conversión de mon
 
 | Entidad | Campos esenciales | Restricciones y relación |
 |---|---|---|
-| customer | id, document_type, document_number, display_name, phone_e164, email, customer_type, pin_hash, test_contact_enabled, contact_version | Documento ficticio único por tipo/número; PIN de fixture se almacena como hash y no se devuelve; editar teléfono incrementa versión |
+| customer | id, document_type, document_number, display_name, phone_e164, email, customer_type, pin_hash, delivery_mode, test_contact_enabled, contact_version | Documento ficticio único por tipo/número; PIN de fixture se almacena como hash y no se devuelve; delivery_mode simulated por defecto o live para el evaluador; editar teléfono/modo incrementa versión |
 | debt | id, customer_id, contract_reference, service_type, original_cents, balance_cents, due_date, dias_mora, debt_status, service_status, version | Cliente con varias deudas; mora entero no negativo; balance >= 0; pendiente con saldo > 0 y liquidada con cero |
 | identity_session | id, customer_id, channel_key, token_hash, expires_at, failed_attempts, locked_until | Sin grant válido no se revela cartera; PIN no forma parte de la sesión ni de checkpoints; intentos vinculados también al mensaje para no duplicar por retry |
 | agreement | id, customer_id, debt_id, debt_version, base_cents, offer_cents, expected_discount_cents, quoted_at, source_message_id, accepted_at opcional, expires_at, status | Oferta positiva e inferior al saldo; oferta * 100 >= base * 80; descuento previsto no equivale a condonación aplicada |
@@ -49,7 +49,7 @@ se restaura únicamente mediante reset documentado del escenario.
 | Entidad | Campos esenciales | Restricciones y relación |
 |---|---|---|
 | campaign | id, filter_snapshot, template_snapshot, created_at, launched_at, closed_at, followup_until, status, launch_key | Draft/running/completed/closed; una campaña activa por persona; segmento conservado para métricas |
-| campaign_recipient | id, campaign_id, customer_id, selected_debt_ids, contact_version, destination_binding, conversation_key, send_status | Único (campaign_id, customer_id); un mensaje inicial; no usar binding de otra versión del teléfono |
+| campaign_recipient | id, campaign_id, customer_id, selected_debt_ids, contact_version, position, delivery_mode, destination_binding, conversation_key, send_status | Único (campaign_id, customer_id); posición estable; simulated/sent/failed/uncertain/skipped separados; un mensaje inicial; no usar binding de otra versión del teléfono |
 | channel_binding | customer_id, contact_version, account_id, inbox_id, contact_id, source_id, conversation_id | Source_id opaco del inbox correcto; editar contacto invalida vinculación; resolver antes de envío |
 | inbox_event | id, account_id, inbox_id, message_id, conversation_id, sender_key, normalized_content, attachments, received_at, status | Unique (account_id, message_id); sin PIN ni payload de credenciales; tipos privados/salidas no generan turno |
 | conversation_job | id, event_id, conversation_key, state, attempts, next_attempt_at, last_error | Un trabajo por evento; orden por received_at e id; ejecución bajo lock de conversación |
@@ -90,7 +90,10 @@ Sesiones, acuerdos y órdenes tienen caducidad propia.
 
 ## Métricas y atribución
 
-- Enviados: mensajes iniciales aceptados por el canal; fallos y entrega van aparte.
+- Progreso: destinatarios procesados/total, simulados y pendientes del lote.
+- Simulados: destinatarios ficticios recorridos sin llamadas externas; no son enviados
+  ni entregados reales y quedan fuera de cohortes de respuesta y resultado comercial.
+- Enviados: mensajes iniciales reales aceptados por el canal; fallos y entrega van aparte.
 - Contactados: personas destinatarias con primera respuesta posterior al envío de
   esa campaña y antes de su corte. Un mensaje de preparación anterior no cuenta.
 - Contactabilidad: contactados / personas enviadas; sin denominador se muestra N/A.

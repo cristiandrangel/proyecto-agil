@@ -50,6 +50,10 @@ frente a cambio humano durante inferencia y reportar la carrera residual de red.
 
 ## Campaña al teléfono editado por el evaluador
 
+Antes de este adaptador, el despachador recorre el lote secuencialmente. Si el
+destino es simulated, registra el resultado local y continúa sin invocar estas
+APIs. Solo el contacto live del evaluador habilitado llega a los pasos siguientes.
+
 1. Obtener teléfono y contact_version actuales de central; invalidar binding previo
    si cambia la versión. No reutilizar una conversación por customer_id solamente.
 2. GET `/api/v1/accounts/{account}/contacts/search?q={phone}`; paginar y comparar

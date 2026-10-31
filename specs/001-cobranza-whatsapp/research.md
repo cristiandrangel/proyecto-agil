@@ -144,7 +144,11 @@ sin teléfono; BSUID no se convierte en número.
 ## R-09. Campañas y métricas
 
 **Decisión:** un destinatario por persona y campaña, conservando la lista de deudas
-seleccionadas y el segmento del lanzamiento. Revalidar al enviar. El backend resuelve
+seleccionadas y el segmento del lanzamiento. Despacho secuencial con un solo slot
+de campaña y progreso persistente, independiente de la concurrencia conversacional.
+Los fixtures se procesan mediante simulación sin invocar canal ni LLM; solo el
+contacto live habilitado del evaluador recibe la plantilla real. No se mezclan
+simulaciones con métricas reales. Revalidar al enviar. El backend resuelve
 contacto y conversación del inbox, sin fabricar source_id. La plantilla inicial
 es transaccional y preaprobada; se registra categoría e idioma reales.
 

@@ -35,7 +35,7 @@ vencido para la acción solicitada, 423 identidad temporalmente bloqueada y 503 
 | POST /identity/verify | referencia de candidato o documento ficticio, pin, channel_key, source_message_id | customer_id, display_name, grant_token, expires_at; PIN no se devuelve ni entra al modelo; tres intentos y bloqueo |
 | GET /debts | filtros de mora, servicio, tipo de cliente, documento y estado; paginación | Operador: filas customer+debt; agente: solo sus deudas por grant, sin pin_hash |
 | GET /debts/{id} | grant para agente | Saldo vigente, mora, servicio, estado y version; 404 uniforme para deuda ajena |
-| PATCH /customers/{id} | campos editables, expected_contact_version | Nombre/contacto compartidos; teléfono normalizado; contact_version aumenta y emite evento contact_changed |
+| PATCH /customers/{id} | campos editables, delivery_mode simulated/live, test_contact_enabled, expected_contact_version | Nombre/contacto compartidos; teléfono normalizado y modo de envío explícito; contact_version aumenta y emite evento contact_changed |
 | PATCH /debts/{id} | campos demo y expected_version | Mora entero >= 0, servicio y vencimiento; ajustes de saldo explícitos, sin atribuirlos a pago; invalida órdenes incompatibles |
 
 Las respuestas de operador incluyen únicamente identificación ficticia y campos

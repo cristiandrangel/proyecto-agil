@@ -159,11 +159,12 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 1. Accede a la central con el mecanismo de acceso del demo.
 2. Revisa o edita los datos ficticios y las deudas por servicio.
 3. Revisa la columna Días de mora de cada deuda y filtra por rango de mora, servicio, tipo de cliente, identificación o estado.
-4. Previsualiza personas únicas, deudas incluidas y exclusiones.
+4. Previsualiza personas únicas, deudas incluidas, exclusiones y qué destinos son reales o simulados.
 5. Selecciona una plantilla aprobada y confirma el lanzamiento.
-6. Observa aceptación de envío, entrega y errores cuando el canal los reporte.
-7. Revisa pagos confirmados, acuerdos y casos humanos.
-8. Consulta una traza de ejemplo para explicar qué herramientas se ejecutaron.
+6. El sistema recorre los destinatarios uno por uno, sin envíos de campaña en paralelo. Los números ficticios registran un envío simulado sin llamar al canal; el celular del evaluador recibe la plantilla real.
+7. Observa progreso, envíos simulados, aceptación real, entrega y errores cuando el canal los reporte.
+8. Revisa pagos confirmados, acuerdos y casos humanos.
+9. Consulta una traza de ejemplo para explicar qué herramientas se ejecutaron.
 
 ### 7.3. Cliente: acuerdo y descuento
 
@@ -299,8 +300,8 @@ El diagrama representa responsabilidades de producto. Todos los componentes prop
 | FR-02 | Cartera | Usar identificador único de deuda/fila y de cliente; identificar a la persona por tipo y número de documento, con varios servicios vinculados |
 | FR-03 | Cartera | Exponer consultas y actualizaciones por API; la integración del agente utiliza esa frontera de sistema externo |
 | FR-04 | Campañas | Filtrar por rangos del campo días de mora, servicio, tipo de cliente, tipo de identificación y estado de deuda; previsualizar personas únicas y deudas asociadas |
-| FR-05 | Campañas | Excluir pagados, bajas y destinatarios sin habilitación de contacto de prueba; revalidar antes del envío; impedir doble lanzamiento accidental |
-| FR-06 | Campañas | Seleccionar plantilla preparada y aprobada; registrar estados de envío y errores sin equiparar aceptación con entrega |
+| FR-05 | Campañas | Excluir pagados y bajas; permitir destinos ficticios solo en simulación y exigir habilitación para el destino real del evaluador; revalidar antes del envío e impedir doble lanzamiento accidental |
+| FR-06 | Campañas | Recorrer personas únicas en orden, una por una, con plantilla preparada y aprobada; registrar simulación, aceptación real, entrega y error por separado, sin doble envío al reanudar |
 | FR-07 | Canal | Recibir y validar eventos; distinguir entradas del cliente, salidas y notas privadas; deduplicar por identidad de mensaje |
 | FR-08 | Identidad | Localizar por teléfono o identificador disponible del canal; comprobar PIN y limitar intentos; no devolver PIN al modelo |
 | FR-09 | Autorización | Limitar herramientas a deudas y órdenes del cliente autenticado; renovar verificación cuando corresponda |
@@ -449,7 +450,9 @@ En el prototipo se calcula sobre pagos ficticios y demuestra trazabilidad. En pr
 
 ### Embudo de negocio por campaña
 
-La central muestra mensajes enviados, personas únicas destinatarias y personas que respondieron al menos una vez. Los mensajes de campaña aceptados por el canal se cuentan como enviados; entrega y fallo se registran por separado. Los mensajes de seguimiento del bot y del asesor tienen un contador separado para no inflar los envíos de campaña.
+La central muestra progreso de destinatarios procesados, envíos simulados, mensajes reales enviados, personas únicas destinatarias reales y personas que respondieron al menos una vez. Los mensajes de campaña aceptados por el canal se cuentan como enviados; entrega y fallo se registran por separado. Los mensajes de seguimiento del bot y del asesor tienen un contador separado para no inflar los envíos de campaña.
+
+Los números ficticios se procesan en el lote como simulados, sin llamadas a Chatwoot/Meta ni inferencia. No se registran como entregados y no entran en el denominador ni en los resultados de la campaña real. La configuración distingue explícitamente destinos simulados y el destino real de prueba; no se deduce que un número es ficticio por su apariencia.
 
 **Contactabilidad = personas destinatarias que respondieron al menos un mensaje / personas destinatarias con al menos un envío de campaña aceptado × 100.** Texto, audio e imagen cuentan como respuesta; varios mensajes de una persona cuentan como un solo contacto. No se divide entre el total de mensajes, porque una persona puede recibir varios. Sin destinatarios enviados, la tasa se muestra como no aplicable.
 
@@ -534,6 +537,7 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-28 | Evaluador cambia el teléfono de un cliente ficticio | Cambio persistente y compartido por sus servicios; campaña llega a su WhatsApp y la consulta encuentra al mismo cliente | FR-01–02, FR-08, FR-20 |
 | AC-29 | Oferta menciona una moneda distinta de USD | Pide oferta en USD; no convierte ni crea una orden en otra moneda | FR-13 |
 | AC-30 | Pago concurrente con nueva orden y dos intentos de liquidación | Saldo revalidado, sin segundo cobro ni doble condonación; resultado consistente en cartera y pagos | FR-13, FR-15–16 |
+| AC-31 | Lote con varios números ficticios y el número real del evaluador | Procesamiento secuencial y reanudable; ficticios solo simulados, sin llamadas al canal; un envío real al evaluador; progreso visible y métricas reales sin simulados | FR-04–07, FR-20, FR-22 |
 
 ### Método de QA
 
@@ -683,7 +687,7 @@ El paquete incluye:
 
 La [especificación de entrega](001-cobranza-whatsapp/spec.md) y su [plan técnico](001-cobranza-whatsapp/plan.md) desarrollan esta base de producto con Spec Kit. Los supuestos configurables se registran allí; los accesos externos pendientes se validan durante la integración.
 
-Los FR-01–22 y AC-01–30 se conservan en la especificación, las tareas y la futura evidencia. Redactar estos artefactos no demuestra que la implementación ni sus pruebas estén terminadas.
+Los FR-01–22 y AC-01–31 se conservan en la especificación, las tareas y la futura evidencia. Redactar estos artefactos no demuestra que la implementación ni sus pruebas estén terminadas.
 
 ## 18. Referencias y supuestos de alcance
 

@@ -69,13 +69,13 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 
 **Independent Test**: escenarios de US2 en [spec.md](spec.md); fixtures aíslan el recorrido.
 
-- [ ] T028 [P] [US2] Escribir pruebas de edición compartida, mora, filtros y dedupe de persona en tests/integration/test_campaigns.py (FR-01, FR-02, FR-04, FR-05, FR-21; AC-20, AC-21, AC-25, AC-26, AC-28).
-- [ ] T029 [US2] Implementar edición de fixtures, versiones y evento de contacto cambiado en apps/central/src/central/debts.py y schemas.py (FR-01, FR-02, FR-21; AC-25, AC-26, AC-28).
+- [ ] T028 [P] [US2] Escribir pruebas de edición compartida, mora, filtros, bucle secuencial, ficticios sin llamadas y dedupe de persona en tests/integration/test_campaigns.py (FR-01, FR-02, FR-04, FR-05, FR-21; AC-20, AC-21, AC-25, AC-26, AC-28, AC-31).
+- [ ] T029 [US2] Implementar edición de fixtures y modo simulated/live, versiones y evento de contacto cambiado en apps/central/src/central/debts.py y schemas.py (FR-01, FR-02, FR-21; AC-25, AC-26, AC-28).
 - [ ] T030 [US2] Implementar login operador/CSRF y endpoints de tabla/edición en apps/backend/src/backend/api/operator.py y templates/login.html (FR-01, FR-04, FR-20; AC-01, AC-25, AC-28).
-- [ ] T031 [US2] Crear central pequeña editable y filtros de mora/servicio con previsualización en apps/backend/src/backend/templates/central.html, static/central.js y static/app.css (FR-01, FR-04, FR-21; AC-20, AC-25, AC-26, AC-28).
-- [ ] T032 [US2] Implementar snapshots, elegibilidad, lanzamiento idempotente y cierre de campaña en apps/backend/src/backend/services/campaigns.py y api/operator.py (FR-04, FR-05, FR-06; AC-20, AC-21, AC-26).
-- [ ] T033 [US2] Resolver contacto/inbox/source_id por versión del teléfono, invalidar binding antiguo y enviar template aprobado en apps/backend/src/backend/integrations/chatwoot.py (FR-05, FR-06, FR-08, FR-20; AC-20, AC-21, AC-28).
-- [ ] T034 [US2] Persistir estados de envío/entrega y primera respuesta atribuible sin contar mensaje de preparación en apps/backend/src/backend/services/events.py (FR-06, FR-07, FR-22; AC-20, AC-21, AC-27, AC-28).
+- [ ] T031 [US2] Crear central pequeña editable con modo de contacto simulated/live, filtros de mora/servicio y previsualización en apps/backend/src/backend/templates/central.html, static/central.js y static/app.css (FR-01, FR-04, FR-21; AC-20, AC-25, AC-26, AC-28).
+- [ ] T032 [US2] Implementar snapshots, modo simulated/live, bucle de un solo despacho con posición/progreso persistente, elegibilidad, lanzamiento idempotente y cierre de campaña en apps/backend/src/backend/services/campaigns.py y api/operator.py (FR-04, FR-05, FR-06; AC-20, AC-21, AC-26, AC-31).
+- [ ] T033 [US2] Resolver contacto/inbox/source_id por versión del teléfono, invalidar binding antiguo y enviar template aprobado en apps/backend/src/backend/integrations/chatwoot.py (FR-05, FR-06, FR-08, FR-20; AC-20, AC-21, AC-28, AC-31).
+- [ ] T034 [US2] Persistir simulados por separado, progreso del lote, estados reales de envío/entrega y primera respuesta atribuible sin contar mensaje de preparación en apps/backend/src/backend/services/events.py (FR-06, FR-07, FR-22; AC-20, AC-21, AC-27, AC-28, AC-31).
 
 **Checkpoint**: verificar el incremento con evidencia antes de dar por terminada la fase.
 
@@ -124,8 +124,8 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 **Independent Test**: escenarios de US6 en [spec.md](spec.md); fixtures aíslan el recorrido.
 
 - [ ] T046 [P] [US6] Escribir pruebas de embudo, cohortes y estados con pago total/acuerdo/humano en tests/integration/test_metrics.py (FR-06, FR-14, FR-16, FR-18, FR-22; AC-27).
-- [ ] T047 [US6] Implementar consumidor de eventos centrales y métricas deduplicadas por persona/deuda/campaña en apps/backend/src/backend/services/events.py y metrics.py (FR-06, FR-16, FR-19, FR-22; AC-14, AC-27).
-- [ ] T048 [US6] Mostrar contadores, tasas, USD recibidos/condonados y casos al corte en apps/backend/src/backend/templates/central.html y static/central.js (FR-22; AC-27).
+- [ ] T047 [US6] Implementar consumidor de eventos centrales y métricas reales separadas de simulaciones, deduplicadas por persona/deuda/campaña en apps/backend/src/backend/services/events.py y metrics.py (FR-06, FR-16, FR-19, FR-22; AC-14, AC-27, AC-31).
+- [ ] T048 [US6] Mostrar progreso procesados/total, simulados aparte, contadores reales, tasas, USD recibidos/condonados y casos al corte en apps/backend/src/backend/templates/central.html y static/central.js (FR-22; AC-27, AC-31).
 - [ ] T049 [US6] Completar spans Langfuse de preprocesamiento/LLM/tools y verificar lectura con scripts/preflight.py e integrations/observability.py (FR-19; AC-24).
 - [ ] T050 [US6] Implementar reset coordinado con nuevo epoch, no borrar gasto y documentar PIN ficticio/identidad en scripts/reset_demo.py, scripts/seed.py y README.md (FR-08, FR-12, FR-20; AC-01, AC-19, AC-28).
 
@@ -137,7 +137,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 
 - [ ] T051 [P] Crear perfil Floci y smoke de APIs EC2/disco/red solo locales en infra/compose.floci.yaml y scripts/smoke_floci.py; registrar cobertura sin IaC obligatorio (FR-20; AC-01).
 - [ ] T052 [P] Preparar proxy HTTPS, override de una EC2, instrucciones de EBS y restore en infra/Caddyfile, infra/compose.ec2.yaml y docs/despliegue-ec2.md; sin desplegar AWS de forma implícita (FR-20; AC-01, AC-19).
-- [ ] T053 Implementar runner de aceptación y variantes de fallos/concurrencia en scripts/run_acceptance.py con reporte de AC-01–30 en docs/evaluacion.md (FR-03, FR-07, FR-09, FR-13, FR-16, FR-18, FR-20; AC-01–30).
+- [ ] T053 Implementar runner de aceptación y variantes de fallos/concurrencia en scripts/run_acceptance.py con reporte de AC-01–31 en docs/evaluacion.md (FR-03, FR-07, FR-09, FR-13, FR-16, FR-18, FR-20; AC-01–31).
 - [ ] T054 Ejecutar preflight y recorridos reales opt-in de WhatsApp/OpenAI/audio/imagen con captura y registrar modelo, consumo, control humano y limitaciones en docs/evaluacion.md (FR-06, FR-10, FR-11, FR-17, FR-18, FR-19, FR-20; AC-05, AC-06, AC-08, AC-11, AC-15, AC-18, AC-24, AC-28).
 - [ ] T055 Validar README.md desde entorno limpio y completar guion/diagramas de sustentación y grabación de respaldo en docs/evaluacion.md y docs/despliegue-ec2.md (FR-20; AC-01, AC-19, AC-28).
 - [ ] T056 Revisar secretos, datos públicos, dependencias fijadas y diff exacto final de README.md, .env.example y docs/evaluacion.md antes de publicar evidencia (FR-19, FR-20; AC-24).
@@ -219,7 +219,7 @@ silencioso. IaC, recordatorios, pasarela real y servicios AWS especializados que
 ## Resumen
 
 56 tareas pendientes; comunes: 21, US1: 12, US2: 7, US3: 4, US4: 3, US5: 4, US6: 5.
-AC-01–30 se mantienen como batería completa en el runner y docs/evaluacion.md;
+AC-01–31 se mantienen como batería completa en el runner y docs/evaluacion.md;
 los AC asociados a cada tarea permiten localizar implementación y evidencia.
 No hay hooks de extensión configurados. El puntero de feature es local y la rama
 actual sigue siendo main.
