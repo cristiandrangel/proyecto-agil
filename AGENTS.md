@@ -12,7 +12,10 @@ El remoto personal es git@github-personal:cristiandrangel/proyecto-agil.git.
 5. No presentar propuestas de arquitectura como decisiones aprobadas ni como implementación existente.
 
 Las instrucciones directas y posteriores de Cristian prevalecen sobre el prompt y este archivo.
-La solicitud de mapa AWS con diagramas Mermaid sigue pendiente para después del PRD.
+La base acordada es una sola EC2 con todos los componentes propios en contenedores.
+El mapa inicial solicitado está en specs/arquitectura-inicial.md; sus detalles de contratos,
+capacidad y despliegue se desarrollarán con Spec Kit. La segmentación en servicios
+AWS especializados se evaluará después. Chatwoot existente, Meta y OpenAI son externos.
 
 ## Fuentes y privacidad
 

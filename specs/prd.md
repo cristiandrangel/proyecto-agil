@@ -217,7 +217,7 @@ El mecanismo de control mediante pending ya está resuelto y desplegado en la in
 | M-13 | Langfuse con trazas reales de procesamiento, herramientas e inferencia | C |
 | M-14 | README reproducible, datos semilla y reinicio de escenarios | C y G |
 | M-15 | Repo público personal sin secretos ni fuentes operativas privadas | C |
-| M-16 | Documento de arquitectura AWS justificado, diagramas y guion de sustentación | G y C |
+| M-16 | Arquitectura inicial en una sola EC2 para todos los componentes propios, documentada con diagramas y guion de sustentación; servicios especializados se evalúan después | G y C |
 | M-17 | Floci como emulador local de los servicios AWS seleccionados para la demo | C |
 | M-18 | Resumen por campaña de envíos, contactabilidad, pagos totales sin condonación, acuerdos con descuento, solicitudes de asesor y casos sin resultado | C |
 
@@ -288,7 +288,7 @@ flowchart TB
     TOOLS -.-> OBS
 ```
 
-El diagrama representa responsabilidades de producto. Su despliegue en servicios AWS se definirá en el diseño posterior, independientemente de la cobertura de Floci.
+El diagrama representa responsabilidades de producto. Todos los componentes propios se alojarán inicialmente en una sola EC2 mediante contenedores. Chatwoot existente, Meta y OpenAI son integraciones externas. El [mapa de arquitectura inicial](arquitectura-inicial.md) detalla esa distribución; los contratos y tareas se desarrollarán con Spec Kit.
 
 ### 9.3. Requisitos por módulo
 
@@ -605,7 +605,7 @@ El volumen, las metas y la disponibilidad del piloto dependen de datos y aprobac
 | Gestión y control | Operador, campañas, política y supervisión humana | §§03, 06, 09 |
 | Riesgos y mitigaciones | Validación, idempotencia, fallos, privacidad y recuperación | §§11–12 |
 | Métricas de negocio | Envíos, contactabilidad, pago total sin condonación, acuerdos con descuento, solicitudes humanas y casos sin resultado | §10; FR-22; AC-27 |
-| Infraestructura propuesta AWS | Diseño posterior justificado, incluyendo canal e IA | Documento de arquitectura pendiente tras revisión del PRD |
+| Infraestructura propuesta AWS | Una EC2 con contenedores, almacenamiento persistente y conexiones externas explícitas | [Mapa de arquitectura inicial](arquitectura-inicial.md); diseño detallado posterior |
 | WhatsApp y agente de IA | Chatwoot/Meta y agente LangGraph con inferencia real | Demo principal y trazas |
 | Prototipo, README y sustentación | Fixtures, recorridos, ejecución y guion para comité mixto | FR-20 y hitos de entrega |
 
@@ -613,9 +613,13 @@ Se conserva la distinción entre la exigencia mínima de la guía y el MVP ampli
 
 ## 15. Decisiones pendientes y alternativas
 
-USD como única moneda, OpenAI para la inferencia del prototipo, Floci para emulación local y el control existente de Chatwoot mediante pending son decisiones fijadas. La tabla recoge únicamente lo que falta concretar.
+Una sola EC2 para todos los componentes propios, USD como única moneda, OpenAI para la inferencia del prototipo, Floci para emulación local y el control existente de Chatwoot mediante pending son decisiones fijadas. La tabla recoge únicamente lo que falta concretar.
 
 Floci ejecuta localmente la emulación de los servicios AWS que se seleccionen; no sustituye el diseño de la aplicación ni decide qué servicios convienen en AWS. Debe distinguirse la ejecución de contenedores y PostgreSQL locales de las APIs efectivamente ejercitadas contra Floci. La cobertura de cada servicio y el despliegue real se verifican por separado. [W7]
+
+La EC2 inicial ejecutará mediante Docker Compose las dos webs, el backend y agente, la API del sistema central simulado, PostgreSQL de cartera, PostgreSQL de memoria y Langfuse con sus dependencias. Los datos persistentes usarán volúmenes separados respaldados por EBS. Chatwoot se reutiliza donde ya está desplegado; Meta y OpenAI permanecen externos. No se exige inicialmente ECS, Lambda, RDS ni separar componentes entre máquinas. [C, W8]
+
+La separación lógica se conserva dentro de la máquina: conexión al sistema central por API, configuración de conexiones por entorno y datos fuera de las imágenes. Esto facilita una evolución posterior, sin garantizar una migración automática: mover bases, almacenamiento, redes, credenciales y despliegue requiere validación. Una sola máquina concentra el fallo y los recursos; la capacidad se medirá con el stack completo, incluido Langfuse. [C]
 
 | ID | TBD | Opciones razonables | Recomendación provisional | Momento de cierre |
 |---|---|---|---|---|
@@ -626,8 +630,8 @@ Floci ejecuta localmente la emulación de los servicios AWS que se seleccionen; 
 | D-05 | Modelos OpenAI y mecanismo de control del presupuesto de USD 5 | Modelos configurables para agente, transcripción y visión | Una API key privada de OpenAI; seleccionar modelos por capacidad y costo, y concretar el control de consumo | Antes de integrar IA |
 | D-06 | Asociación del identificador alternativo | Fixture preasociado; verificación externa; handoff | Fixture y fallback humano para el demo | Antes de identidad |
 | D-07 | Publicación HTTPS y uso del bot | Entrada temporal; reverse proxy existente; endpoint AWS | Elegir según disponibilidad y documentar restauración/exclusividad | Antes de demo WhatsApp |
-| D-08 | Servicios AWS concretos y alcance de emulación con Floci | Contenedores administrados; piloto en EC2; funciones cuando convenga | Elegir por requisitos; usar Floci para el subconjunto local y documentar cobertura y diferencias | Diseño posterior al PRD |
-| D-09 | Langfuse y dependencias | Stack local; instancia autoalojada existente; despliegue AWS | Entorno reproducible sin secretos compartidos públicamente | Diseño de observabilidad |
+| D-08 | Tamaño, región, disco y red de la única EC2; alcance verificable de Floci | Dimensionar el stack completo y documentar APIs de infraestructura emuladas | Una máquina con Docker Compose y almacenamiento persistente; segmentación en otros servicios fuera del alcance inicial | Diseño y medición previa al despliegue |
+| D-09 | Versión y configuración de Langfuse y dependencias | Stack oficial compatible con la integración elegida | Autoalojado en la misma EC2; reproducible localmente, con datos aislados | Diseño de observabilidad |
 | D-10 | Caducidad y límites | Configuración única de demo; política por campaña; política por cliente | Configuración explícita de demo | Contratos y criterios de aceptación |
 | D-11 | Acceso del operador | Restricción local; credencial de demo; identidad empresarial | Acceso sencillo y restringido para el prototipo | Antes de exponer la central |
 | D-12 | Retención y capacidad | Sesión de evaluación; piloto acotado; operación regional | Medir demo y separar supuestos de producción | Diseño y piloto |
@@ -696,11 +700,12 @@ La aprobación del PRD no convierte en aprobadas una arquitectura, un proveedor 
 | W5 | [OpenAI: transcripción de audio](https://developers.openai.com/api/docs/guides/speech-to-text) | Normalización de audio antes del agente |
 | W6 | [OpenAI: visión](https://developers.openai.com/api/docs/guides/images-vision) | Interpretación de capturas e imágenes |
 | W7 | [Floci: integración local con herramientas AWS](https://floci.io/floci/getting-started/terraform/) | Emulación local separada de recursos AWS reales |
+| W8 | [Amazon EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) | Máquina virtual, disco EBS y controles de red del despliegue inicial |
 
 G, J e I son fuentes locales de referencia y no se incorporan como archivos al repositorio público. J pertenece a otro dominio: se reutiliza el patrón, sin importar sus reglas de negocio ni sus datos operativos.
 
 ### Alcance y supuestos
 
-La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada, emulación local con Floci y llamadas reales a OpenAI. La inferencia de OpenAI es una dependencia externa del prototipo; el documento de arquitectura debe explicitar su encaje con la exigencia de infraestructura AWS, sin presentar la API de OpenAI como un servicio AWS. La asignación final de servicios AWS, los modelos, la región y el dimensionamiento se resuelven después del PRD. [G, C]
+La solución empresarial propuesta debe alojarse en AWS; la guía permite que el prototipo se ejecute localmente. El demo usará datos ficticios, pasarela simulada, emulación local con Floci y llamadas reales a OpenAI. La inferencia de OpenAI es una dependencia externa del prototipo; el documento de arquitectura debe explicitar su encaje con la exigencia de infraestructura AWS, sin presentar la API de OpenAI como un servicio AWS. La base inicial es una sola EC2 con contenedores y persistencia en EBS. Los modelos, la región, el dimensionamiento y los detalles de despliegue se resuelven en el diseño. Los servicios especializados quedan para una evolución posterior. [G, C]
 
 **Supuestos propuestos:** producto interno para una telco; una deuda agregada por contrato/servicio en el MVP; negociación sobre una deuda seleccionada. Son supuestos explícitos, no decisiones atribuidas a LLA.
