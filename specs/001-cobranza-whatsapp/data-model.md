@@ -12,6 +12,206 @@ Importes en centavos enteros, currency=USD fijo; sin float ni conversión de mon
   separados. No es réplica autoritativa del saldo.
 - Langfuse: almacenes propios, separados de ambas bases de aplicación.
 
+## Cómo leer el modelo
+
+La pantalla central muestra **una fila por deuda de un servicio de una persona**.
+Eso no obliga a repetir los datos personales en la base: `customer` guarda la persona
+y `debt` guarda cada deuda. La pantalla combina ambas tablas.
+
+El recorrido principal es: **cliente → deuda → orden de pago → intento → liquidación**.
+Si se negocia un descuento, también interviene un **acuerdo**. Crear una orden o aceptar
+un acuerdo todavía no modifica el saldo; el pago aprobado y aplicado sí lo hace.
+
+### 1. Cartera y pagos: relaciones principales
+
+En este diagrama, la pata de tres puntas significa «varios» y el círculo significa
+«opcional». Por ejemplo, un cliente puede tener varias deudas y una deuda puede no
+tener todavía ninguna orden de pago. Se muestran solo los campos principales;
+el catálogo posterior conserva el detalle completo.
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ DEBT : "tiene por servicio"
+    DEBT ||--o{ AGREEMENT : "puede negociar"
+    DEBT ||--o{ PAYMENT_ORDER : "puede generar"
+    AGREEMENT o|--o{ PAYMENT_ORDER : "descuento opcional"
+    PAYMENT_ORDER ||--o{ PAYMENT_ATTEMPT : "recibe intentos"
+    DEBT ||--o| SETTLEMENT : "se liquida una vez"
+    PAYMENT_ORDER ||--o| SETTLEMENT : "produce al aplicarse"
+    PAYMENT_ATTEMPT ||--o| SETTLEMENT : "origina si se aplica"
+
+    CUSTOMER {
+        uuid id PK
+        string document_type "Tipo de identificacion"
+        string document_number "Numero de identificacion"
+        string display_name "Nombre"
+        string phone_e164 "Celular editable del evaluador"
+        string email
+    }
+    DEBT {
+        uuid id PK
+        uuid customer_id FK
+        string service_type "Hogar, telefonia, television"
+        int balance_cents "Saldo en centavos USD"
+        int dias_mora "Campo editable para filtrar"
+        string debt_status "Pendiente o liquidada"
+    }
+    AGREEMENT {
+        uuid id PK
+        uuid debt_id FK
+        int base_cents "Saldo al negociar"
+        int offer_cents "Importe ofrecido"
+        int expected_discount_cents "Condonacion prevista"
+        string status "Propuesto, aceptado, cumplido, vencido"
+    }
+    PAYMENT_ORDER {
+        uuid id PK
+        uuid debt_id FK
+        uuid agreement_id FK "Opcional para pago con descuento"
+        int payable_cents "Importe del enlace de pago"
+        int discount_cents "Descuento autorizado"
+        string status "Vigente, pagada, vencida"
+    }
+    PAYMENT_ATTEMPT {
+        uuid id PK
+        uuid order_id FK
+        string decision "Aprobado o rechazado"
+        boolean applied "Si tuvo efecto financiero"
+    }
+    SETTLEMENT {
+        uuid id PK
+        uuid debt_id FK, UK
+        uuid order_id FK, UK
+        uuid attempt_id FK
+        int received_cents "Dinero recibido"
+        int forgiven_cents "Dinero condonado"
+    }
+```
+
+- **Cliente (`customer`):** identidad y contacto compartidos por todas sus deudas.
+  La combinación tipo/número de documento es única; el UUID es la llave interna.
+- **Deuda (`debt`):** servicio, saldo y días de mora de esa fila. Tener varias deudas
+  no implica enviar varios mensajes iniciales en una campaña.
+- **Acuerdo (`agreement`):** registra la oferta y su aceptación. El descuento automático
+  permite pagar desde el 80% hasta menos del 100% del saldo; una oferta inferior se escala.
+- **Orden (`payment_order`):** contiene lo que se puede pagar mediante un enlace y hasta
+  cuándo. El pago total tiene descuento cero y no necesita acuerdo.
+- **Intento (`payment_attempt`):** registra cada aprobación o rechazo del simulador.
+  Un rechazo no modifica la deuda; se puede volver a intentar mientras la orden siga vigente.
+- **Liquidación (`settlement`):** registra el resultado financiero aplicado: recibido y
+  condonado. Solo puede existir una por deuda y una por orden en este alcance, sin abonos.
+
+Los campos `customer_id` que también aparecen en acuerdos y órdenes en el catálogo
+sirven para validar pertenencia; siempre deben corresponder al dueño de la deuda.
+La sesión de identidad y las tablas auxiliares de eventos y comandos se detallan más
+abajo: no son nuevas deudas ni pagos.
+
+### 2. Ejemplo: una persona, dos servicios
+
+Ejemplo ficticio en USD: la persona tiene una deuda de hogar de 100 y otra de telefonía
+de 60. Acepta pagar 90 por hogar. La condonación de 10 se aplica únicamente cuando se
+aprueba y registra el pago. La deuda de telefonía sigue pendiente por 60.
+
+```mermaid
+flowchart LR
+    C["Cliente ficticio<br/>Una identidad y un celular"]
+    H["Deuda hogar<br/>USD 100 · 45 dias de mora"]
+    T["Deuda telefonia<br/>USD 60 · 75 dias de mora"]
+    A["Acuerdo aceptado<br/>Pagar 90 · condonar 10"]
+    O["Orden de pago<br/>Enlace por USD 90"]
+    P["Intento aprobado y aplicado"]
+    S["Liquidacion<br/>Recibido 90 · condonado 10<br/>Saldo hogar = 0"]
+    C --> H
+    C --> T
+    H --> A --> O --> P --> S
+```
+
+Una captura del comprobante ayuda al agente a interpretar lo que dice el usuario.
+Para confirmarlo debe consultar la orden y su liquidación en la central; la imagen
+por sí sola no cambia ninguno de estos registros.
+
+### 3. Campañas: una persona, un mensaje inicial
+
+Estas tablas viven en la base operativa del backend. Los UUID de clientes y deudas
+son referencias a la central mediante su API, **sin claves foráneas entre bases**.
+
+```mermaid
+erDiagram
+    CAMPAIGN ||--o{ CAMPAIGN_RECIPIENT : "selecciona personas"
+    CAMPAIGN o|--o{ BUSINESS_EVENT : "atribuye resultados"
+
+    CAMPAIGN {
+        uuid id PK
+        json filter_snapshot "Filtros de servicio, mora y cliente"
+        json template_snapshot "Plantilla seleccionada"
+        string status "Borrador, en ejecucion, completada, cerrada"
+        datetime followup_until "Corte de seguimiento"
+    }
+    CAMPAIGN_RECIPIENT {
+        uuid id PK
+        uuid campaign_id FK
+        uuid customer_id "Referencia a la central"
+        json selected_debt_ids "Deudas incluidas en el segmento"
+        int position "Orden del envio secuencial"
+        string delivery_mode "Simulated o live"
+        string send_status "Resultado del envio"
+    }
+    BUSINESS_EVENT {
+        uuid id PK
+        string source_key UK "Evita contar el mismo evento dos veces"
+        uuid campaign_id FK "Opcional"
+        uuid customer_id "Referencia a la central"
+        uuid debt_id "Referencia opcional a la central"
+        string event_type "Respuesta, pago, acuerdo, escalamiento"
+        datetime occurred_at
+    }
+```
+
+Una campaña puede seleccionar varias deudas de una persona, pero crea **un solo
+destinatario por persona**: la combinación `campaign_id + customer_id` es única.
+`position` permite recorrerlos uno a uno y retomar el progreso. Los contactos ficticios
+se simulan; el del evaluador, habilitado en modo `live`, usa el canal real. Los eventos
+permiten calcular contactabilidad y resultados sin contar dos veces el mismo hecho.
+
+### 4. Dónde viven los demás datos
+
+Las flechas siguientes representan intercambios o procesamiento, no claves foráneas.
+`conversation_key` identifica la conversación de Chatwoot: no supone una nueva tabla
+propia llamada «conversación».
+
+```mermaid
+flowchart TB
+    CW["Chatwoot externo<br/>Conversacion, mensajes y control pending/open"]
+    subgraph CENTRAL["PostgreSQL de cartera · autoridad del saldo"]
+        FIN["customer · debt · agreement<br/>payment_order · payment_attempt · settlement"]
+        AUTH["identity_session<br/>Validacion de identidad y caducidad"]
+        AUX["command_result · central_event<br/>Evitar efectos duplicados y publicar cambios"]
+    end
+    API["API central<br/>Unico acceso del agente a cartera y pagos"]
+    subgraph MEMORY["PostgreSQL operativo y de memoria"]
+        CHANNEL["channel_binding · inbox_event · conversation_job<br/>Vincular contacto, recibir y procesar mensajes"]
+        CONTEXT["verified_context · checkpoints LangGraph<br/>Identidad validada y memoria del agente"]
+        OUTPUT["outbox · human_case<br/>Respuestas pendientes y casos humanos"]
+        CAMPAIGNS["campaign · campaign_recipient · business_event<br/>Campanas, progreso y metricas"]
+        CONTROL["inference_reservation · central_cursor<br/>Control de gasto y conciliacion de cambios"]
+    end
+    LF["Langfuse · almacenes propios<br/>Trazas de ejecucion e inferencia"]
+    CW --> CHANNEL --> CONTEXT --> OUTPUT --> CW
+    CONTEXT -->|"Consulta o comando autorizado"| API
+    API --> FIN
+    API --> AUTH
+    API --> AUX
+    API -->|"Eventos de cambios"| CONTROL
+    CONTROL --> CAMPAIGNS
+    CAMPAIGNS -->|"Despacho secuencial"| OUTPUT
+    CONTEXT -.->|"Observabilidad sin secretos"| LF
+```
+
+La separación evita que la memoria conversacional se convierta en otra versión del
+saldo. El agente puede recordar que alguien dijo «ya pagué», pero solo la central
+confirma el pago. Todos los componentes propios siguen en la única EC2 prevista;
+la separación del dibujo es entre responsabilidades y bases de datos.
+
 ## Sistema central simulado
 
 | Entidad | Campos esenciales | Restricciones y relación |
