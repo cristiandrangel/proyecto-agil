@@ -36,10 +36,12 @@ son idempotentes y tienen un registro propio independiente del checkpoint.
 
 **Decisión:** SDK asíncrono oficial de OpenAI y Responses API; store=false y
 contexto explícito persistido por nuestra aplicación. Valores iniciales del plan:
-agente y visión gpt-5.6-luna; transcripción de archivos gpt-transcribe. Todos son
+agente gpt-5.6-luna con reasoning.effort=high; visión gpt-5.6-luna con esfuerzo
+none; transcripción de archivos gpt-transcribe. Todos son
 configurables; el preflight debe comprobar acceso real antes de la demo.
 
-**Motivo:** la documentación actual describe texto, imagen y function calling en
+**Motivo:** evaluar el agente con esfuerzo alto en los recorridos de herramientas.
+La documentación actual describe texto, imagen y function calling en
 Luna y transcripción de archivos en Transcribe. No se necesita otro proveedor.
 **Alternativas:** los candidatos gpt-4.1-mini y gpt-4o-mini-transcribe aparecen
 marcados como deprecated en la documentación consultada; no se eligen para una
@@ -49,6 +51,12 @@ lo justifica; no se hace fallback automático de mayor costo.
 [transcripción](https://developers.openai.com/api/docs/models/gpt-transcribe),
 [Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses),
 [herramientas](https://developers.openai.com/api/docs/guides/function-calling).
+
+El límite de salida incluye tokens de razonamiento y respuesta visible. Al usar
+high se amplía el margen inicial a 4096; se mantienen las reservas y el presupuesto
+total. Un límite insuficiente puede terminar la llamada sin texto final.
+[Modelo y esfuerzos](https://developers.openai.com/api/docs/models/gpt-5.6-luna),
+[razonamiento y límites de salida](https://developers.openai.com/api/docs/guides/reasoning).
 
 ## R-04. Presupuesto y límites de la demo
 
@@ -63,8 +71,8 @@ El reset de deudores nunca borra el ledger de consumo.
 Precios de referencia consultados: Luna USD 0.20 entrada / 1.20 salida por millón
 de tokens; Transcribe USD 0.0045/minuto. La tabla de precios debe versionarse y
 considerar imágenes, caché, tokens de salida y reintentos. Ante modelo sin precio
-configurado no se inicia inferencia. Límite de entrada 12 000 tokens, salida de
-agente 800 y extracción visual 400; medios hasta 5 MiB y audio hasta 60 segundos.
+configurado no se inicia inferencia. Límite de entrada 12 000 tokens, salida total de
+agente 4096 y extracción visual 400; medios hasta 5 MiB y audio hasta 60 segundos.
 
 **Alternativas:** confiar solo en avisos de facturación o en una API key. La
 documentación distingue alertas y hard spend limits; estos últimos pueden aplicarse

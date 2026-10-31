@@ -207,9 +207,15 @@ independientemente de que ese evento ya esté reflejado en las métricas.
 
 ### Presupuesto, medios y observabilidad
 
+El agente principal usa gpt-5.6-luna con reasoning.effort=high.
+La extracción visual usa el mismo modelo con esfuerzo none. El límite
+de salida del agente se fija inicialmente en 4096 tokens, incluyendo razonamiento
+y texto visible; una respuesta incompleta no se interpreta como éxito. Se evalúan
+calidad y latencia antes de ajustar estos límites.
+
 Ledger operativo compartido entre workers y modalidades, con reserva antes de llamada,
 settlement de uso y reservas conservadas ante timeout incierto. Dos inferencias globales,
-12 000 tokens de entrada, 800 de salida del agente, 400 de extracción visual y reintentos
+12 000 tokens de entrada, 4096 de salida total del agente, 400 de extracción visual y reintentos
 explícitos; todas las cifras son configurables. Los modelos sin tarifa configurada se
 rechazan. Límite local 4.50 y margen frente a USD 5; no se promete factura exacta.
 

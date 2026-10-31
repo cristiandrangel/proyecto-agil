@@ -44,3 +44,8 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 Despacho secuencial, una persona por vez, con progreso persistente. Los destinos
 ficticios solo simulan el envío; el contacto del evaluador en modo live habilitado
 usa Chatwoot real. Las simulaciones se muestran aparte de los KPI reales.
+
+## Inferencia
+
+Agente principal: gpt-5.6-luna con reasoning.effort=high. La salida total inicial
+es 4096 tokens e incluye razonamiento. El presupuesto total de IA sigue en USD 5.

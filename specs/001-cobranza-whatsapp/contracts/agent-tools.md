@@ -34,7 +34,9 @@ el token; el cliente recibe el enlace real por Chatwoot.
 
 1. Cargar contexto no secreto, autorización vigente y deuda seleccionada.
 2. Reservar consumo; llamar Responses con herramientas permitidas,
-   parallel_tool_calls=false y límites del plan.
+   parallel_tool_calls=false, reasoning.effort=high para gpt-5.6-luna y límites
+   del plan. Si la respuesta queda incomplete, no afirmar éxito ni ejecutar una
+   llamada a herramienta con argumentos truncados.
 3. Validar nombre, argumentos y permisos; ejecutar contra central o integración
    correspondiente; registrar resultado redactado y devolverlo al modelo.
 4. Repetir hasta respuesta final o cinco llamadas. Error persistente o límite
