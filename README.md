@@ -2,6 +2,8 @@
 
 **Estado:** definición del PRD, anterior al diseño técnico y a la implementación.
 
+[Repositorio público en la cuenta personal de Cristian](https://github.com/cristiandrangel/proyecto-agil).
+
 ## Documentos
 
 - [Prompt y proceso de construcción del PRD](promptprd.md).

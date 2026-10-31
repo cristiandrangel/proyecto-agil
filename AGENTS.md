@@ -1,7 +1,7 @@
 # Proyecto Ágil
 
 Repositorio personal de Cristian. Trabajar dentro de este proyecto, independiente de sus wikis.
-El remoto personal previsto es git@github-personal:cristiandrangel/proyecto-agil.git.
+El remoto personal es git@github-personal:cristiandrangel/proyecto-agil.git.
 
 ## Estado y orden de trabajo
 
