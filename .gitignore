@@ -1,0 +1,40 @@
+# Secretos: solo se permite publicar un ejemplo sin valores reales.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*recovery*codes*
+*recovery*code*
+github-recovery-codes*
+
+# Fuentes privadas y datos de ejecución.
+references/private/
+.local/
+data/
+uploads/
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql
+
+# Entornos y dependencias.
+.venv/
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+coverage/
+.DS_Store
+Thumbs.db
+
+# Estado local de infraestructura.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+terraform.tfvars.json
