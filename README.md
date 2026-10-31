@@ -8,14 +8,15 @@
 
 - [Prompt y proceso de construcción del PRD](promptprd.md).
 - [Paso 0: análisis de conflictos, acuerdos y vacíos](specs/prd-paso-0-conflictos.md).
+- [PRD integral — borrador 0.1 para revisión](specs/prd.md).
 
-El PRD final se consolidará en **specs/prd.md** después de revisar sus segmentos con Cristian.
-Después se aplicará [Spec Kit](https://github.com/github/spec-kit).
+El PRD está consolidado en **specs/prd.md**. Por indicación posterior de Cristian,
+se construyó el borrador completo con los datos conocidos y los pendientes explícitos.
+Después de revisarlo se aplicará [Spec Kit](https://github.com/github/spec-kit).
 
 ## Pendientes de documentación
 
-- Aprobar o ajustar el análisis de conflictos.
-- Construir y revisar los 13 segmentos del PRD en orden.
+- Revisar el PRD integral y resolver los supuestos que cambian el comportamiento.
 - Elaborar el mapa de componentes y servicios AWS con diagramas Mermaid solicitado.
 - Derivar la especificación, el plan y las tareas mediante Spec Kit.
 - Implementar y completar el README ejecutable con el recorrido del evaluador.

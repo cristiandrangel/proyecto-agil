@@ -5,9 +5,9 @@ El remoto personal es git@github-personal:cristiandrangel/proyecto-agil.git.
 
 ## Estado y orden de trabajo
 
-1. Seguir promptprd.md: primero análisis de conflictos y luego un segmento del PRD por vez.
-2. Esperar la decisión explícita de Cristian antes de pasar al siguiente segmento.
-3. Consolidar el PRD aprobado en specs/prd.md al terminar los segmentos.
+1. La indicación posterior de Cristian del 31 de octubre de 2026 permite construir el PRD integral con el contexto disponible.
+2. specs/prd.md es el borrador consolidado; se revisa completo antes del diseño técnico.
+3. Conservar la estructura de promptprd.md, distinguir requisitos confirmados, propuestas y TBD, y no atribuir aprobación a decisiones abiertas.
 4. Después usar Spec Kit oficial de GitHub para especificación, planificación y tareas.
 5. No presentar propuestas de arquitectura como decisiones aprobadas ni como implementación existente.
 

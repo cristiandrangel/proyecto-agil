@@ -1,8 +1,12 @@
 # PRD de Proyecto Ágil: Paso 0
 
 **Fecha:** 31 de octubre de 2026.
-**Estado:** revisión con Cristian. No inicia el Segmento 1.
+**Estado:** insumo del PRD integral; recomendaciones y TBD conservados para revisión.
 **Propósito:** resolver conflictos de fuentes y de enfoque antes de construir el PRD.
+
+**Actualización del 31 de octubre de 2026:** Cristian indicó continuar con un PRD completo
+usando el contexto disponible. El resultado está en [specs/prd.md](prd.md). Esta actualización
+permite elaborar el borrador; no implica aprobación individual de todas las recomendaciones.
 
 ## 1. Fuentes consultadas
 
@@ -102,10 +106,11 @@ de evaluación requiere periodos y aplicación de pagos por factura.
 **Dato requerido:** fecha de entrega o sustentación, si ya existe. Mientras no se conozca, mantenerla
 como TBD. El 30/60/90 puede ser un roadmap hipotético de producción separado de la prueba.
 
-## 5. Pregunta de cierre del Paso 0
+## 5. Cierre original del Paso 0
 
 ¿Apruebas estas recomendaciones del Paso 0, tienes ajustes, o quieres que explore una dirección
 diferente? La respuesta habilita comenzar el Segmento 1; no aprueba servicios AWS ni decisiones
 técnicas todavía abiertas.
 
-**Siguiente segmento, solo después de la decisión:** One-Liner del Producto + JTBD + Misión.
+El avance por segmentos de esta pregunta fue sustituido por la indicación posterior de construir
+el borrador integral. La revisión vigente es la del PRD completo.
