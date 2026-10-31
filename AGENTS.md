@@ -6,9 +6,9 @@ El remoto personal es git@github-personal:cristiandrangel/proyecto-agil.git.
 ## Estado y orden de trabajo
 
 1. La indicación posterior de Cristian del 31 de octubre de 2026 permite construir el PRD integral con el contexto disponible.
-2. specs/prd.md es el borrador consolidado; se revisa completo antes del diseño técnico.
+2. specs/prd.md es la base de producto; la instrucción posterior de continuar con Spec Kit autoriza especificación y diseño.
 3. Conservar la estructura de promptprd.md, distinguir requisitos confirmados, propuestas y TBD, y no atribuir aprobación a decisiones abiertas.
-4. Después usar Spec Kit oficial de GitHub para especificación, planificación y tareas.
+4. Spec Kit oficial 1.0.1 está inicializado para Codex. La feature activa es specs/001-cobranza-whatsapp; seguir spec.md, plan.md y tasks.md.
 5. No presentar propuestas de arquitectura como decisiones aprobadas ni como implementación existente.
 
 Las instrucciones directas y posteriores de Cristian prevalecen sobre el prompt y este archivo.
@@ -35,4 +35,6 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 - Distinguir requisitos confirmados, recomendaciones y TBD.
 - Citar las fuentes que influyen en cada sección.
 - Mantener trazabilidad entre PRD, especificación y criterios de evaluación.
-- El código y el diseño técnico comienzan después del cierre de producto correspondiente.
+- Diseño de entrega: specs/001-cobranza-whatsapp/. Las tareas de implementación se marcan completas solo con código y verificación.
+- Entrega: lunes 2026-11-02 (America/Bogota), hora pendiente.
+- .specify/feature.json es estado local ignorado; seleccionar la feature con SPECIFY_FEATURE_DIRECTORY al retomar en otro checkout.

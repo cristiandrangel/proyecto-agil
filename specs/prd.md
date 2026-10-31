@@ -1,6 +1,6 @@
 # Proyecto Ágil — Product Requirements Document
 
-**Versión:** 0.1, borrador integral para revisión.
+**Versión:** 0.2, base de producto para la especificación de entrega.
 **Fecha:** 31 de octubre de 2026.
 **Estado:** definición de producto; no implica aprobación de diseño técnico ni aplicación implementada.
 **Ámbito:** gestión asistida de cartera telco y prototipo para evaluación técnica.
@@ -183,7 +183,7 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 5. Si la autorización venció, vuelve a verificar al cliente; si la orden venció, ofrece generar otra con el estado vigente.
 6. No se envían recordatorios automáticos fuera de las reglas de contacto definidas. Su incorporación futura requiere configuración explícita.
 
-La caducidad de sesión y orden es TBD. Mantener memoria no equivale a mantener una sesión autenticada indefinidamente.
+Los valores iniciales de demo son 30 minutos para sesión y orden, configurables según la especificación. Mantener memoria no equivale a mantener una sesión autenticada indefinidamente.
 
 ### 7.5. Excepción y atención humana
 
@@ -434,7 +434,7 @@ sequenceDiagram
 - La captura de trazas no debe bloquear indefinidamente la atención si falla la plataforma de observabilidad.
 - PIN, tokens y claves no se registran en texto abierto en trazas ni se incorporan al repositorio.
 - Solo se descargan adjuntos de orígenes autorizados; límites de tamaño, duración y retención quedan en configuración.
-- El presupuesto de IA se contabiliza entre agente, audio, visión y reintentos. El mecanismo de límite efectivo es TBD.
+- El presupuesto de IA se contabiliza entre agente, audio, visión y reintentos. El plan define reservas persistentes y corte local conservador; su aplicación efectiva se comprobará al integrar.
 - Disponibilidad, concurrencia objetivo y latencia p95 se establecen después de mediciones; no se promete capacidad sin evidencia.
 
 Langfuse autoalojado tiene varias dependencias, incluyendo web, worker y almacenes de datos. El diseño posterior debe contemplarlas y comprobar que una traza sea consultable, no solo que el endpoint de ingestión responda. [W3]
@@ -572,7 +572,7 @@ WhatsApp exige respetar consentimiento, bajas y reglas de plantillas/ventana de 
 
 ### 13.1. Entrega real de la prueba por hitos
 
-La fecha límite es TBD. Los hitos se ordenan por dependencia, sin asignar días ficticios:
+La entrega es el lunes **2 de noviembre de 2026**, zona America/Bogota; la hora está pendiente. Los hitos se ordenan por dependencia:
 
 1. Revisar este PRD y resolver las decisiones que cambian alcance o recorridos.
 2. Traducir a especificación, diseño, contratos y tareas con Spec Kit.
@@ -626,16 +626,16 @@ La separación lógica se conserva dentro de la máquina: conexión al sistema c
 
 | ID | TBD | Opciones razonables | Recomendación provisional | Momento de cierre |
 |---|---|---|---|---|
-| D-01 | Enfoque interno y adaptación de ICP | Producto interno telco; plataforma comercial general | Producto interno aplicado al caso de LLA | Revisión del PRD |
-| D-02 | Grano de la deuda | Agregada por contrato; factura por fila; detalle de facturas asociado | Agregada por contrato para el MVP | Antes de modelo de datos |
-| D-03 | Tipos de identificación de fixtures | Tipos de Panamá; catálogo configurable; identificadores de demo | Documentos inequívocamente ficticios; moneda fija USD | Antes de seeds y pantallas |
-| D-04 | Fecha límite y tiempo disponible | Fecha de entrega; fecha de sustentación; ambas | Registrar las fechas reales aportadas | Antes de calendarizar tareas |
-| D-05 | Modelos OpenAI y mecanismo de control del presupuesto de USD 5 | Modelos configurables para agente, transcripción y visión | Una API key privada de OpenAI; seleccionar modelos por capacidad y costo, y concretar el control de consumo | Antes de integrar IA |
-| D-06 | Asociación del identificador alternativo | Fixture preasociado; verificación externa; handoff | Fixture y fallback humano para el demo | Antes de identidad |
+| D-01 | Validación posterior del enfoque en un piloto | La entrega aplica el producto interno al caso telco | Sin bloquear la demo con investigación comercial adicional | Después de la prueba |
+| D-02 | Detalle de facturas en una evolución | La especificación usa saldo agregado por contrato/servicio | Mantener una fila por deuda de servicio en la demo | Después del MVP |
+| D-03 | Catálogo concreto de fixtures | La especificación exige documentos inequívocamente ficticios y USD fijo | Definir valores semilla al implementar; sin documentos reales | Implementación de seeds |
+| D-04 | Hora límite y eventual sustentación | Entrega lunes 2026-11-02; hora y sustentación por confirmar | Organizar trabajo para el lunes sin inventar una hora | Antes de la entrega |
+| D-05 | Acceso efectivo a modelos y verificación del control de USD 5 | Modelos y reservas de gasto definidos en el plan, configurables | Probar permisos, calidad y consumo con entorno privado; sin asumir acceso por documentación | Integración y preflight |
+| D-06 | Forma real de identidad recibida del canal | Fallback de identificación ficticia y PIN definido en la especificación | Verificar teléfono/BSUID del payload y derivar si no se logra autenticar | Integración Chatwoot |
 | D-07 | Publicación HTTPS y uso del bot | Entrada temporal; reverse proxy existente; endpoint AWS | Elegir según disponibilidad y documentar restauración/exclusividad | Antes de demo WhatsApp |
 | D-08 | Tamaño, región, disco y red de la única EC2; alcance verificable de Floci | Dimensionar el stack completo y documentar APIs de infraestructura emuladas | Una máquina con Docker Compose y almacenamiento persistente; segmentación en otros servicios fuera del alcance inicial | Diseño y medición previa al despliegue |
 | D-09 | Versión y configuración de Langfuse y dependencias | Stack oficial compatible con la integración elegida | Autoalojado en la misma EC2; reproducible localmente, con datos aislados | Diseño de observabilidad |
-| D-10 | Caducidad y límites | Configuración única de demo; política por campaña; política por cliente | Configuración explícita de demo | Contratos y criterios de aceptación |
+| D-10 | Validación de límites iniciales de demo | Sesión y orden 30 minutos; seguimiento de campaña 24 horas; corte manual explícito | Valores configurables del plan; comprobar comportamiento antes de entregar | Pruebas de aceptación |
 | D-11 | Acceso del operador | Restricción local; credencial de demo; identidad empresarial | Acceso sencillo y restringido para el prototipo | Antes de exponer la central |
 | D-12 | Retención y capacidad | Sesión de evaluación; piloto acotado; operación regional | Medir demo y separar supuestos de producción | Diseño y piloto |
 
@@ -681,9 +681,9 @@ El paquete incluye:
 
 ## 17. Criterio para pasar a Spec Kit
 
-Este borrador permite revisar el producto completo. Antes de iniciar el diseño se confirma el alcance, se corrigen los supuestos que alteren el comportamiento y se priorizan los TBD por dependencia.
+La [especificación de entrega](001-cobranza-whatsapp/spec.md) y su [plan técnico](001-cobranza-whatsapp/plan.md) desarrollan esta base de producto con Spec Kit. Los supuestos configurables se registran allí; los accesos externos pendientes se validan durante la integración.
 
-La aprobación del PRD no convierte en aprobadas una arquitectura, un proveedor o unas metas que siguen marcadas como propuestas. La especificación posterior debe conservar los IDs funcionales y de aceptación para verificar consistencia.
+Los FR-01–22 y AC-01–30 se conservan en la especificación, las tareas y la futura evidencia. Redactar estos artefactos no demuestra que la implementación ni sus pruebas estén terminadas.
 
 ## 18. Referencias y supuestos de alcance
 

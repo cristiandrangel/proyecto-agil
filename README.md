@@ -1,43 +1,61 @@
 # Proyecto Ágil
 
-**Estado:** PRD en revisión y arquitectura inicial definida; diseño detallado e implementación pendientes.
+Agente de cobranza por WhatsApp con central de deudores y pago simulado.
+[Repositorio personal público](https://github.com/cristiandrangel/proyecto-agil).
 
-[Repositorio público en la cuenta personal de Cristian](https://github.com/cristiandrangel/proyecto-agil).
+**Entrega:** lunes 2 de noviembre de 2026, America/Bogota; hora por confirmar.
+**Estado:** Spec Kit inicializado; especificación y diseño técnico preparados.
+**La aplicación todavía no está implementada.** No hay despliegue AWS ni pruebas
+reales del flujo completadas en esta fase.
 
-## Documentos
+## Producto y arquitectura
 
-- [Prompt y proceso de construcción del PRD](promptprd.md).
-- [Paso 0: análisis de conflictos, acuerdos y vacíos](specs/prd-paso-0-conflictos.md).
-- [PRD integral — borrador 0.1 para revisión](specs/prd.md).
-- [Arquitectura inicial: una sola EC2, con diagramas Mermaid](specs/arquitectura-inicial.md).
+- [PRD](specs/prd.md), con FR-01–22 y AC-01–30.
+- [Arquitectura inicial: una sola EC2, con Mermaid](specs/arquitectura-inicial.md).
+- [Análisis inicial de conflictos](specs/prd-paso-0-conflictos.md).
+- [Prompt original del PRD](promptprd.md).
 
-El PRD está consolidado en **specs/prd.md**. Por indicación posterior de Cristian,
-se construyó el borrador completo con los datos conocidos y los pendientes explícitos.
-Después de revisarlo se aplicará [Spec Kit](https://github.com/github/spec-kit).
+Una EC2 con Docker Compose aloja las webs, backend/agente, API central simulada,
+PostgreSQL de cartera y memoria separados y Langfuse con sus dependencias. Chatwoot
+existente, Meta y OpenAI son externos. EC2 permite arrancar e iterar rápido;
+servicios especializados e infraestructura como código son planes futuros.
+Floci valida APIs AWS locales y se distingue del runtime de la aplicación.
 
-## Pendientes de documentación
+## Spec Kit y diseño
 
-- Revisar el PRD integral y resolver los supuestos que cambian el comportamiento.
-- Detallar contratos, despliegue y capacidad a partir del mapa inicial en una EC2.
-- Derivar la especificación, el plan y las tareas mediante Spec Kit.
-- Implementar y completar el README ejecutable con el recorrido del evaluador.
+[Guía de carpetas y funcionamiento](docs/spec-kit.md).
 
-Todavía no hay aplicación ejecutable ni infraestructura desplegada.
-Floci se usará para emulación local y OpenAI para la inferencia real del prototipo.
-El despliegue inicial será una sola EC2 con Docker Compose para las webs, backend,
-agente, sistema central simulado, bases de datos y Langfuse con sus dependencias.
-Elegimos EC2 por su flexibilidad para arrancar e iterar rápido.
-Los datos persistentes usarán EBS; la región y capacidad se definirán en el diseño.
-La migración a servicios especializados para optimizar costos y la gestión mediante
-infraestructura como código son planes futuros, sin requisito de implementación en esta entrega.
-El control del bot mediante conversaciones pending ya existe en el Chatwoot externo.
+- [Constitución del proyecto](.specify/memory/constitution.md).
+- [Especificación funcional](specs/001-cobranza-whatsapp/spec.md).
+- [Plan técnico y estructura prevista](specs/001-cobranza-whatsapp/plan.md).
+- [Decisiones investigadas](specs/001-cobranza-whatsapp/research.md).
+- [Modelo de datos y estados](specs/001-cobranza-whatsapp/data-model.md).
+- [Contratos entre sistemas](specs/001-cobranza-whatsapp/contracts/).
+- [56 tareas de implementación pendientes](specs/001-cobranza-whatsapp/tasks.md).
+- [Guion de validación previsto](specs/001-cobranza-whatsapp/quickstart.md).
 
-## Entrega futura para el evaluador
+Instalación: Spec Kit 1.0.1, integración Codex con skills. En un nuevo checkout:
 
-El README ejecutable documentará arranque, entorno privado, datos ficticios, verificación
-de identidad, edición del teléfono de un cliente ficticio por el WhatsApp del evaluador,
-campaña, pago completo sin condonación, acuerdo con descuento, captura del comprobante, consulta del pago,
-audio, imágenes, escalamiento humano, observabilidad y restauración de los escenarios.
+```bash
+export SPECIFY_FEATURE_DIRECTORY=specs/001-cobranza-whatsapp
+.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks
+```
 
-El repositorio no contendrá claves reales, códigos de recuperación ni las fuentes privadas
-aportadas como referencia.
+## Próximo trabajo
+
+Implementar las tareas empezando por consulta y pago íntegro por texto. Completar
+campaña, acuerdo, captura, audio, humano y métricas; después ejecutar la batería
+con integraciones reales y registrar evidencia. La prioridad organiza construcción,
+no elimina capacidades de la entrega. El README ejecutable se completará con los
+comandos verificados; el quickstart actual señala sus comandos de aplicación como futuros.
+
+El evaluador pondrá su WhatsApp en el teléfono de un cliente ficticio desde la central,
+lanzará la campaña y recorrerá PIN, deuda, pago, captura y consulta real. Podrá repetir
+con descuento, atención humana y medios, inspeccionar métricas/trazas y restaurar.
+
+## Configuración privada
+
+El entorno real, tokens, claves, datos recibidos y fuentes originales no se publican.
+Se aportarán mediante configuración privada al integrar. Los seeds y el PIN de demo
+son ficticios; el número real del evaluador queda en su entorno. Las claves nunca
+se envían por chat ni se incluyen en el repo.
