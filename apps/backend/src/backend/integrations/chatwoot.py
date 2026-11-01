@@ -242,9 +242,9 @@ class ChatwootClient:
         if current.get("status") != "pending":
             raise DomainError("human_control", "La conversación está bajo atención humana.", 409)
         params = {
-            "name": template.get("name", template.get("template_name")),
+            "name": template.get("template_name", template.get("name")),
             "category": template.get("category", "UTILITY"),
-            "language": template.get("language", template.get("template_language")),
+            "language": template.get("template_language", template.get("language")),
             "processed_params": template.get("processed_params", {}),
         }
         result = await self.request(

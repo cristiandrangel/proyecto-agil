@@ -672,7 +672,18 @@ class CampaignService:
             self.outbox.mark_sent(outbox_id, str(message_id), claim_token=claim_token)
             self._finish(recipient_id, "sent")
             return {"recipient_id": str(recipient_id), "status": "sent"}
-        except Exception:
+        except Exception as error:
+            if isinstance(error, DomainError) and error.code in {
+                "channel_rejected",
+                "human_control",
+                "channel_cannot_reply",
+                "wrong_inbox",
+                "invalid_channel_path",
+                "channel_not_configured",
+            }:
+                self.outbox.mark_failed(outbox_id, claim_token=claim_token)
+                self._finish(recipient_id, "failed", error.code)
+                return {"recipient_id": str(recipient_id), "status": "failed"}
             self.outbox.mark_uncertain(outbox_id, claim_token=claim_token)
             self._finish(recipient_id, "uncertain", "channel_result_uncertain")
             return {"recipient_id": str(recipient_id), "status": "uncertain"}

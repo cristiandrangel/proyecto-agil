@@ -175,6 +175,37 @@ async def test_mutation_server_error_is_uncertain_without_repeating(settings, st
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "template",
+    [
+        {"name": "demo1", "template_name": "recordatorio_factura_demo", "template_language": "es"},
+        {"name": "recordatorio_factura_demo", "language": "es"},
+    ],
+)
+async def test_template_wire_name_is_not_campaign_display_name(settings, template):
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"id": 11, "inbox_id": 7, "status": "pending", "can_reply": False})
+        payload = json.loads(request.content)
+        assert payload["template_params"] == {
+            "name": "recordatorio_factura_demo",
+            "category": "UTILITY",
+            "language": "es",
+            "processed_params": {},
+        }
+        return httpx.Response(200, json={"id": 101})
+
+    result = await ChatwootClient(settings, transport=httpx.MockTransport(handler)).send_template(
+        {"account_id": "9", "inbox_id": "7", "conversation_id": "11"}, template, "fixture-operation"
+    )
+    assert result == {"message_id": "101"}
+    assert [request.method for request in seen] == ["GET", "POST"]
+
+
+@pytest.mark.asyncio
 async def test_resolve_contact_exact_phone_and_literal_source_from_binding(settings):
     source = " whatsapp:+573000000001 #opaque "
     seen = []

@@ -210,6 +210,26 @@ async def test_changed_contact_is_skipped_and_unknown_delivery_is_not_resent(cam
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("code", ["channel_rejected", "human_control"])
+async def test_definitive_template_rejection_is_failed_not_uncertain(campaign_store, code):
+    central, channel = FakeCentral(live=True), FakeChannel()
+
+    async def rejected(binding, template, operation_key):
+        raise DomainError(code, "Definitive fixture rejection", status=409)
+
+    channel.send_template = rejected
+    service = CampaignService(central, campaign_store, channel=channel)
+    campaign = await make_campaign(service)
+    result = await service.dispatch_one()
+    assert result["status"] == "failed"
+    recipient = next(r for r in (await service.get(campaign["id"]))["recipients"] if r["id"] == result["recipient_id"])
+    assert recipient["reason"] == code
+    assert (await service.metrics(campaign["id"]))["failed"] == 1
+    with campaign_store() as session:
+        assert session.scalar(select(Outbox)).state == "failed"
+
+
+@pytest.mark.asyncio
 async def test_active_person_excluded_and_close_stops_pending_dispatch(campaign_store):
     service = CampaignService(FakeCentral(), campaign_store)
     first = await make_campaign(service)

@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Suite Docker aislada: 245 pruebas aprobadas, cero fallos y cero omitidas, en 33,04 segundos**, el 2026-11-01 a las 16:20 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
+- **Suite Docker aislada: 249 pruebas aprobadas, cero fallos y cero omitidas, en 32,24 segundos**, el 2026-11-01 a las 16:45 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -88,6 +88,22 @@ Todas las referencias de esta tabla se ejecutaron correctamente en la suite Dock
 | AC-29 | [`test_money_policy::test_rejects_ambiguous_or_invalid_money`](../tests/unit/test_money_policy.py)<br>[`test_agent_context::test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_grant`](../tests/unit/test_agent_context.py) | Oferta conversacional en otra moneda y aclaración del modelo real; la API declara USD fijo. |
 | AC-30 | [`test_central_finance::test_concurrent_orders_settle_exactly_once`](../tests/integration/test_central_finance.py)<br>[`test_central_finance::test_stale_balance_invalidates_order_and_quote`](../tests/integration/test_central_finance.py) | Demostración con navegador/cliente real; concurrencia y saldo modificado sí están probados con transacciones PostgreSQL. |
 | AC-31 | [`test_campaigns::test_live_sequential_dispatch_launch_idempotency_and_immutable_outbox_destination`](../tests/integration/test_campaigns.py)<br>[`test_campaigns::test_person_dedup_stable_snapshot_and_simulations_never_touch_channel`](../tests/integration/test_campaigns.py) | Lote mixto real con una entrega al evaluador; secuencia y ausencia de llamadas para simulados sí probadas con dobles. |
+
+## Incidencia durante la campaña guiada
+
+El primer intento real creó una conversación pendiente en la bandeja de pruebas,
+pero no creó mensajes. El adaptador eligió el nombre visible de la campaña como
+nombre de plantilla, en lugar del campo `template_name`; el relay rechazó esa
+plantilla antes de llamar al envío de Chatwoot. Se contrastaron la ausencia de
+mensajes y cero intentos upstream del relay. El intento local se concilió como
+fallido sin reenviarlo ni alterar la cartera.
+
+El adaptador ahora prioriza `template_name` y `template_language`. Los rechazos
+definitivos se registran como fallidos; los resultados realmente inciertos
+conservan su protección frente al reenvío. La UI muestra resultados sin confirmación
+y omitidos por separado, y distingue procesamiento finalizado de entrega.
+Las cuatro regresiones nuevas aprobaron dentro de la suite de 249 pruebas.
+La entrega al WhatsApp y la respuesta del evaluador siguen pendientes de repetir.
 
 ## Integraciones reales y despliegue
 

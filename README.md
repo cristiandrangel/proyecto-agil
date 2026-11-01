@@ -228,7 +228,7 @@ automatizada no reemplaza esta comprobación por el canal real.
 | Escenario | Resultado observado | Fecha / versión | Incidencia o evidencia revisada |
 |---|---|---|---|
 | Apertura y preparación de contacto | Pendiente | — | — |
-| Campaña y respuesta | Pendiente | — | — |
+| Campaña y respuesta | Primer envío rechazado; repetición pendiente | 2026-11-01 | Se corrigió la confusión entre nombre de campaña y plantilla. El primer intento no generó mensaje externo. |
 | Identificación y pago completo | Pendiente | — | — |
 | Imagen y verificación del pago | Pendiente | — | — |
 | Acuerdo 90% y límite 80% | Pendiente | — | — |
@@ -267,7 +267,7 @@ docker compose --env-file .env -f infra/compose.yaml stop
 
 ## Ejecutar las pruebas sin servicios externos
 
-La última ejecución registrada aprobó **245 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 16:20 UTC.
+La última ejecución registrada aprobó **249 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 16:45 UTC.
 
 La batería usa PostgreSQL 17 real, esquemas aislados y dobles de los proveedores. Se ejecuta en un proyecto Docker separado, sin puertos publicados, sin montar `.env` ni compartir volúmenes del runtime. La red de pruebas es interna:
 
