@@ -324,7 +324,33 @@ def test_campaign_template_uses_configured_defaults_without_meta_knowledge(web):
     client, _ = web
     sign_in(client)
     page = client.get("/central")
-    template = re.search(r'<input name="template_name"[^>]*>', page.text)[0]
-    language = re.search(r'<input name="template_language"[^>]*>', page.text)[0]
-    assert 'value="recordatorio_factura_demo"' in template and "readonly" in template
-    assert 'value="es"' in language and "readonly" in language
+    assert '<strong>recordatorio_factura_demo</strong>' in page.text
+    assert 'Idioma: es' in page.text and 'Fija para esta demo' in page.text
+    assert 'name="template_name"' not in page.text and 'name="template_language"' not in page.text
+    assert 'API de Meta' in page.text and 'El envío esperaría su aprobación' in page.text
+
+
+def test_campaign_template_is_fixed_by_server_even_if_browser_is_modified(web):
+    client, app = web
+    calls = []
+
+    class Campaigns:
+        async def create(self, payload):
+            calls.append(payload)
+            return {"id": "fixture-campaign"}
+
+    app.state.campaign_service = Campaigns()
+    csrf = sign_in(client)
+    headers = {"Origin": "http://testserver", "X-CSRF-Token": csrf}
+    payload = {"name": "Fixture campaign", "preview_id": "fixture-preview", "filters": {}}
+    result = client.post("/api/campaigns", json=payload, headers=headers)
+    assert result.status_code == 200
+    assert calls == [{**payload, "template_name": "recordatorio_factura_demo", "template_language": "es"}]
+    for changed in ({"template_name": "another_template"}, {"template_language": "en_US"}):
+        result = client.post("/api/campaigns", json={**payload, **changed}, headers=headers)
+        assert result.status_code == 422 and result.json()["code"] == "template_fixed"
+    assert len(calls) == 1
+    app.state.settings.chatwoot_template_name = ""
+    result = client.post("/api/campaigns", json=payload, headers=headers)
+    assert result.status_code == 503 and result.json()["code"] == "template_not_configured"
+    assert len(calls) == 1

@@ -254,7 +254,22 @@ async def preview_campaign(request: Request):
 
 @router.post("/api/campaigns", dependencies=[Depends(require_operator)])
 async def create_campaign(request: Request):
-    return await campaign_service(request).create(await object_body(request))
+    payload = await object_body(request)
+    settings = settings_for(request)
+    fixed = {
+        "template_name": settings.chatwoot_template_name,
+        "template_language": settings.chatwoot_template_language,
+    }
+    if not all(fixed.values()):
+        raise DomainError(
+            "template_not_configured", "La plantilla de la demo no está configurada.", status=503
+        )
+    if any(key in payload and payload[key] != value for key, value in fixed.items()):
+        raise DomainError(
+            "template_fixed", "La demo utiliza únicamente su plantilla preaprobada.", status=422
+        )
+    payload.update(fixed)
+    return await campaign_service(request).create(payload)
 
 
 @router.post("/api/campaigns/{campaign_id}/launch", dependencies=[Depends(require_operator)])

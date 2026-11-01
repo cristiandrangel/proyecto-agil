@@ -117,7 +117,9 @@ las demás personas se procesarán como simuladas.
 
 1. Escribe un nombre reconocible, por ejemplo `Evaluación · pago completo`.
 2. Comprueba la plantilla preconfigurada `recordatorio_factura_demo` y el idioma
-   `es`. Estos valores deben corresponder a la plantilla aprobada.
+   `es`. Se muestran como información fija; no se eligen ni se editan. El aviso
+   explica que en producción la creación se integraría con la API de Meta o del
+   proveedor y el envío esperaría la aprobación. La demo utiliza una ya aprobada.
 3. Pulsa **Guardar campaña**. Guardar todavía no envía mensajes.
 4. Revisa el segmento y pulsa **Lanzar secuencia** una vez.
 5. Pulsa **Actualizar** para consultar progreso y resultados.
