@@ -151,6 +151,14 @@ No quedan decisiones de diseño marcadas NEEDS CLARIFICATION.
    enviarse. Un estado humano conocido cancela la salida; un envío incierto no se
    repite automáticamente. El caso humano se guarda antes de nota y cambio a open.
 
+### Estado y ventana de contexto
+
+[agent-state.md](agent-state.md) concreta el estado propuesto, sus referencias a
+cartera y la ventana seleccionada antes de cada inferencia. Los checkpoints pueden
+conservar más historial del que se envía al LLM. La propuesta de 20 mensajes visibles
+es configurable y está subordinada al límite total de 12 000 tokens de entrada.
+No se crea una tabla propia de estados ni un nodo por fase conversacional.
+
 ### Identidad y acceso
 
 Operador: login con credencial de demo privada, cookie HttpOnly y protección CSRF

@@ -246,6 +246,11 @@ se restaura únicamente mediante reset documentado del escenario.
 
 ## Backend: operación y memoria
 
+El esquema del estado del agente y la selección de historial se detallan en
+[Estado, memoria y contexto](agent-state.md). Sus variables no crean tablas nuevas:
+AsyncPostgresSaver administra los checkpoints; las tablas siguientes guardan
+operación, permisos y efectos externos.
+
 | Entidad | Campos esenciales | Restricciones y relación |
 |---|---|---|
 | campaign | id, filter_snapshot, template_snapshot, created_at, launched_at, closed_at, followup_until, status, launch_key | Draft/running/completed/closed; una campaña activa por persona; segmento conservado para métricas |

@@ -47,6 +47,13 @@ El historial incluye textos de cliente y resultados autorizados, sin PIN ni URLs
 con capability completa. Los resultados de herramientas se tratan como datos:
 una instrucción incrustada no modifica políticas ni permisos.
 
+El [esquema de estado y ventana de historial](../agent-state.md) define qué se
+persiste y qué se selecciona para cada llamada. El checkpointer recupera el estado
+por thread_id; el nodo selecciona mensajes sin borrar el historial persistido.
+El límite de tokens incluye instrucciones, contexto y herramientas. Las referencias
+a deuda/acuerdo/orden se revalidan; una ventana corta no sustituye la confirmación
+de condiciones ni convierte una salida generada en un mensaje enviado.
+
 ## Identidad y medios anteriores al nodo
 
 Sin sesión se realiza localización y se pide PIN. La verificación de PIN ocurre

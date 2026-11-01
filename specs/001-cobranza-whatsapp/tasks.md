@@ -57,9 +57,9 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 - [ ] T022 [US1] Implementar intentos, settlement único, condonación cero y eventos centrales atómicos en apps/central/src/central/payments.py (FR-03, FR-16; AC-05, AC-10, AC-14, AC-30).
 - [ ] T023 [US1] Implementar web de pago/recibo y adaptador de intentos en apps/backend/src/backend/api/payments.py, templates/payment.html y static/payment.js (FR-15, FR-16; AC-05, AC-10).
 - [ ] T024 [US1] Implementar herramientas autorizadas de consulta, selección, pago íntegro y verificación en apps/backend/src/backend/agent/tools.py (FR-03, FR-09, FR-13, FR-15, FR-17; AC-02, AC-05, AC-11, AC-13).
-- [ ] T025 [US1] Construir único nodo con loop de cinco llamadas y memoria persistente en apps/backend/src/backend/agent/graph.py y prompts.py (FR-11, FR-12, FR-19; AC-05, AC-19, AC-22, AC-23).
+- [ ] T025 [US1] Construir único nodo con loop de cinco llamadas, esquema de agent-state.md, memoria persistente y ventana de historial con herramientas completas y límite total de tokens en apps/backend/src/backend/agent/graph.py y prompts.py (FR-11, FR-12, FR-19; AC-05, AC-19, AC-22, AC-23).
 - [ ] T026 [US1] Implementar adaptador Chatwoot, firma/relay, filtros, pending y ACK durable en apps/backend/src/backend/integrations/chatwoot.py y api/webhooks.py (FR-07, FR-08, FR-18; AC-04, AC-14, AC-18, AC-22).
-- [ ] T027 [US1] Crear entrada local marcada como simulada y prueba de recorrido por texto con inferencia opt-in en apps/backend/src/backend/api/demo.py y tests/integration/test_text_journey.py (FR-11, FR-16, FR-17, FR-20; AC-05, AC-14, AC-19).
+- [ ] T027 [US1] Crear entrada local marcada como simulada y prueba de recorrido por texto con inferencia opt-in, incluyendo reanudación y ventana de historial que conserva referencias y permisos, en apps/backend/src/backend/api/demo.py y tests/integration/test_text_journey.py (FR-11, FR-12, FR-16, FR-17, FR-20; AC-05, AC-14, AC-19).
 
 **Checkpoint**: verificar el incremento con evidencia antes de dar por terminada la fase.
 
