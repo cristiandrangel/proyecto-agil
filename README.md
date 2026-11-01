@@ -43,6 +43,22 @@ docker compose --env-file .env -f infra/compose.yaml exec backend python -m scri
 
 Un preflight correcto acredita esas consultas de lectura. La integración de mensajes y los recorridos comerciales se comprueban por separado.
 
+## Accesos web del evaluador
+
+El archivo privado `.env` reúne los accesos necesarios para usar las interfaces.
+No se copian contraseñas en este README ni en el repositorio público.
+
+| Interfaz | URL en `.env` | Usuario en `.env` | Contraseña en `.env` |
+|---|---|---|---|
+| Central de deudores | `PUBLIC_BASE_URL` + `/central` | `OPERATOR_USERNAME` | `OPERATOR_PASSWORD` |
+| Langfuse | `LANGFUSE_PUBLIC_URL` | `LANGFUSE_INIT_USER_EMAIL` | `LANGFUSE_INIT_USER_PASSWORD` |
+| Chatwoot de pruebas | `CHATWOOT_UI_URL` | `CHATWOOT_UI_EMAIL` | `CHATWOOT_UI_PASSWORD` |
+
+El acceso web de Chatwoot es distinto de la clave del relay. Su usuario y alcance
+se preparan antes de entregar el entorno; campos vacíos no constituyen un acceso
+configurado. El evaluador no necesita entrar a la administración de Cloudflare ni
+a la cuenta AWS del propietario: el túnel utiliza su token de ejecución privado.
+
 ## Datos y PIN de la demo
 
 **PIN ficticio de todos los clientes: `2468`.** Se almacena como hash y se verifica fuera del modelo. La sesión dura 30 minutos; tres errores bloquean la identidad durante 15 minutos.
@@ -122,7 +138,9 @@ las demás personas se procesarán como simuladas.
    proveedor y el envío esperaría la aprobación. La demo utiliza una ya aprobada.
 3. Pulsa **Guardar campaña**. Guardar todavía no envía mensajes.
 4. Revisa el segmento y pulsa **Lanzar secuencia** una vez.
-5. Pulsa **Actualizar** para consultar progreso y resultados.
+5. Observa el progreso y los resultados: se actualizan automáticamente cada tres
+   segundos mientras la pestaña está visible. **Actualizar** permite consultarlos
+   también de inmediato.
 
 **Comprobar:** el despacho avanza una persona por vez, los destinos ficticios se
 registran como simulados y la plantilla llega a tu WhatsApp. Los simulados no
@@ -174,8 +192,8 @@ aplicar un segundo pago al recibir otra vez el mismo comprobante.
 
 ## 8. Revisar resultados y observabilidad
 
-1. Mantén abierta la página de la campaña y pulsa **Actualizar** para consultar
-   sus métricas. Utiliza ese botón en lugar de recargar toda la página: actualmente
+1. Mantén abierta la página de la campaña: sus métricas se actualizan cada tres
+   segundos. Puedes pulsar **Actualizar** para una consulta inmediata. Actualmente
    la selección de campaña no se recupera al recargarla.
 2. Contrasta envíos reales y simulados, personas que respondieron, contactabilidad
    y pagos completos sin descuento. Una respuesta previa a la campaña no cuenta
@@ -230,7 +248,7 @@ automatizada no reemplaza esta comprobación por el canal real.
 | Escenario | Resultado observado | Fecha / versión | Incidencia o evidencia revisada |
 |---|---|---|---|
 | Apertura y preparación de contacto | Pendiente | — | — |
-| Campaña y respuesta | Primer envío rechazado; repetición pendiente | 2026-11-01 | Se corrigió la confusión entre nombre de campaña y plantilla. El primer intento no generó mensaje externo. |
+| Campaña y respuesta | Plantilla recibida; respuesta pendiente | 2026-11-01 | Recepción confirmada por el usuario y estado delivered comprobado en Chatwoot. El primer intento fallido se conserva como incidencia. |
 | Identificación y pago completo | Pendiente | — | — |
 | Imagen y verificación del pago | Pendiente | — | — |
 | Acuerdo 90% y límite 80% | Pendiente | — | — |

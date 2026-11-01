@@ -103,7 +103,10 @@ definitivos se registran como fallidos; los resultados realmente inciertos
 conservan su protección frente al reenvío. La UI muestra resultados sin confirmación
 y omitidos por separado, y distingue procesamiento finalizado de entrega.
 Las cuatro regresiones nuevas aprobaron dentro de la suite de 249 pruebas.
-La entrega al WhatsApp y la respuesta del evaluador siguen pendientes de repetir.
+El usuario confirmó la recepción de la plantilla en el reintento. En la bandeja
+de pruebas se verificó el mensaje saliente en estado `delivered`, con referencia
+del proveedor y conversación `pending` asignada al bot de pruebas. La respuesta
+del evaluador y el resto de la conversación siguen pendientes.
 
 ## Integraciones reales y despliegue
 
@@ -112,9 +115,9 @@ La entrega al WhatsApp y la respuesta del evaluador siguen pendientes de repetir
 | Catálogo OpenAI, 2026-10-31 | Registro previo: GET `/v1/models` devolvió 200 con la credencial privada y listó los modelos configurados. Sin inferencia. Acredita lectura autenticada, no calidad, uso ni facturación. |
 | Inferencia de agente | Luna real ejecutó identificación/listado/selección/enlaces, pago total local USD 100/0 y acuerdo USD 60→54 con USD 6 condonados. La sesión vencida provocó petición de documento; no hay confirmación conversacional acreditada del acuerdo pagado. Pendientes del cierre multimedia/WhatsApp y contraste final de uso/coste. |
 | Transcripción y visión | Visión `high` leyó referencia, importe, condonación y estado sin verificación financiera: 1403 tokens de entrada, 136 de salida, 1400 escrituras de caché de 30 minutos y USD 0,0005138 estimados con la tarifa corregida. `gpt-transcribe` transcribió correctamente un audio real de 4,994 segundos. Falta contrastarlos dentro del recorrido WhatsApp. |
-| Chatwoot/WhatsApp | Preflight de lectura completo aprobado. Pendientes de campaña entregada, respuesta, comprobante, audio y transferencia humana de extremo a extremo desde el número del evaluador. |
+| Chatwoot/WhatsApp | Plantilla del reintento recibida por el usuario; mensaje saliente `delivered` verificado en la bandeja de pruebas con conversación `pending`. Pendientes de respuesta, comprobante, audio y transferencia humana de extremo a extremo. |
 | Relay del canal | Configuración activa confirmada: ambos clientes usan el mismo relay HTTPS y clave limitada; los tokens de usuario y AgentBot permanecen exclusivamente en ASUS. Backend/worker reconstruidos saludables y preflight posterior completo, sin escrituras ni inferencia. Conversación de prueba: 200 con id/bandeja/estado/`can_reply`, sin binding supuesto. Probes de alcance: bandeja autorizada 200, otra bandeja/cuenta 403 y sin clave 401. Conserva el actor bot y no expone historial. |
-| Plantilla de prueba | Verificada mediante `sync_templates` real de Chatwoot: `recordatorio_factura_demo` / `es` / `APPROVED` / `UTILITY`. El `.env` privado ya usa esta plantilla principal. `hello_world` / `en_US` queda como respaldo. La sincronización y aprobación están confirmadas; la entrega de una campaña por WhatsApp sigue pendiente. |
+| Plantilla de prueba | Verificada mediante `sync_templates` real de Chatwoot: `recordatorio_factura_demo` / `es` / `APPROVED` / `UTILITY`. El `.env` privado ya usa esta plantilla principal. `hello_world` / `en_US` queda como respaldo. Sincronización y aprobación confirmadas; la plantilla del reintento llegó al usuario y figura delivered en Chatwoot. El recorrido conversacional restante sigue pendiente. |
 | Langfuse | Tres generaciones reales de audio/visión leídas por API; UI autenticada con trazas de conversación, herramienta y modelo, tokens, coste estimado y errores. Captura conservada como evidencia privada, sin publicarla. No registra prompts ni respuestas completas. Las métricas de negocio están en la central. T049 comprobada; sigue pendiente la traza del recorrido WhatsApp completo. |
 | HTTPS y webhook | Modo `production`, entrada local 403, login HTTPS 303/cookie `Secure` y tabla 200 por HTTP. HMAC real: `200 ignored_event`; clave incorrecta 401 y bandeja ajena 403. Chrome real: login, 14 filas y acciones JavaScript verificados. |
 | Grabación y sustentación | Pendientes de realizar y revisar. |
