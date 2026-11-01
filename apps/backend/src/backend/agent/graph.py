@@ -115,6 +115,7 @@ def build_graph(checkpointer, *, runtime, inference, text):
             context = {
                 "source_id": event.thread_id,
                 "identity_verified": snapshot["verified"],
+                "conversation_start": not any(group.get("complete") for group in state.get("messages", [])),
                 "identity_confirmation_complete": snapshot["verified"],
                 "pin_validation_complete": snapshot["verified"],
                 "phase": runtime.phase,

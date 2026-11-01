@@ -6,6 +6,16 @@ from central.auth import CentralError, check_pin, digest, grant_token, role
 from central.models import Customer, IdentityAttempt, IdentityCandidate, IdentitySession, utcnow
 
 
+def masked_identity_hint(name, document_type, document_number):
+    def edges(value):
+        if len(value) < 3:
+            return "*" * max(1, len(value))
+        return value[0] + "*" * (len(value) - 2) + value[-1]
+
+    first_name = name.split(maxsplit=1)[0] if name.split() else ""
+    return f"{edges(first_name)} · {document_type} {edges(document_number)}"
+
+
 def locate(request, db, body):
     if role(request) != "agent":
         raise CentralError("forbidden", "Agent permission required", 403)
@@ -24,7 +34,7 @@ def locate(request, db, body):
         )
         db.add(candidate)
         db.flush()
-        hint = f"{person.display_name[:1]}*** · {person.document_type} ***{person.document_number[-3:]}"
+        hint = masked_identity_hint(person.display_name, person.document_type, person.document_number)
         candidates.append({"candidate_reference": str(candidate.id), "masked_hint": hint})
     result = {"candidate_count": len(candidates), "candidates": candidates}
     if len(candidates) == 1:

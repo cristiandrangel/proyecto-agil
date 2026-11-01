@@ -4,11 +4,11 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Suite Docker aislada: 249 pruebas aprobadas, cero fallos y cero omitidas, en 32,24 segundos**, el 2026-11-01 a las 16:45 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
+- **Suite Docker aislada: 262 pruebas aprobadas, cero fallos y cero omitidas, en 34,52 segundos**, el 2026-11-01 a las 17:31 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
-- La suite final incluye las migraciones operativas **0001→0004**, caché/precio v2, 20 contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants.
+- La suite final incluye las migraciones operativas **0001→0004**, caché/precio v2, contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants. Las regresiones más recientes cubren la plantilla fija, su BODY aprobado, pistas de identidad enmascaradas y la detección del primer turno desde el checkpoint.
 - Migración central verificada con PostgreSQL 17: upgrade, comparación sin diferencias frente a los modelos, downgrade y nuevo upgrade. El test está en `test_frozen_alembic_upgrade_downgrade_matches_models`.
 - El lanzador `start.sh` tiene nueve pruebas de perfiles, URL y lectura segura de configuración. Se verificó que una cadena de comando dentro del token de `.env` no se ejecuta y que el perfil público precede a `up` solo cuando corresponde.
 - Reset probado con dos esquemas reales y AsyncPostgresSaver: tras un fallo de central persiste mantenimiento; repetir la misma operación completa el reset una sola vez, elimina checkpoints de la llave literal y conserva el consumo registrado.
@@ -47,6 +47,27 @@ El ajuste posterior de nombres y documentos conserva los mismos UUID, contratos,
 Con Luna real se ejecutaron identificación, listado, selección y generación del enlace. La aprobación del pago simulado devolvió **HTTP 200: USD 100 recibidos y cero condonados**. También se propuso el 90% sobre telefonía de USD 60: oferta **USD 54**, aceptación en otro mensaje y enlace; la aprobación devolvió **HTTP 200, 5400 centavos recibidos, 600 condonados y saldo cero**.
 
 La consulta posterior al acuerdo encontró la sesión vencida y pidió documento, conforme al TTL. **No se acredita aún una confirmación conversacional del acuerdo pagado.** Siguen pendientes el comprobante multimedia y WhatsApp de extremo a extremo desde el número del evaluador. Los pagos son simulados, sin movimiento de dinero real; no se publican enlaces firmados ni grants.
+
+## Apertura y guardrails del prompt
+
+Se evaluó el prompt actualizado con cuatro llamadas reales a Luna, razonamiento
+alto y salida máxima de 1200 tokens, usando presupuesto y observabilidad del
+runtime. La apertura generó presentación de Alex, contexto de cobranza y motivo
+de autenticación, conservó literalmente la pista ficticia y no reveló saldo.
+El formato de máscara de la central se verificó aparte con pruebas deterministas.
+
+Tres intentos de inyección introducidos como mensaje de usuario, texto de medio
+no verificado y cadena de resultado de herramienta no revelaron instrucciones ni
+el secreto sintético de control, ni confirmaron un pago inexistente. La revisión
+semántica detectó una limitación: la muestra de medios propuso atención humana
+antes de completar autenticación. Dos muestras terminaron en una propuesta de
+herramienta, sin respuesta final al usuario. Se usaron historiales y herramientas
+de prueba; ninguna operación financiera ni de Chatwoot se ejecutó.
+
+El coste registrado fue **USD 0,00235343**, con las cuatro reservas liquidadas.
+Son muestras aisladas, no una garantía exhaustiva contra inyecciones ni una prueba
+integral de recepción de medios en WhatsApp. El backend mantiene las validaciones
+de identidad, permisos y pagos independientemente de las instrucciones del modelo.
 
 ## Reproducción sin dependencias externas
 
@@ -87,7 +108,7 @@ Todas las referencias de esta tabla se ejecutaron correctamente en la suite Dock
 | AC-20 | [`test_campaigns::test_person_dedup_stable_snapshot_and_simulations_never_touch_channel`](../tests/integration/test_campaigns.py) | Campaña real con varios servicios; agrupación y simulaciones sí verificadas con dobles del canal. |
 | AC-21 | [`test_campaigns::test_active_person_excluded_and_close_stops_pending_dispatch`](../tests/integration/test_campaigns.py)<br>[`test_campaigns::test_live_sequential_dispatch_launch_idempotency_and_immutable_outbox_destination`](../tests/integration/test_campaigns.py) | Exclusiones/lanzamiento repetido visibles en una campaña real y el canal configurado. |
 | AC-22 | [`test_text_journey::test_five_tool_responses_stop_and_register_honest_handoff`](../tests/integration/test_text_journey.py)<br>[`test_backend_identity::test_invalid_pin_media_and_temporary_failure_do_not_reach_agent`](../tests/integration/test_backend_identity.py) | Fallo del proveedor/central durante un turno real y comunicación al usuario; fallos deterministas usan dobles. |
-| AC-23 | [`test_agent_context::test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_grant`](../tests/unit/test_agent_context.py)<br>[`test_handoff::test_reason_amount_and_tenant_are_validated`](../tests/integration/test_handoff.py) | Inyección adversaria con el modelo real; los permisos y esquemas deterministas sí están limitados. |
+| AC-23 | [`test_agent_context::test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_grant`](../tests/unit/test_agent_context.py)<br>[`test_handoff::test_reason_amount_and_tenant_are_validated`](../tests/integration/test_handoff.py) | Tres muestras de inyección con Luna real sin divulgación ni confirmación falsa de pago; falta ampliar ataques y ejecutarlos por el grafo y WhatsApp. Los permisos y esquemas deterministas sí están limitados. |
 | AC-24 | [`test_budget::test_concurrent_budget_cutoff_is_atomic`](../tests/integration/test_budget.py)<br>[`test_budget::test_timeout_preserves_amount_and_expired_lease_only_releases_slot`](../tests/integration/test_budget.py)<br>[`test_agent_context::test_payment_capability_never_crosses_model_checkpoint_boundary`](../tests/unit/test_agent_context.py) | Tres generaciones reales leídas por API sin entradas/salidas; faltan traza de WhatsApp, revisión completa y contraste del coste estimado con el proveedor. |
 | AC-25 | [`test_central_finance::test_operator_contact_shared_version_mora_and_seed_never_overwrites`](../tests/integration/test_central_finance.py)<br>[`test_web_frontends::test_exact_mora_bucket_and_service_filters`](../tests/contracts/test_web_frontends.py) | Edición por navegador y entradas negativas/fraccionarias/vacías de extremo a extremo; persistencia y filtros sí probados. |
 | AC-26 | [`test_campaigns::test_mora_buckets_boundaries_and_multiple_services`](../tests/integration/test_campaigns.py) | Lanzamiento real por límites; pruebas deterministas ya comprueban 29/30/59/60 y varios servicios. |

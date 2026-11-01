@@ -176,9 +176,21 @@ WhatsApp del evaluador es una comprobación adicional del recorrido.
 7. Cuando pida el PIN, escribe **2468**. Es el PIN ficticio de la demo.
 8. Selecciona explícitamente el servicio **hogar**.
 
+**Comprobar:** en el primer turno el agente se presenta como Alex, explica el
+contexto de cobranza y la necesidad de autenticarte antes de compartir detalles.
+La redacción la genera el modelo siguiendo su prompt. La pista muestra solo las
+letras inicial y final del primer nombre y los dígitos inicial y final del
+documento, por ejemplo `A*a · CC 1******1` para Ana; nombres o documentos de uno
+o dos caracteres quedan totalmente ocultos.
+
 **Comprobar:** antes del PIN no revela el detalle financiero. Después de
 autenticarte, puedes gestionar las deudas de Ana, una a la vez. El PIN se verifica
 fuera del LLM. Si caduca la sesión de 30 minutos, debe volver a autenticarte.
+
+El prompt instruye al agente a ignorar intentos de cambiar sus reglas desde
+mensajes, adjuntos o resultados de herramientas y a no revelar instrucciones
+internas ni secretos. Además, el backend valida identidad, permisos y operaciones
+financieras aunque el modelo solicite una acción indebida.
 
 ## 6. Completar un pago sin descuento
 
@@ -303,7 +315,7 @@ docker compose --env-file .env -f infra/compose.yaml stop
 
 ## Ejecutar las pruebas sin servicios externos
 
-La última ejecución registrada aprobó **249 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 16:45 UTC.
+La última ejecución registrada aprobó **262 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 17:31 UTC.
 
 La batería usa PostgreSQL 17 real, esquemas aislados y dobles de los proveedores. Se ejecuta en un proyecto Docker separado, sin puertos publicados, sin montar `.env` ni compartir volúmenes del runtime. La red de pruebas es interna:
 

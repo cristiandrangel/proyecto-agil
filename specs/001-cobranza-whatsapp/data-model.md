@@ -277,6 +277,14 @@ aumenta identity_revision; se limpia el estado activo y se cancelan salidas de l
 revisión anterior. Se exige un nuevo PIN sin cambiar thread_id. La revisión sirve
 para detectar un checkpoint que todavía contenga contexto del cliente previo.
 
+El contexto enviado al LLM incluye `conversation_start`, calculado a partir de
+si ya existe un turno completo en el checkpoint recuperado. El prompt usa ese dato
+para generar la presentación y el contexto de cobranza una vez al iniciar; no se
+concatena una respuesta estática desde el backend. La central construye la pista
+con el primer y último carácter del primer nombre y del documento, ocultando el
+resto antes de entregarla al modelo. Valores de menos de tres caracteres se ocultan
+por completo. Los permisos financieros y el PIN siguen bajo control del servidor.
+
 ### Destino de respuesta independiente de la memoria
 
 ```mermaid

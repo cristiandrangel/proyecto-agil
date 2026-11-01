@@ -216,6 +216,7 @@ async def test_checkpoint_restart_literal_source_history_and_event_dedupe(journe
             inference.calls[0]["instructions"].split("Contexto actual del servidor: ", 1)[1]
         )
         assert context["source_id"] == thread and "grant" not in context
+        assert context["conversation_start"] is True
     # A fresh saver/graph resumes the latest state, not a manually reconstructed history.
     second = event(store, thread, 2, conversation="conversation-two")
     async with checkpointer(conninfo) as saver:
@@ -230,6 +231,8 @@ async def test_checkpoint_restart_literal_source_history_and_event_dedupe(journe
         assert len(state["messages"]) == 2
         assert "Primera respuesta" in json.dumps(inference.calls[0]["input"])
         assert len(inference.calls) == 1
+        second_context = json.loads(inference.calls[0]["instructions"].split("Contexto actual del servidor: ", 1)[1])
+        assert second_context["conversation_start"] is False
         duplicate = await graph.ainvoke({}, thread_config(thread))
         assert duplicate == state and len(inference.calls) == 1
         assert (
