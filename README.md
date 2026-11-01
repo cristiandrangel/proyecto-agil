@@ -56,47 +56,189 @@ Un preflight correcto acredita esas consultas de lectura. La integración de men
 
 Todos los nombres y documentos son ficticios. Los documentos tienen ocho dígitos. Las personas de los límites de mora 0, 29, 30, 59, 60, 89, 90, 119 y 120 usan el documento `20000000 + días` (por ejemplo, `20000120`). La pantalla muestra una fila por deuda; nombre y contacto pertenecen a la persona y se comparten entre sus servicios.
 
-## Preparar el WhatsApp del evaluador
+## 1. Abrir la central de deudores
 
-1. En la central, filtra por `10000001` y edita el contacto de Ana. Sustituye su teléfono por tu WhatsApp con código de país. Elige `live` y habilita el contacto de prueba. Comprueba que ambas filas comparten el teléfono y la nueva versión de contacto. Deja los demás clientes en `simulated`.
-2. En el entorno privado, verifica que `CHATWOOT_ACCOUNT_ID` y `CHATWOOT_INBOX_ID` correspondan a la bandeja de pruebas y que su bot apunte a esta aplicación. No cambies una bandeja de producción. El número del evaluador debe estar habilitado para la prueba en Meta cuando corresponda.
-3. La plantilla principal verificada mediante `sync_templates` de Chatwoot es **`recordatorio_factura_demo`**, idioma **`es`**, estado **`APPROVED`** y categoría **`UTILITY`**. El `.env` privado entregado ya la configura. Usa esos mismos valores en `CHATWOOT_TEMPLATE_NAME`, `CHATWOOT_TEMPLATE_LANGUAGE`, `CHATWOOT_TEMPLATE_CATEGORY` y en el formulario de campaña. `hello_world` / `en_US` queda como respaldo; no es la opción principal.
-4. Si hace falta crear el contacto o abrir la conversación de prueba, envía primero un mensaje de preparación al número de prueba. Mantén la conversación en `pending` para el bot. La respuesta de preparación anterior al envío de campaña queda fuera de su contactabilidad.
-5. Comprueba la entrada HTTPS antes de esperar mensajes externos.
+1. Abre [la central](https://cobranza.agenx-dev-test.work/central).
+   Si se entregó otro origen, usa la URL que imprime `./start.sh`.
+2. Inicia sesión con `OPERATOR_USERNAME` y `OPERATOR_PASSWORD` del `.env` privado.
+3. Localiza la tabla **Cartera y contacto**. Cada fila representa una deuda de un
+   servicio, y una persona puede aparecer en varias filas.
 
-El origen previsto es **`https://cobranza.agenx-dev-test.work`**. La configuración y verificación del túnel se documentan en [dominio de demo](docs/dominio-demo.md). Se verificaron HTTPS, salud/readiness y rechazo de un webhook sin autenticación en el entorno de desarrollo. Esto no demuestra la entrega de WhatsApp; el evaluador aún debe ejecutar el recorrido desde su contacto.
+**Comprobar:** en una instalación limpia hay 14 deudas de 13 personas. Todos los
+contactos comienzan simulados. Ana Martínez López tiene dos deudas:
 
-Con el `.env` privado entregado configurado para HTTPS, `./start.sh` activa el conector automáticamente. Para activarlo manualmente después de preparar el túnel y configurar `PUBLIC_BASE_URL`:
+| Documento | Servicio | Saldo | Mora |
+|---|---|---:|---:|
+| CC 10000001 | hogar | USD 100 | 45 días |
+| CC 10000001 | telefonia | USD 60 | 75 días |
 
-```bash
-docker compose --env-file .env -f infra/compose.yaml --profile public up -d cloudflared
-```
+## 2. Poner el WhatsApp del evaluador en un deudor
 
-Solo puede haber **un equipo activo** conectado al mismo túnel. Antes de cambiar de PC o pasar a EC2, detén el conector anterior. El hostname no transporta las bases: una instalación nueva comienza con fixtures, salvo que se planifique una restauración explícita.
+1. En **Tipo de documento**, selecciona `CC`; en **Número de documento**, escribe
+   `10000001`. Deja mora, servicio y estado sin restringir.
+2. Pulsa **Aplicar filtros**. Deben aparecer las dos deudas de Ana.
+3. En cualquiera de esas filas, pulsa **Contacto**.
+4. En **Celular E.164**, reemplaza el teléfono ficticio por tu WhatsApp con `+`
+   y código de país, sin espacios. No cambies nombre ni documento: interpretarás
+   a Ana durante la prueba.
+5. Selecciona **Live · evaluador autorizado** y marca
+   **Habilitar este contacto para pruebas live**.
+6. Pulsa **Guardar cambios**.
 
-## Campaña y pago completo
+**Comprobar:** las dos filas de Ana muestran el mismo teléfono, modo **Live** y
+contacto habilitado. El contacto se comparte entre servicios. Las demás personas
+deben seguir simuladas. Todavía no has lanzado una campaña.
 
-1. Selecciona el rango **30–59 días** y estado pendiente. Previsualiza el segmento: Ana aporta solo `hogar`; su deuda de telefonía tiene 75 días. Cada persona aparece una sola vez aunque tenga varios servicios elegibles.
-2. Guarda la campaña con la plantilla aprobada y su idioma exacto. Lanza la secuencia una vez. El worker recorre una persona por vez y conserva el progreso. Los contactos ficticios se muestran como **simulados**, sin llamadas al canal ni a OpenAI; solo el contacto `live` habilitado puede recibir el envío real.
-3. Responde desde WhatsApp. Confirma la pista enmascarada o indica tipo y número de documento ficticio. Si el origen llega como un identificador desconocido, puedes usar `CC 10000001`. Escribe `2468` cuando se solicite el PIN y elige explícitamente el servicio `hogar`.
-4. Pide pagar el saldo completo. Abre el enlace y pulsa **Simular aprobación**. El recibo debe mostrar USD 100 recibidos, cero condonados y saldo cero. La telefonía conserva USD 60.
-5. Envía una captura del recibo por WhatsApp. La confirmación del bot debe basarse en una consulta del pago y la deuda autorizada; una imagen, por sí sola, no liquida una deuda.
+Si Meta limita los destinatarios del número de prueba, el WhatsApp utilizado debe
+estar autorizado allí. Si ya hay una conversación con ese número, quien tenga
+acceso a la bandeja de pruebas debe comprobar que esté en `pending` para el bot.
+Una conversación en `open` pertenece a atención humana.
 
-La orden cobra el importe fijado por la central y vence a los 30 minutos. Rechazar un intento mantiene el saldo. Un recibo pagado puede consultarse mediante su enlace firmado durante 24 horas después del pago; ese permiso no permite otro cobro.
+## 3. Filtrar la cartera y previsualizar la campaña
 
-## Acuerdo, medios y atención humana
+1. Borra **Número de documento** y deja **Tipo de documento** en **Todos los tipos**
+   para incluir también deudores simulados en el segmento.
+2. Selecciona estos filtros y pulsa **Aplicar filtros**:
 
-Restaura el escenario entre recorridos financieros. Sobre la deuda de USD 100, ofrece **USD 90**, espera la propuesta y acepta en **otro mensaje**. Antes de aprobar el pago, la deuda sigue en USD 100. Al pagarlo, el recibo muestra USD 90 recibidos y USD 10 condonados. Repite con USD 80 para probar el umbral exacto. Una oferta de USD 79,99 exige atención humana; no genera una orden automática con ese descuento. Solo se admite USD, sin conversiones.
+   | Filtro | Valor |
+   |---|---|
+   | Mora | 30–59 días |
+   | Servicio | hogar |
+   | Estado | Pendiente |
 
-Para atención humana, pide un asesor o disputa la deuda. Deben quedar un caso y una nota privada, y Chatwoot pasa a `open`. El bot permanece detenido mientras exista control humano. El asesor devuelve la conversación a `pending` de forma explícita para reanudarla. La comprobación de estado y el envío son dos peticiones externas: una toma humana simultánea requiere verificar la carrera residual en la instalación real.
+3. Pulsa **Previsualizar segmento** en **Preparar una campaña**.
+4. Revisa personas únicas, deudas elegibles y modo de contacto.
 
-Envía una nota de voz de hasta 60 segundos y un texto acompañante; ambos deben aportar contexto. Envía después una captura ilegible y una imagen con apariencia de comprobante sin haber pagado: se debe pedir aclaración o consultar el registro, sin inventar éxito. Los medios admitidos son PNG/JPEG/WebP y audio OGG/WAV/MP3; WebM solo se acepta si el contenedor dispone de `ffprobe` y permite validar su duración. El límite es 5 MiB por archivo. Los medios no se procesan durante una solicitud de PIN.
+**Comprobar:** Ana aparece una sola vez y su deuda elegible es hogar. Telefonía
+queda fuera por servicio y mora. Solo Ana está habilitada para un envío real;
+las demás personas se procesarán como simuladas.
 
-## Métricas y trazas
+## 4. Guardar y lanzar la campaña
 
-La campaña muestra procesados, pendientes, simulados, envíos reales, errores y resultados. Los simulados quedan fuera del denominador de contactabilidad. Un pago completo tiene condonación cero; un acuerdo distingue pendiente, cumplido y vencido. Dinero recibido y condonado se presentan separados. Las solicitudes de asesor del cliente se distinguen de derivaciones automáticas.
+1. Escribe un nombre reconocible, por ejemplo `Evaluación · pago completo`.
+2. Comprueba la plantilla preconfigurada `recordatorio_factura_demo` y el idioma
+   `es`. Estos valores deben corresponder a la plantilla aprobada.
+3. Pulsa **Guardar campaña**. Guardar todavía no envía mensajes.
+4. Revisa el segmento y pulsa **Lanzar secuencia** una vez.
+5. Pulsa **Actualizar** para consultar progreso y resultados.
 
-En Langfuse, revisa los spans correlacionados de texto, herramientas, audio e imagen, con tokens, coste estimado y errores. Se verificaron tres generaciones reales de audio/visión por API y trazas de conversación, herramienta y modelo en la UI autenticada. No se almacenan prompts ni respuestas completas; las métricas de negocio se consultan en la central. No deben aparecer PIN, grants, tokens, contactos completos ni archivos. El ledger local comparte reservas entre modalidades y workers: presupuesto total USD 5 y corte conservador USD 4,50; un resultado incierto conserva su reserva. Restablecer la demo no borra ese consumo ni los cargos del proveedor.
+**Comprobar:** el despacho avanza una persona por vez, los destinos ficticios se
+registran como simulados y la plantilla llega a tu WhatsApp. Los simulados no
+envían mensajes externos ni consumen IA. No relances una campaña para compensar
+una entrega incierta: consulta primero el resultado del destinatario.
+
+El estado de envío y el acuse de entrega son distintos. Si Chatwoot omite el
+estado exacto, no se debe presentar como entregado o leído. La recepción en el
+WhatsApp del evaluador es una comprobación adicional del recorrido.
+
+## 5. Responder e identificarse
+
+1. Responde a la plantilla desde tu WhatsApp, por ejemplo: `Hola, quiero revisar
+   mi deuda`.
+2. Si el agente encuentra una pista de identidad y pregunta si corresponde a ti,
+   confírmala. Si solicita documento, escribe `CC 10000001`.
+3. Cuando pida el PIN, escribe **2468**. Es el PIN ficticio de la demo.
+4. Selecciona explícitamente el servicio **hogar**.
+
+**Comprobar:** antes del PIN no revela el detalle financiero. Después de
+autenticarte, puedes gestionar las deudas de Ana, una a la vez. El PIN se verifica
+fuera del LLM. Si caduca la sesión de 30 minutos, debe volver a autenticarte.
+
+## 6. Completar un pago sin descuento
+
+1. Escribe: `Quiero pagar los USD 100 completos del servicio hogar. Dame el enlace`.
+2. Abre el enlace que entrega el agente. Comprueba el servicio e importe.
+3. Pulsa **Simular aprobación**.
+4. Revisa el comprobante y vuelve a la central. Aplica nuevamente los filtros
+   de `CC 10000001`, sin restringir estado, servicio ni mora.
+
+**Comprobar:** el recibo muestra USD 100 recibidos, USD 0 condonados y saldo USD 0.
+Hogar figura liquidada; telefonía conserva USD 60. Editar un saldo manualmente
+no sustituye esta prueba: el pago debe originarse en la página simulada.
+
+La orden vence a los 30 minutos. El enlace de un recibo pagado puede consultarse
+durante 24 horas después del pago; no permite cobrar otra vez.
+
+## 7. Enviar el comprobante al agente
+
+1. Toma una captura del comprobante de la página de pago, evitando incluir la
+   barra de direcciones: contiene un enlace privado.
+2. Envíala por WhatsApp con un texto como `Ya pagué; verifica este comprobante`.
+3. Espera la respuesta y contrasta el resultado con la central.
+
+**Comprobar:** el agente interpreta la imagen y consulta el sistema para confirmar
+el pago. La imagen por sí sola no autoriza a marcar una deuda como pagada. No debe
+aplicar un segundo pago al recibir otra vez el mismo comprobante.
+
+## 8. Revisar resultados y observabilidad
+
+1. Mantén abierta la página de la campaña y pulsa **Actualizar** para consultar
+   sus métricas. Utiliza ese botón en lugar de recargar toda la página: actualmente
+   la selección de campaña no se recupera al recargarla.
+2. Contrasta envíos reales y simulados, personas que respondieron, contactabilidad
+   y pagos completos sin descuento. Una respuesta previa a la campaña no cuenta
+   como respuesta de esa campaña.
+3. Abre [Langfuse local](http://localhost:3000) e inicia sesión con
+   `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD` del `.env`.
+4. Revisa las trazas del horario de la prueba: llamadas al modelo, interpretación
+   de imagen, herramientas —incluida `verify_payment`—, latencias, tokens,
+   coste estimado y errores.
+
+**Comprobar:** los simulados quedan fuera de la contactabilidad real. El pago de
+USD 100 cuenta como pago completo sin descuento. Langfuse no muestra prompts ni
+respuestas completas, PIN, claves o enlaces privados; la conversación se consulta
+en WhatsApp o en la bandeja de pruebas de Chatwoot.
+
+El presupuesto de IA es USD 5, con un corte local conservador en USD 4,50. Las
+reservas de resultados inciertos se conservan; el coste mostrado es estimado y
+no reemplaza la facturación del proveedor.
+
+## 9. Repetir con los otros caminos
+
+Para cada escenario financiero independiente, usa **Restaurar escenario de demo**
+y confirma `REINICIAR DEMO`. Esto restaura cartera y memoria local; después debes
+repetir la configuración del teléfono de Ana y preparar otra campaña. No borra
+consumo de IA, trazas ni historial externo de Chatwoot. Si hubo atención humana,
+la devolución a `pending` debe ser explícita por quien atienda la bandeja.
+
+| Escenario | Qué hacer sobre hogar, USD 100 | Qué comprobar |
+|---|---|---|
+| Acuerdo con descuento | Ofrecer USD 90, esperar la propuesta, aceptarla en otro mensaje y pagar desde su enlace. | Antes del pago sigue debiendo USD 100; al pagar se reciben USD 90 y se condonan USD 10. Cuenta como acuerdo cumplido. |
+| Límite permitido | Ofrecer USD 80, aceptar después y pagar. | Se permite el acuerdo al 80%; recibe USD 80 y condona USD 20. |
+| Oferta inferior al límite | Ofrecer USD 79,99. | No concede ese descuento automáticamente; crea el caso y deriva a humano. |
+| Petición de asesor | Pedir hablar con una persona. | Nota privada y cambio a `open` en la bandeja de pruebas; el bot deja de responder mientras atiende el humano. |
+| Audio | Enviar una nota de voz breve solicitando revisar hogar. | Entiende el contenido y mantiene identidad y servicio; la transcripción aparece como operación en Langfuse. |
+| Comprobante sin pago | Enviar una imagen que afirme éxito sin haber aprobado el pago del escenario actual. | Consulta el sistema y no confirma una liquidación inexistente. |
+| Imagen ilegible | Enviar una captura borrosa o sin datos legibles. | Pide aclaración o un comprobante legible, sin inventar valores. |
+| Pago rechazado | Abrir una orden y simular rechazo. | La deuda conserva su saldo. |
+| Aislamiento | Solicitar gestionar a Bruno, `CC 10000002`. | Exige confirmar esa identidad y su PIN; la autorización anterior de Ana no permite consultar sus deudas. |
+
+Para verificar atención humana se necesita una persona con acceso a la bandeja
+de pruebas de Chatwoot; el login de la central no concede ese acceso. No cambiar
+bandejas de producción. Los audios admiten hasta 60 segundos y los archivos hasta
+5 MiB; se admiten imágenes PNG/JPEG/WebP y audio OGG/WAV/MP3. WebM requiere que
+el contenedor pueda validar duración y audio mediante `ffprobe`. No se procesan
+medios mientras se solicita el PIN.
+
+## Registro del recorrido
+
+Anota cada resultado después de ejecutarlo. Un guion escrito o una prueba
+automatizada no reemplaza esta comprobación por el canal real.
+
+| Escenario | Resultado observado | Fecha / versión | Incidencia o evidencia revisada |
+|---|---|---|---|
+| Apertura y preparación de contacto | Pendiente | — | — |
+| Campaña y respuesta | Pendiente | — | — |
+| Identificación y pago completo | Pendiente | — | — |
+| Imagen y verificación del pago | Pendiente | — | — |
+| Acuerdo 90% y límite 80% | Pendiente | — | — |
+| Atención humana y retorno al bot | Pendiente | — | — |
+| Audio y excepciones de comprobante | Pendiente | — | — |
+| Métricas y trazas | Pendiente | — | — |
+
+Las evidencias públicas deben ocultar teléfonos reales, accesos, PIN enviados y
+URLs privadas. No incorporar `.env`, capturas sin revisar ni historial personal
+al repositorio. Al terminar, deshabilita el contacto live o restaura la demo.
 
 ## Restaurar y repetir
 
