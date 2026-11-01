@@ -62,7 +62,7 @@ En EC2 se usa HTTPS y las rutas públicas definidas en
 1. Entrar como operador con la credencial privada de demo.
 2. Elegir el cliente ficticio con dos servicios y sustituir su teléfono por el
    propio WhatsApp, con código de país. Guardar y verificar ambas filas.
-3. Marcar ese contacto como live y habilitar contacto de prueba; los demás fixtures
+3. Seleccionar Live para habilitar ese contacto de prueba en una sola acción; los demás fixtures
    permanecen simulated. Si el canal lo requiere, habilitar el destinatario en Meta.
    Si Chatwoot necesita un mensaje de preparación para crear la asociación,
    enviarlo antes de la campaña; ese mensaje no cuenta como respuesta posterior.

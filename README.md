@@ -81,8 +81,8 @@ contactos comienzan simulados. Ana Martínez López tiene dos deudas:
 4. En **Celular E.164**, reemplaza el teléfono ficticio por tu WhatsApp con `+`
    y código de país, sin espacios. No cambies nombre ni documento: interpretarás
    a Ana durante la prueba.
-5. Selecciona **Live · evaluador autorizado** y marca
-   **Habilitar este contacto para pruebas live**.
+5. Selecciona **Live · evaluador autorizado**. Esa opción habilita el contacto
+   para envíos reales; **Simulado · sin envío externo** los deshabilita.
 6. Pulsa **Guardar cambios**.
 
 **Comprobar:** las dos filas de Ana muestran el mismo teléfono, modo **Live** y
