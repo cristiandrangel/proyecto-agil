@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Suite Docker aislada: 262 pruebas aprobadas, cero fallos y cero omitidas, en 34,52 segundos**, el 2026-11-01 a las 17:31 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
+- **Suite Docker aislada: 275 pruebas aprobadas, cero fallos y cero omitidas, en 34,83 segundos**, el 2026-11-01 a las 17:44 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -68,6 +68,36 @@ El coste registrado fue **USD 0,00235343**, con las cuatro reservas liquidadas.
 Son muestras aisladas, no una garantía exhaustiva contra inyecciones ni una prueba
 integral de recepción de medios en WhatsApp. El backend mantiene las validaciones
 de identidad, permisos y pagos independientemente de las instrucciones del modelo.
+
+## Trazas por turno y continuidad del envío
+
+La revisión confirmó que backend y worker autentican contra el mismo proyecto de
+Langfuse. Antes del cambio había 18 trazas y 46 observaciones; las cuatro llamadas
+de evaluación de prompt estaban recibidas, pero la UI conservaba una consulta
+anterior con actualización automática apagada. Se refrescó la vista y se activó
+el intervalo de 30 segundos. Se abrió el turno real de WhatsApp de las 12:17
+(Bogotá): mostraba dos generaciones y una herramienta.
+
+Se amplió la raíz `conversation` para cubrir el procesamiento protegido, puerta
+de identidad, medios, `agent` y encolado. Las herramientas tienen nombres
+`tool.<nombre>` y tipo tool; el modelo conserva tipo generation. La sesión opaca
+se propaga a los hijos sin cambiar la llave literal de LangGraph. El contexto de
+traza se guarda con la salida en outbox y `delivery` lo recupera después, sin
+alterar la idempotencia de negocio. Los registros anteriores sin ese contexto
+pueden mostrar una raíz de envío separada.
+
+Trece regresiones nuevas verifican con el SDK real y exportador en memoria la
+jerarquía, sesiones, privacidad, contextos inválidos y envío diferido. Tres de ellas
+usan PostgreSQL real y comprueban el turno sin LLM, el primer padre persistido en
+reintentos y la restauración aun bajo otra traza activa. Todas forman parte de la
+suite Docker registrada arriba; las pruebas de inferencia usan dobles del proveedor.
+
+Después del despliegue, una comprobación de observabilidad enviada al Langfuse
+real recibió **tres observaciones con la misma sesión y padre restaurado tras
+cerrar la raíz**. Fue una traza `preflight`, con cero inferencias y cero envíos al
+canal; no se presenta como conversación del cliente. Readiness público respondió
+200. Falta repetir el árbol ampliado completo desde WhatsApp, incluyendo medios y
+el recorrido financiero; las trazas antiguas no se reconstruyen retroactivamente.
 
 ## Reproducción sin dependencias externas
 

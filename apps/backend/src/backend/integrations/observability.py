@@ -5,13 +5,17 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
+import re
 from contextlib import contextmanager
 from decimal import Decimal
 from time import perf_counter
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
-NAMES = {"conversation", "llm", "audio", "tool", "media_normalize", "preflight", "operation"}
+NAMES = {
+    "conversation", "agent", "llm", "audio", "tool", "media_normalize", "preflight",
+    "operation", "identity_gate", "response_enqueue", "delivery",
+}
 LABELS = {
     "model": {"gpt-5.6-luna", "gpt-transcribe"},
     "modality": {"agent", "vision", "audio", "media", "text", "image", "tool"},
@@ -24,6 +28,7 @@ LABELS = {
         "failed",
         "cancelled",
         "ok",
+        "handled", "passed", "queued", "sent", "deferred",
     },
     "tool": {
         "locate_customer",
@@ -36,6 +41,10 @@ LABELS = {
         "handoff_human",
     },
     "price_version": {"openai-2026-11-01", "openai-2026-11-01-cache-v2"},
+    "phase": {"identify", "select_debt", "discuss_payment", "confirm_agreement",
+              "await_payment", "payment_verified", "handoff_requested"},
+    "result_status": {"applied", "pending", "absent", "requires_human", "action_pending",
+                      "transferred", "returned", "proposed", "accepted", "expired"},
 }
 COUNTS = {
     "input_tokens",
@@ -43,9 +52,30 @@ COUNTS = {
     "identity_revision",
     "cached_input_tokens",
     "cache_write_tokens",
+    "candidate_count",
+    "debt_count",
 }
 AMOUNTS = {"reserved_usd", "actual_usd", "input_cost_usd", "output_cost_usd"}
 DURATIONS = {"latency_ms", "provider_latency_ms", "duration_seconds"}
+
+
+def validated_trace_context(value):
+    if not isinstance(value, dict) or set(value) != {"trace_id", "parent_span_id"}:
+        return None
+    for key, size in (("trace_id", 32), ("parent_span_id", 16)):
+        item = value[key]
+        if not isinstance(item, str) or not re.fullmatch(r"[0-9a-f]{%d}" % size, item) or int(item, 16) == 0:
+            return None
+    return dict(value)
+
+
+def current_trace_context():
+    from opentelemetry import trace
+
+    context = trace.get_current_span().get_span_context()
+    if not context.is_valid:
+        return None
+    return {"trace_id": f"{context.trace_id:032x}", "parent_span_id": f"{context.span_id:016x}"}
 
 
 def configure_logging():
@@ -107,6 +137,14 @@ class SafeObservation:
         self.raw = raw
         self.metadata = safe_metadata(metadata or {})
 
+    def export_context(self):
+        if self.raw is None:
+            return None
+        return validated_trace_context({
+            "trace_id": getattr(self.raw, "trace_id", None),
+            "parent_span_id": getattr(self.raw, "id", None),
+        })
+
     def update(self, **metadata):
         self.metadata.update(safe_metadata(metadata))
         if self.raw is None:
@@ -164,22 +202,34 @@ class Observability:
                 logger.warning("telemetry_initialization_failed")
 
     @contextmanager
-    def span(self, name, *, event_id=None, thread_id=None, **metadata):
+    def span(self, name, *, event_id=None, thread_id=None, trace_context=None, **metadata):
         safe = safe_metadata(metadata)
         if event_id is not None:
             safe.update(safe_metadata({"event_id": event_id}))
         if thread_id is not None:
             safe["thread_ref"] = opaque_id(str(thread_id))
         safe_name = name if name in NAMES else "operation"
+        if safe_name == "tool" and "tool" in safe:
+            safe_name = "tool." + safe["tool"]
         manager = None
+        propagation = None
         raw = None
         if self.client is not None:
             try:
+                if thread_id is not None:
+                    from langfuse import propagate_attributes
+
+                    propagation = propagate_attributes(session_id=safe["thread_ref"])
+                    propagation.__enter__()
+                context = validated_trace_context(trace_context)
                 manager = self.client.start_as_current_observation(
                     name=safe_name,
-                    as_type="generation" if safe_name in {"llm", "audio"} else "span",
+                    as_type=("generation" if safe_name in {"llm", "audio"} else
+                             "agent" if safe_name == "agent" else
+                             "tool" if safe_name.startswith("tool.") else "span"),
                     metadata=safe,
                     **({"model": safe["model"]} if "model" in safe else {}),
+                    **({"trace_context": context} if context else {}),
                 )
                 raw = manager.__enter__()
             except Exception:
@@ -190,6 +240,8 @@ class Observability:
         started = perf_counter()
         try:
             yield observation
+            if "status" not in observation.metadata:
+                observation.update(status="ok")
         except BaseException as caught:
             # Never pass this exception to the SDK context manager. Its default
             # OpenTelemetry recording can export str(error), traceback and locals.
@@ -200,6 +252,11 @@ class Observability:
             if manager is not None:
                 try:
                     manager.__exit__(None, None, None)
+                except Exception:
+                    logger.warning("telemetry_end_failed")
+            if propagation is not None:
+                try:
+                    propagation.__exit__(None, None, None)
                 except Exception:
                     logger.warning("telemetry_end_failed")
         if error is not None:

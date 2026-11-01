@@ -225,17 +225,82 @@ aplicar un segundo pago al recibir otra vez el mismo comprobante.
    la selección de campaña no se recupera al recargarla.
 2. Contrasta envíos reales y simulados, personas que respondieron, contactabilidad
    y pagos completos sin descuento. Una respuesta previa a la campaña no cuenta
-   como respuesta de esa campaña.
+   como respuesta de esa campaña. Los simulados quedan fuera de la contactabilidad
+   real; un pago de USD 100 sin condonación cuenta como pago completo sin descuento.
 3. Abre [Langfuse local](http://localhost:3000) e inicia sesión con
-   `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD` del `.env`.
-4. Revisa las trazas del horario de la prueba: llamadas al modelo, interpretación
-   de imagen, herramientas —incluida `verify_payment`—, latencias, tokens,
-   coste estimado y errores.
+   `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD` del `.env`. Entra al
+   proyecto y a su lista de trazas; selecciona el horario de la prueba.
+4. Filtra observaciones raíz (`isRootObservation:true`) y nombre `conversation`
+   para encontrar una ejecución de mensaje.
+   Si la actualización está en **Off**, espera la exportación y pulsa **Refresh**:
+   la lista no se refresca por sí sola. Abre una fila para ver y expandir su árbol.
+5. Revisa cada generación y herramienta: modelo, estado, latencia, tokens y coste
+   estimado. El coste vacío en la raíz no significa gasto cero: la raíz es un span
+   y el detalle de uso/coste está en las generaciones hijas.
 
-**Comprobar:** los simulados quedan fuera de la contactabilidad real. El pago de
-USD 100 cuenta como pago completo sin descuento. Langfuse no muestra prompts ni
-respuestas completas, PIN, claves o enlaces privados; la conversación se consulta
-en WhatsApp o en la bandeja de pruebas de Chatwoot.
+La estructura implementada para abrir **un mensaje y ver qué ocurrió en ese turno**
+es la siguiente. Sus relaciones y privacidad se verificaron con pruebas
+deterministas; falta repetir el nuevo árbol completo por WhatsApp con el evaluador
+y con medios reales:
+
+```text
+conversation                 raíz por ejecución de un mensaje
+├── identity_gate            solo estado handled / passed; nunca el PIN
+├── media_normalize          si existen adjuntos
+├── audio                    generation, si hubo transcripción
+├── llm [modality=vision]     generation, si hubo interpretación de imagen
+├── agent                    tipo agent
+│   ├── llm                  una generation por llamada real al modelo
+│   ├── tool.list_debts       una observación por herramienta real
+│   ├── tool.select_debt     nombre visible de la operación ejecutada
+│   └── …                    llm/tools en el orden en que ocurrieron
+└── response_enqueue         respuesta preparada en outbox
+    └── delivery             envío asíncrono, incluso tras reiniciar el worker
+```
+
+`tool.verify_payment`, por ejemplo, permite reconocer la consulta financiera tras
+un comprobante; su resultado privado no se exporta. Un turno puede tener varios
+llm/tools o resolverse sin modelo. El PIN se intercepta antes del worker y solo
+aparece el paso resuelto, sin su valor. Las operaciones de medios pertenecen a la
+raíz de ese mensaje, antes de `agent`.
+
+Todas las observaciones del turno deben heredar `session_id = opaque_id(source_id)`
+y el mismo `event_id` interno. La sesión permite agrupar los mensajes del chat sin
+mostrar el `source_id`; no cambia el `thread_id` literal de LangGraph ni concede
+identidad financiera. Un reintento puede mostrar otra ejecución del mismo evento.
+
+Para comprobar el envío, expande **`response_enqueue` → `delivery`**. Outbox
+persiste el contexto de traza del padre y el sender lo recupera: el envío queda en
+el mismo árbol aunque ocurra después de cerrar la raíz o tras reiniciar el worker.
+Un reintento de encolado conserva el primer padre. En atención humana, el padre
+puede ser `tool.handoff_human`. Las filas antiguas que carecen de contexto generan
+otra raíz `delivery`; en ese caso se cambia el filtro y se busca la misma sesión y
+`event_id`. **La duración de la raíz no incluye la espera del envío asíncrono.**
+
+Los estados de envío son `sent`, `failed`, `uncertain`, `cancelled` o `deferred`
+(espera de control o dependencias): **`sent`
+significa que la API de Chatwoot aceptó el mensaje**, no que WhatsApp lo entregó o
+leyó. El encolado por sí solo tampoco prueba envío. La entrega requiere evidencia
+exacta del canal.
+
+Langfuse muestra metadatos operativos, estados de nombres fijos, latencias, modelos,
+tokens y coste estimado. Las herramientas también muestran la fase resultante y, cuando
+aplica, conteos de coincidencias/deudas o el estado operativo del pago. No recibe inputs/outputs, prompts, razonamiento,
+transcripciones, texto de imágenes, mensajes, PIN, teléfono, documento, grants,
+claves, enlaces privados ni errores crudos. La conversación se consulta en WhatsApp
+o en la bandeja de pruebas de Chatwoot. Este límite corresponde a nuestro backend
+y sus trazas: Chatwoot externo conserva los mensajes y puede registrar su payload
+al reintentar.
+
+**Validación realizada:** las pruebas con PostgreSQL y el SDK real con exportación
+en memoria verifican sesiones, parentesco durable de `delivery`, cobertura del
+worker y privacidad. Una comprobación real de exportación recibió tres
+observaciones con la misma sesión y padre restaurado, sin inferencias ni envíos
+al canal. En la interfaz también se observó una traza real de texto con
+`llm`/`tool`/`llm`. **Pendiente:** repetir el nuevo árbol completo con WhatsApp y
+el evaluador, medios reales y envío asíncrono, y contrastar las observaciones
+exportadas. Una generación aislada o la salud/autenticación de Langfuse no
+sustituyen esa comprobación.
 
 El presupuesto de IA es USD 5, con un corte local conservador en USD 4,50. Las
 reservas de resultados inciertos se conservan; el coste mostrado es estimado y
@@ -315,7 +380,7 @@ docker compose --env-file .env -f infra/compose.yaml stop
 
 ## Ejecutar las pruebas sin servicios externos
 
-La última ejecución registrada aprobó **262 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 17:31 UTC.
+La última ejecución Docker registrada aprobó **275 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 17:44 UTC (34,83 segundos).
 
 La batería usa PostgreSQL 17 real, esquemas aislados y dobles de los proveedores. Se ejecuta en un proyecto Docker separado, sin puertos publicados, sin montar `.env` ni compartir volúmenes del runtime. La red de pruebas es interna:
 

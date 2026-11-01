@@ -850,3 +850,220 @@ async def test_alternate_source_reply_still_respects_campaign_cutoff(runtime, we
     with runtime.sessions() as session:
         assert session.scalar(select(func.count()).select_from(BusinessEvent)) == 0
         assert session.scalar(select(func.count()).select_from(ConversationJob)) == 0
+
+
+@pytest.fixture
+def traced_runtime(runtime):
+    """Real SDK/OTEL tree, isolated exporter, and the existing real PostgreSQL fixture."""
+    from backend.integrations.observability import Observability, mask_payload
+    from langfuse import Langfuse
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    sdk = Langfuse(
+        public_key="pk-lf-worker-test-" + uuid4().hex,
+        secret_key="sk-lf-fictional-worker-fixture",
+        base_url="http://127.0.0.1:1",
+        tracer_provider=provider,
+        span_exporter=exporter,
+        mask=mask_payload,
+    )
+    observation = Observability(SimpleNamespace(langfuse_enabled=False))
+    observation.client = sdk
+    runtime.observability = observation
+    try:
+        yield runtime, exporter
+    finally:
+        sdk.flush()
+        provider.shutdown()
+
+
+def exported_status(span):
+    # SDK v5 serializes each metadata value as JSON in its own OTEL attribute.
+    return json.loads(span.attributes["langfuse.observation.metadata.status"])
+
+
+def exported_span_data(spans):
+    return json.dumps(
+        [
+            {
+                "name": span.name,
+                "attributes": dict(span.attributes),
+                "events": [str(event) for event in span.events],
+                "status": span.status.description,
+            }
+            for span in spans
+        ],
+        default=str,
+    )
+
+
+@pytest.mark.asyncio
+async def test_pin_only_turn_exports_complete_tree_and_delivery_without_inference(
+    traced_runtime, webapp
+):
+    from backend.integrations.observability import opaque_id
+
+    runtime, exporter = traced_runtime
+    pin = "732918"
+    source = " whatsapp:PRIVATE-TRACE-FIXTURE#opaque "
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(webapp), base_url="http://testserver"
+    ) as client:
+        response = await post(client, runtime, payload(source, content=pin))
+    assert response.status_code == 200 and response.json()["accepted"]
+    job = runtime.queue.claim("trace-pin-worker")
+    protected = decode_protected(job.event.normalized_content, runtime.settings.session_secret)
+    assert protected["handled"] is True and protected["agent_message"] is None
+    assert pin not in job.event.normalized_content
+
+    await process_job(runtime, job)
+    runtime.observability.flush()
+    before_send = exporter.get_finished_spans()
+    assert {span.name for span in before_send} == {
+        "conversation",
+        "identity_gate",
+        "response_enqueue",
+    }
+    by_name = {span.name: span for span in before_send}
+    root = by_name["conversation"]
+    gate, enqueue_span = by_name["identity_gate"], by_name["response_enqueue"]
+    assert root.parent is None and root.end_time is not None
+    assert gate.parent.span_id == root.context.span_id
+    assert enqueue_span.parent.span_id == root.context.span_id
+    assert exported_status(gate) == "handled"
+    assert exported_status(root) == "completed"
+    assert not runtime.inference.calls and not runtime.central.calls
+
+    with runtime.sessions() as session:
+        row = session.scalar(select(Outbox))
+        assert row.state == "queued"
+        context = row.payload_private["_trace_context"]
+        assert context == {
+            "trace_id": f"{root.context.trace_id:032x}",
+            "parent_span_id": f"{enqueue_span.context.span_id:016x}",
+        }
+    # process_job has returned and its root is already closed before this task sends.
+    await send_outputs(runtime)
+    runtime.observability.flush()
+    spans = exporter.get_finished_spans()
+    (delivery,) = [span for span in spans if span.name == "delivery"]
+    assert delivery.context.trace_id == root.context.trace_id
+    assert delivery.parent.span_id == enqueue_span.context.span_id
+    assert delivery.start_time >= root.end_time
+    assert exported_status(delivery) == "sent"
+    assert all(span.attributes.get("session.id") == opaque_id(source) for span in spans)
+    assert len(runtime.channel.sent) == 1 and not runtime.inference.calls
+    with runtime.sessions() as session:
+        assert session.get(Outbox, row.id).state == "sent"
+        assert session.get(InboxEvent, job.event_id).status == "completed"
+    serialized = exported_span_data(spans)
+    for private in (
+        pin,
+        source,
+        runtime.settings.session_secret.get_secret_value(),
+        runtime.settings.chatwoot_webhook_secret.get_secret_value(),
+        "PRIVATE-RUNTIME-GRANT",
+        "sk-lf-fictional-worker-fixture",
+    ):
+        assert private not in serialized
+    assert all(not span.events for span in spans)
+
+
+def test_outbox_retry_keeps_original_trace_parent_and_business_conflicts(traced_runtime):
+    runtime, exporter = traced_runtime
+    source = "literal-private-idempotency-source"
+    event, _ = runtime.queue.enqueue(
+        account_id="9",
+        inbox_id="7",
+        conversation_id="11",
+        message_id="trace-idempotency",
+        source_id=source,
+    )
+    runtime.identity.snapshot(source)
+    options = {
+        "event_id": event.id,
+        "identity_revision": 0,
+        "kind": "message",
+        "operation_key": "same-business-output",
+        "payload": {"content": "Respuesta ficticia"},
+    }
+    with runtime.observability.span(
+        "response_enqueue", event_id=event.id, thread_id=source
+    ) as first:
+        first_context = first.export_context()
+        # Callers cannot inject a trace parent through the private payload field.
+        row = runtime.outbox.enqueue(
+            **{
+                **options,
+                "payload": {
+                    **options["payload"],
+                    "_trace_context": {"trace_id": "a" * 32, "parent_span_id": "b" * 16},
+                },
+            }
+        )
+    with runtime.observability.span(
+        "response_enqueue", event_id=event.id, thread_id=source
+    ) as retry:
+        retry_context = retry.export_context()
+        repeated = runtime.outbox.enqueue(**options)
+    assert first_context != retry_context
+    assert first_context["trace_id"] != retry_context["trace_id"]
+    assert repeated.id == row.id
+    assert runtime.outbox.enqueue(**options).id == row.id
+    with runtime.sessions() as session:
+        stored = session.get(Outbox, row.id)
+        assert stored.payload_private == {**options["payload"], "_trace_context": first_context}
+        assert session.scalar(select(func.count()).select_from(Outbox)) == 1
+    with pytest.raises(DomainError) as caught:
+        runtime.outbox.enqueue(**{**options, "payload": {"content": "Otro contenido de negocio"}})
+    assert caught.value.code == "outbox_conflict"
+    with runtime.sessions() as session:
+        assert session.get(Outbox, row.id).payload_private["_trace_context"] == first_context
+    assert not runtime.channel.sent
+
+
+@pytest.mark.asyncio
+async def test_delivery_restores_persisted_parent_after_root_closed_despite_unrelated_ambient_trace(
+    traced_runtime,
+):
+    runtime, exporter = traced_runtime
+    source = "literal-delivery-trace-source"
+    event, _ = runtime.queue.enqueue(
+        account_id="9",
+        inbox_id="7",
+        conversation_id="11",
+        message_id="detached-delivery",
+        source_id=source,
+    )
+    runtime.identity.snapshot(source)
+    with runtime.observability.span("conversation", event_id=event.id, thread_id=source):
+        with runtime.observability.span("response_enqueue", event_id=event.id) as enqueue_span:
+            context = enqueue_span.export_context()
+            row = runtime.outbox.enqueue(
+                event_id=event.id,
+                identity_revision=0,
+                kind="message",
+                payload={"content": "Respuesta ficticia diferida"},
+                operation_key="detached-delivery",
+            )
+    runtime.observability.flush()
+    (original,) = [span for span in exporter.get_finished_spans() if span.name == "conversation"]
+    assert original.end_time is not None
+    with runtime.observability.span("operation", thread_id="unrelated-private-source") as unrelated:
+        unrelated_context = unrelated.export_context()
+        assert unrelated_context["trace_id"] != context["trace_id"]
+        await send_outputs(runtime)
+    runtime.observability.flush()
+    (delivery,) = [span for span in exporter.get_finished_spans() if span.name == "delivery"]
+    assert f"{delivery.context.trace_id:032x}" == context["trace_id"]
+    assert f"{delivery.parent.span_id:016x}" == context["parent_span_id"]
+    assert f"{delivery.context.trace_id:032x}" != unrelated_context["trace_id"]
+    assert delivery.start_time >= original.end_time
+    assert exported_status(delivery) == "sent"
+    assert len(runtime.channel.sent) == 1
+    with runtime.sessions() as session:
+        assert session.get(Outbox, row.id).state == "sent"
+        assert session.get(Outbox, row.id).payload_private["_trace_context"] == context

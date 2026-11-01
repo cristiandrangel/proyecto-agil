@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from decimal import Decimal
@@ -490,3 +491,224 @@ async def test_ambiguous_cache_usage_keeps_reservation_without_retry(budget_stor
         assert row.actual_usd is None
         assert row.reserved_usd == Decimal("0.0079152")
     assert_no_private_trace(traces)
+
+
+@pytest.fixture
+def real_trace_exporter():
+    """Exercise actual SDK context propagation; every export remains in memory."""
+    import httpx
+    from langfuse import Langfuse
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    requests = []
+
+    def reject_request(request):
+        requests.append(request)
+        raise AssertionError("Observability tests must never make HTTP requests")
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    transport = httpx.Client(transport=httpx.MockTransport(reject_request))
+    sdk = Langfuse(
+        public_key="pk-lf-fictional-" + uuid4().hex,
+        secret_key="sk-lf-fictional-no-provider-access",
+        base_url="http://not-used.invalid",
+        httpx_client=transport,
+        tracer_provider=provider,
+        span_exporter=exporter,
+        mask=mask_payload,
+    )
+    observation = Observability(settings())
+    observation.client = sdk
+    try:
+        yield observation, exporter
+    finally:
+        sdk.flush()
+        provider.shutdown()
+        transport.close()
+        assert requests == []
+
+
+def exported_attribute(span, suffix):
+    # OTel/Langfuse versions use both session.id and session_id spellings.
+    matches = [
+        value
+        for key, value in span.attributes.items()
+        if key.replace(".", "_").endswith(suffix)
+    ]
+    assert len(matches) == 1, (span.name, suffix, span.attributes)
+    return matches[0]
+
+
+def assert_private_values_absent_from_spans(spans):
+    serialized = json.dumps([json.loads(span.to_json()) for span in spans], default=str)
+    for private in (
+        PRIVATE,
+        "source-private-",
+        "sk-fictional-secret",
+        "519826",
+        "private-grant",
+        "+15551234567",
+        "raw-error-private",
+        "raw-input-private",
+        "raw-output-private",
+    ):
+        assert private not in serialized
+    assert all(not span.events for span in spans)
+
+
+def test_real_observability_nested_spans_inherit_session_and_export_safe_tool_name(
+    real_trace_exporter,
+):
+    from backend.integrations.observability import opaque_id
+
+    observation, exporter = real_trace_exporter
+    raw_thread = "source-private-" + PRIVATE
+    event_id = uuid4()
+    with observation.span("conversation", event_id=event_id, thread_id=raw_thread):
+        with observation.span("agent", event_id=event_id):
+            with pytest.raises(RuntimeError, match="raw-error-private"):
+                with observation.span(
+                    "llm", model="gpt-5.6-luna", modality="agent", pin=PRIVATE, secret=PRIVATE
+                ) as generation:
+                    generation.update(
+                        input_tokens=10,
+                        output_tokens=2,
+                        input="raw-input-private",
+                        output="raw-output-private",
+                    )
+                    raise RuntimeError("raw-error-private " + PRIVATE)
+            with observation.span("tool", tool="locate_customer", input=PRIVATE) as tool:
+                tool.update(output=PRIVATE, pin=PRIVATE, source_id=raw_thread)
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 4
+    by_name = {span.name: span for span in spans}
+    assert set(by_name) == {"conversation", "agent", "llm", "tool.locate_customer"}
+    root, agent, generation, tool = (
+        by_name[name] for name in ("conversation", "agent", "llm", "tool.locate_customer")
+    )
+    assert root.parent is None
+    assert agent.parent.span_id == root.context.span_id
+    assert generation.parent.span_id == agent.context.span_id
+    assert tool.parent.span_id == agent.context.span_id
+    assert len({span.context.trace_id for span in spans}) == 1
+    assert all(exported_attribute(span, "session_id") == opaque_id(raw_thread) for span in spans)
+    assert exported_attribute(agent, "observation_type") == "agent"
+    assert exported_attribute(generation, "observation_type") == "generation"
+    assert exported_attribute(tool, "observation_type") == "tool"
+    # Langfuse serializes metadata values as JSON inside OTel attributes.
+    assert json.loads(exported_attribute(generation, "metadata_status")) == "failed"
+    assert json.loads(exported_attribute(tool, "metadata_status")) == "ok"
+    assert_private_values_absent_from_spans(spans)
+
+
+def test_real_observability_separate_turns_share_only_hashed_session(real_trace_exporter):
+    from backend.integrations.observability import opaque_id
+
+    observation, exporter = real_trace_exporter
+    threads = ["source-private-first", "source-private-first", "source-private-second"]
+    for raw_thread in threads:
+        with observation.span("conversation", event_id=uuid4(), thread_id=raw_thread):
+            with observation.span("agent"):
+                pass
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    roots = [span for span in spans if span.name == "conversation"]
+    assert len(roots) == 3
+    assert len({span.context.trace_id for span in roots}) == 3
+    assert all(span.parent is None for span in roots)
+    assert [exported_attribute(span, "session_id") for span in roots] == [
+        opaque_id(thread) for thread in threads
+    ]
+    assert exported_attribute(roots[0], "session_id") != exported_attribute(roots[2], "session_id")
+    for span in spans:
+        root = next(root for root in roots if root.context.trace_id == span.context.trace_id)
+        assert exported_attribute(span, "session_id") == exported_attribute(root, "session_id")
+    assert_private_values_absent_from_spans(spans)
+
+
+def test_real_observability_delivery_resumes_valid_context_after_root_has_closed(
+    real_trace_exporter,
+):
+    from backend.integrations.observability import current_trace_context
+
+    observation, exporter = real_trace_exporter
+    assert current_trace_context() is None
+    with observation.span("conversation", thread_id="source-private-first") as root:
+        root_context = root.export_context()
+        assert current_trace_context() == root_context
+        assert set(root_context) == {"trace_id", "parent_span_id"}
+        assert re.fullmatch(r"[0-9a-f]{32}", root_context["trace_id"])
+        assert re.fullmatch(r"[0-9a-f]{16}", root_context["parent_span_id"])
+        with observation.span("agent") as agent:
+            agent_context = agent.export_context()
+            assert current_trace_context() == agent_context
+            assert agent_context["trace_id"] == root_context["trace_id"]
+            assert agent_context["parent_span_id"] != root_context["parent_span_id"]
+        assert current_trace_context() == root_context
+    assert current_trace_context() is None
+    # Outbox delivery happens later, after the worker's original context is gone.
+    with observation.span(
+        "delivery", thread_id="source-private-first", trace_context=root_context
+    ) as delivery:
+        delivery_context = delivery.export_context()
+        assert current_trace_context() == delivery_context
+        assert delivery_context["trace_id"] == root_context["trace_id"]
+        assert delivery_context["parent_span_id"] != root_context["parent_span_id"]
+    assert current_trace_context() is None
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    root_span = next(span for span in spans if span.name == "conversation")
+    delivered_span = next(span for span in spans if span.name == "delivery")
+    assert delivered_span.context.trace_id == root_span.context.trace_id
+    assert delivered_span.parent.span_id == root_span.context.span_id
+    assert_private_values_absent_from_spans(spans)
+
+
+@pytest.mark.parametrize(
+    "invalid_context",
+    [
+        PRIVATE,
+        {"trace_id": PRIVATE, "parent_span_id": "a" * 16},
+        {"trace_id": "a" * 31, "parent_span_id": "b" * 16},
+        {"trace_id": "a" * 32, "parent_span_id": "b" * 15},
+        {"trace_id": "0" * 32, "parent_span_id": "0" * 16},
+        {"trace_id": "a" * 32, "parent_span_id": "b" * 16, "secret": PRIVATE},
+    ],
+)
+def test_real_observability_rejects_invalid_external_trace_context(
+    real_trace_exporter, invalid_context
+):
+    observation, exporter = real_trace_exporter
+    with observation.span("delivery", trace_context=invalid_context):
+        pass
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].parent is None
+    assert spans[0].context.trace_id != int("a" * 32, 16)
+    assert_private_values_absent_from_spans(spans)
+
+
+def test_observability_context_helpers_fail_safe_without_sdk(caplog):
+    from backend.integrations.observability import current_trace_context
+
+    observation = Observability(settings())
+    assert current_trace_context() is None
+    with observation.span("conversation", thread_id=PRIVATE) as trace:
+        assert trace.export_context() is None
+        assert current_trace_context() is None
+
+    class BrokenTelemetry:
+        def start_as_current_observation(self, **kwargs):
+            raise RuntimeError(PRIVATE)
+
+    observation.client = BrokenTelemetry()
+    with observation.span("agent", thread_id=PRIVATE) as trace:
+        assert trace.export_context() is None
+        trace.update(input=PRIVATE, output=PRIVATE)
+    assert current_trace_context() is None
+    assert PRIVATE not in caplog.text
+    assert "telemetry_start_failed" in caplog.text

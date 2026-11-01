@@ -257,8 +257,114 @@ Audio e imágenes: hasta 5 MiB, audio 60 segundos, una imagen de hasta 2048 px p
 como normalización de demo y mensaje acompañante conservado. Varias imágenes se
 procesan en orden dentro del presupuesto o se pide reenviar una por una. URLs y
 redirecciones solo a hosts permitidos; sin credenciales hacia terceros. Las trazas
-registran correlación, tipo de medio, herramientas y uso; PIN, tokens, binarios y
-contactos reales se redactan antes de persistencia y de Langfuse.
+registran correlación, tipo de medio, herramientas y uso, con el siguiente contrato.
+
+#### Árbol de observabilidad por mensaje
+
+**Implementado y verificado con pruebas deterministas:** al abrir una ejecución
+de mensaje, el árbol agrupa sus pasos desde una raíz `conversation`. Sigue pendiente
+repetir el nuevo árbol completo en Langfuse con WhatsApp y medios reales.
+La raíz corresponde a una ejecución del worker de ese mensaje, no a todo el chat;
+un reintento puede producir otra ejecución con el mismo `event_id`. No se crea una
+web de trazas: se utiliza la interfaz nativa de Langfuse.
+
+```mermaid
+flowchart TD
+    CONV["conversation · raíz por ejecución de mensaje"]
+    GATE["identity_gate · estado handled / passed"]
+    MEDIA["media_normalize · span opcional"]
+    AUDIO["audio · generation opcional"]
+    VISION["llm · generation · modality=vision · opcional"]
+    AGENT["agent · tipo agent"]
+    LLM["llm · generation · hasta cinco llamadas"]
+    TOOL["tool.list_debts / tool.verify_payment · spans de ejemplo"]
+    ENQUEUE["response_enqueue · span"]
+    DELIVERY["delivery · hijo asíncrono con contexto durable"]
+    CONV --> GATE
+    CONV --> MEDIA
+    CONV --> AUDIO
+    CONV --> VISION
+    CONV --> AGENT
+    AGENT --> LLM
+    AGENT --> TOOL
+    CONV --> ENQUEUE
+    ENQUEUE -. "mismo árbol; envío posterior" .-> DELIVERY
+    TOOL -. "handoff: padre alternativo" .-> DELIVERY
+```
+
+Los hijos se muestran en orden de ejecución: puerta de identidad, normalización y
+generaciones de medios si existen, agente y encolado. Las llamadas `llm` y
+`tool.<nombre>` se intercalan dentro de `agent` según el ciclo real; no se añade
+una llamada ficticia para llenar el árbol. `audio` y `llm` son observaciones de
+tipo **generation**, con modelo, uso y coste; `agent` usa el tipo **agent**. El
+nombre de herramienta es uno de los ocho permitidos: `tool.locate_customer`,
+`tool.list_debts`, `tool.select_debt`, `tool.create_full_payment`,
+`tool.quote_agreement`, `tool.accept_agreement`, `tool.verify_payment` o
+`tool.handoff_human`. Los nombres no se construyen con texto del usuario.
+
+La raíz abarca todo el procesamiento protegido, incluso un turno resuelto sin
+inferencias. El PIN escrito se intercepta antes del worker; `identity_gate` recibe
+solo el estado `handled` o `passed`, nunca el valor ni el texto original. Un turno
+interceptado no debe mostrar generaciones de agente que no ocurrieron.
+
+| Correlación | Contrato |
+|---|---|
+| `event_id` | Identificador interno del mensaje, común a sus observaciones; no contiene teléfono, documento ni cuerpo. |
+| `session_id` de Langfuse | `opaque_id(source_id)` para agrupar ejecuciones del mismo chat en telemetría. Todos los hijos heredan esta sesión. |
+| `thread_id` de LangGraph | Sigue siendo el `source_id` literal. La referencia opaca de Langfuse no cambia memoria, destino ni autorización. |
+| `delivery` | Envío asíncrono por outbox, hijo del padre capturado al encolar, con la misma sesión opaca y `event_id`; filas antiguas sin contexto generan una raíz separada. |
+
+El envío ocurre después del encolado y puede hacerlo otra ejecución del worker.
+Outbox captura `_trace_context` con `trace_id` y `parent_span_id` del span activo
+y lo conserva en su payload privado. El sender valida y recupera ese contexto
+para abrir `delivery` en el mismo árbol, aunque la raíz ya haya terminado o se
+haya reiniciado el worker. Un reintento idempotente de encolado conserva el primer
+padre; el contexto no cambia la comparación del contenido del comando.
+
+Para una respuesta normal, `delivery` es hijo asíncrono de `response_enqueue`; en
+un handoff puede depender del `tool.handoff_human` que creó la salida. Las dos
+flechas del diagrama muestran padres alternativos, no dos padres simultáneos.
+Las filas antiguas sin contexto mantienen una raíz `delivery` separada, correlacionada
+por sesión y evento. **La duración de la raíz mide procesamiento del turno: no
+incluye la espera posterior del envío asíncrono.** Los estados de envío son `sent`,
+`failed`, `uncertain`, `cancelled` o `deferred` (espera). `sent` acredita aceptación de la API de Chatwoot,
+no entrega ni lectura en WhatsApp. Esos hitos requieren evidencia exacta del canal;
+`response_enqueue` tampoco prueba un envío.
+
+#### Privacidad y lectura visual
+
+Langfuse recibe únicamente metadatos permitidos: `event_id`, referencias opacas,
+estados de un enum fijo, latencias, modelo/modalidad, nombre fijo de herramienta,
+uso de tokens y costes estimados; las herramientas añaden fase resultante, conteos
+de coincidencias/deudas y estado operativo permitido del resultado. **No se exportan inputs/outputs, prompts,
+razonamiento, transcripciones, texto extraído de imágenes, mensajes, PIN, teléfono,
+documento, grants, credenciales, enlaces con capability ni errores crudos o
+tracebacks.** Los errores se representan con estado y clasificación fija. La
+restricción se aplica a raíz e hijos, incluidas generaciones y medios; no basta
+con ocultar columnas en la interfaz. La observabilidad no autoriza al cliente.
+Esta protección se limita al backend y su exportación: Chatwoot externo conserva
+los mensajes del canal y puede registrar el payload al reintentar.
+
+En la lista de Langfuse se filtran observaciones raíz
+(`isRootObservation:true`) y nombre `conversation` para buscar ejecuciones de mensajes. Con refresco **Off**, se pulsa **Refresh** después de
+esperar la exportación. Al abrir una fila se expande su árbol: herramientas por
+nombre y generaciones con latencia, tokens y coste. El coste vacío de una raíz
+que es un span no demuestra consumo cero: el detalle está en sus generaciones
+hijas. Se expande `response_enqueue` para revisar su `delivery` asíncrono. Si la
+salida es antigua y carece de contexto, se busca la raíz `delivery` y se contrasta
+sesión/evento; no se interpreta como un segundo turno conversacional.
+
+**Evidencia y pendiente real:** la suite Docker completa aprobó 275 pruebas el
+1 de noviembre de 2026 a las 17:44:03 UTC, en 34,83 segundos, sin fallos ni omitidas.
+Las pruebas usan PostgreSQL y el SDK real con exportación en memoria para verificar
+sesiones, parentesco durable del envío y cobertura del worker. Una comprobación
+real de exportación recibió tres observaciones con la misma sesión y padre
+restaurado tras cerrar la raíz, sin inferencias ni envíos al canal. También se observó
+en la interfaz una traza real de texto con `llm`/`tool`/`llm`. Falta repetir el
+**nuevo árbol completo** con WhatsApp y el evaluador, audio/visión reales, PIN
+interceptado y entrega asíncrona, y contrastar la exportación efectiva y su
+privacidad. Esa validación de canal no se deduce de las pruebas deterministas,
+de una generación aislada ni de `health`/`auth_check`.
 
 ### Entrega, dimensionamiento y validación
 

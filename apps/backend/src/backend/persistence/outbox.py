@@ -7,6 +7,7 @@ from agil_shared.errors import DomainError
 from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
+from backend.integrations.observability import current_trace_context
 from backend.persistence.database import get_session_factory
 from backend.persistence.models import (
     HumanCase,
@@ -25,6 +26,10 @@ class OutboxStore:
     def enqueue(
         self, *, event_id, identity_revision: int, kind: str, payload: dict, operation_key: str
     ) -> Outbox:
+        payload = {key: value for key, value in payload.items() if key != "_trace_context"}
+        trace_context = current_trace_context()
+        if trace_context:
+            payload["_trace_context"] = trace_context
         with self.sessions.begin() as session:
             event = session.get(InboxEvent, event_id)
             if event is None:
@@ -81,7 +86,13 @@ class OutboxStore:
             select(Outbox).where(Outbox.operation_key == values["operation_key"])
         )
         for field, value in values.items():
-            if getattr(existing, field) != value:
+            actual = getattr(existing, field)
+            if field == "payload_private":
+                # Retry correlation must not change the business idempotency key.
+                # Keep the first persisted parent, even after a worker restart.
+                actual = {k: v for k, v in actual.items() if k != "_trace_context"}
+                value = {k: v for k, v in value.items() if k != "_trace_context"}
+            if actual != value:
                 raise DomainError(
                     "outbox_conflict",
                     "Operation key has different content or destination",

@@ -55,6 +55,16 @@ async def process_job(runtime, job):
 
 async def _process_job(runtime, job):
     event = job.event
+    with runtime.observability.span(
+        "conversation", event_id=event.id, thread_id=event.thread_id
+    ) as trace:
+        status = await _process_turn(runtime, job)
+        if trace is not None:
+            trace.update(status=status)
+
+
+async def _process_turn(runtime, job):
+    event = job.event
     with runtime.sessions() as lock_session, thread_lock(lock_session, event.thread_id):
         local = event.account_id == "local"
         current = (
@@ -65,22 +75,25 @@ async def _process_job(runtime, job):
         await runtime.handoff.reconcile_control(event, current["status"])
         if current["status"] != "pending" or runtime.handoff.blocked(event.thread_id):
             runtime.queue.complete(job.id, job.claim_token)
-            return
+            return "cancelled"
         snapshot = runtime.identity.snapshot(event.thread_id)
         if event.identity_revision != snapshot["identity_revision"]:
             runtime.queue.complete(job.id, job.claim_token)
-            return
+            return "cancelled"
         with runtime.sessions() as session:
             existing = session.scalar(
                 select(Outbox).where(Outbox.operation_key == f"response:{event.id}")
             )
             if existing:
                 runtime.queue.complete(job.id, job.claim_token)
-                return
+                return "completed"
         await runtime.events.record_incoming(event)
-        protected = decode_protected(event.normalized_content, runtime.settings.session_secret)
-        if protected is None:
-            raise DomainError("unsafe_message", "Mensaje interno sin protección válida.", 422)
+        with runtime.observability.span("identity_gate", event_id=event.id) as gate:
+            protected = decode_protected(event.normalized_content, runtime.settings.session_secret)
+            if protected is None:
+                raise DomainError("unsafe_message", "Mensaje interno sin protección válida.", 422)
+            if gate is not None:
+                gate.update(status="handled" if protected["handled"] else "passed")
         if protected["handled"]:
             reply = protected["response"] or "Envía tu consulta por escrito."
         else:
@@ -97,7 +110,7 @@ async def _process_job(runtime, job):
             async with checkpointer(runtime.settings.memory_conninfo) as saver:
                 graph = build_graph(saver, runtime=tools, inference=runtime.inference, text=text)
                 with runtime.observability.span(
-                    "conversation", event_id=event.id, thread_id=event.thread_id
+                    "agent", event_id=event.id, thread_id=event.thread_id
                 ):
                     state = await graph.ainvoke({}, thread_config(event.thread_id))
                 group = next(
@@ -110,14 +123,17 @@ async def _process_job(runtime, job):
                     )
         snapshot = runtime.identity.snapshot(event.thread_id)
         if not runtime.handoff.blocked(event.thread_id):
-            runtime.outbox.enqueue(
-                event_id=event.id,
-                identity_revision=snapshot["identity_revision"],
-                kind="message",
-                payload={"content": reply},
-                operation_key=f"response:{event.id}",
-            )
+            with runtime.observability.span("response_enqueue", event_id=event.id, status="queued"):
+                runtime.outbox.enqueue(
+                    event_id=event.id,
+                    identity_revision=snapshot["identity_revision"],
+                    kind="message",
+                    payload={"content": reply},
+                    operation_key=f"response:{event.id}",
+                )
         runtime.queue.complete(job.id, job.claim_token)
+
+        return "completed"
 
 
 async def render_payment_links(runtime, row, snapshot):
@@ -144,65 +160,85 @@ async def send_outputs(runtime):
     for row in runtime.outbox.queued(limit=20):
         if row.kind == "template":
             continue
-        try:
-            with runtime.sessions() as lock_session, thread_lock(lock_session, row.thread_id):
-                local = row.account_id == "local"
-                current = (
-                    {"status": "pending"}
-                    if local
-                    else await runtime.channel.conversation(row.conversation_id)
-                )
-                snapshot = runtime.identity.snapshot(row.thread_id)
-                prepared = runtime.outbox.prepare(
-                    row.id,
-                    pending=current.get("status") == "pending",
-                    identity_revision=snapshot["identity_revision"],
-                )
-                if prepared is None:
-                    continue
-                try:
-                    if row.kind == "set_open":
-                        result = (
-                            {"id": "local-open"}
-                            if local
-                            else await runtime.channel.set_open(row.conversation_id)
-                        )
-                    else:
-                        content = await render_payment_links(runtime, row, snapshot)
-                        result = (
-                            {"id": "local-" + str(row.id)}
-                            if local
-                            else await runtime.channel.send_message(
-                                row.conversation_id,
-                                content,
-                                private=row.kind in {"private_note", "handoff_note"},
-                            )
-                        )
-                    runtime.outbox.mark_sent(
-                        row.id,
-                        str(result.get("id", "status-open")),
-                        claim_token=prepared.claim_token,
+        with runtime.observability.span(
+            "delivery", event_id=row.source_event_id, thread_id=row.thread_id,
+            trace_context=(row.payload_private or {}).get("_trace_context"),
+        ) as delivery:
+            try:
+                with runtime.sessions() as lock_session, thread_lock(lock_session, row.thread_id):
+                    local = row.account_id == "local"
+                    current = (
+                        {"status": "pending"}
+                        if local
+                        else await runtime.channel.conversation(row.conversation_id)
                     )
-                    if local and row.kind == "message":
-                        with runtime.sessions.begin() as session:
-                            saved = session.get(Outbox, row.id)
-                            saved.payload_private = {
-                                **saved.payload_private,
-                                "rendered_content": content,
-                            }
-                    if row.kind == "set_open" and row.source_event_id:
+                    snapshot = runtime.identity.snapshot(row.thread_id)
+                    prepared = runtime.outbox.prepare(
+                        row.id,
+                        pending=current.get("status") == "pending",
+                        identity_revision=snapshot["identity_revision"],
+                    )
+                    if prepared is None:
                         with runtime.sessions() as session:
-                            event = session.get(InboxEvent, row.source_event_id)
-                        await runtime.handoff.reconcile_control(event, "open")
-                except DomainError as exc:
-                    if exc.code in {"channel_uncertain", "channel_unavailable"}:
-                        runtime.outbox.mark_uncertain(row.id, claim_token=prepared.claim_token)
-                    else:
-                        runtime.outbox.mark_failed(row.id, claim_token=prepared.claim_token)
-                    logger.warning("send_failed code=%s output=%s", exc.code, row.id)
-        except DomainError as exc:
-            if exc.code != "thread_busy":
-                logger.warning("send_deferred code=%s output=%s", exc.code, row.id)
+                            saved = session.get(Outbox, row.id)
+                            state = saved.state if saved else "deferred"
+                        if delivery is not None:
+                            delivery.update(status="cancelled" if state == "cancelled" else "deferred")
+                        continue
+                    try:
+                        if row.kind == "set_open":
+                            result = (
+                                {"id": "local-open"}
+                                if local
+                                else await runtime.channel.set_open(row.conversation_id)
+                            )
+                        else:
+                            content = await render_payment_links(runtime, row, snapshot)
+                            result = (
+                                {"id": "local-" + str(row.id)}
+                                if local
+                                else await runtime.channel.send_message(
+                                    row.conversation_id,
+                                    content,
+                                    private=row.kind in {"private_note", "handoff_note"},
+                                )
+                            )
+                        runtime.outbox.mark_sent(
+                            row.id,
+                            str(result.get("id", "status-open")),
+                            claim_token=prepared.claim_token,
+                        )
+                        if delivery is not None:
+                            delivery.update(status="sent")
+                        if local and row.kind == "message":
+                            with runtime.sessions.begin() as session:
+                                saved = session.get(Outbox, row.id)
+                                saved.payload_private = {
+                                    **saved.payload_private,
+                                    "rendered_content": content,
+                                }
+                        if row.kind == "set_open" and row.source_event_id:
+                            with runtime.sessions() as session:
+                                event = session.get(InboxEvent, row.source_event_id)
+                            await runtime.handoff.reconcile_control(event, "open")
+                    except DomainError as exc:
+                        if exc.code in {"channel_uncertain", "channel_unavailable"}:
+                            runtime.outbox.mark_uncertain(row.id, claim_token=prepared.claim_token)
+                        else:
+                            runtime.outbox.mark_failed(row.id, claim_token=prepared.claim_token)
+                        if delivery is not None:
+                            delivery.update(status="uncertain" if exc.code in {
+                                "channel_uncertain", "channel_unavailable"
+                            } else "failed")
+                            delivery.failed()
+                        logger.warning("send_failed code=%s output=%s", exc.code, row.id)
+            except DomainError as exc:
+                if delivery is not None:
+                    delivery.update(status="deferred" if exc.code == "thread_busy" else "failed")
+                    if exc.code != "thread_busy":
+                        delivery.failed()
+                if exc.code != "thread_busy":
+                    logger.warning("send_deferred code=%s output=%s", exc.code, row.id)
 
 
 async def slot(runtime, stop, number):
