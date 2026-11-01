@@ -54,10 +54,13 @@ No se copian contraseñas en este README ni en el repositorio público.
 | Langfuse | `LANGFUSE_PUBLIC_URL` | `LANGFUSE_INIT_USER_EMAIL` | `LANGFUSE_INIT_USER_PASSWORD` |
 | Chatwoot de pruebas | `CHATWOOT_UI_URL` | `CHATWOOT_UI_EMAIL` | `CHATWOOT_UI_PASSWORD` |
 
-El acceso web de Chatwoot es distinto de la clave del relay. Su usuario y alcance
-se preparan antes de entregar el entorno; campos vacíos no constituyen un acceso
-configurado. El evaluador no necesita entrar a la administración de Cloudflare ni
-a la cuenta AWS del propietario: el túnel utiliza su token de ejecución privado.
+El acceso web de Chatwoot usa un usuario propio con rol agente, asignado únicamente
+a la bandeja de pruebas, y es distinto de la clave del relay. La edición instalada
+permite consultar contactos de la cuenta; la restricción de bandeja se aplica a las
+conversaciones. Abre Chatwoot en una ventana privada para probar ese usuario sin
+cerrar la sesión del propietario. No necesita entrar a la administración de
+Cloudflare ni a la cuenta AWS del propietario: el túnel utiliza su token de ejecución
+privado.
 
 ## Datos y PIN de la demo
 

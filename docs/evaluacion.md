@@ -24,6 +24,14 @@ Por HTTPS se comprobaron salud/readiness y protección del webhook. Una petició
 
 En el origen público se activaron `APP_ENV=production` y la prohibición de entrada local de mensajes (403). Se comprobaron login HTTPS 303, cookie `Secure` y tabla 200 mediante HTTP. El bot de pruebas apunta al nuevo endpoint y tiene respaldo privado. El login en Chrome real se comprobó después de corregir la política de referencia de `/login`: central con 14 filas y acciones JavaScript operativas, manteniendo Origin y CSRF. En Chrome, el filtro `telefonia` + `CC` + `10000001` devolvió una deuda de USD 60 y después se restauró la vista de 14 filas. No se acredita aún el tramo WhatsApp con el usuario.
 
+Se creó un usuario web independiente con rol agente y membresía únicamente en la
+bandeja de pruebas. Sus credenciales se guardaron exclusivamente en `.env` privado.
+El login HTTP respondió 200; el listado de bandejas y conversaciones mostró solo
+la bandeja asignada. Las consultas directas a conversaciones de otras bandejas
+fueron rechazadas, manteniéndose válida la sesión para la conversación de prueba.
+La consulta global de contactos que permite esta edición fue aceptada por el
+propietario. No se enviaron mensajes durante esta verificación.
+
 ## Instalación limpia comprobada
 
 El 2026-11-01 se ejecutó **`./start.sh` auténtico** en una copia temporal privada, sin `.env`, `.local`, `.git`, cachés ni dumps del desarrollador. Se copiaron solo los accesos externos necesarios y se generaron **17 secretos internos nuevos**, distintos de los del desarrollo. El proyecto `proyecto-agil-cleancheck` usó puertos 18080/13000 y, solo en esa copia, Minio/endpoint de medios 19090. No se activó túnel. Los once servicios arrancaron; no hubo limitación de capacidad.
