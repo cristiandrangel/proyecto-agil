@@ -11,7 +11,7 @@ son argumentos del modelo ni se escriben en prompts, checkpoints o trazas.
 | Nombre | Argumentos del modelo | Precondición y resultado |
 |---|---|---|
 | list_debts | filtro de servicio opcional | Sesión vigente; devuelve solo servicios autorizados con saldo, mora y estado |
-| select_debt | debt_id | Debe pertenecer al cliente; registra selección explícita; no agrega deudas |
+| select_debt | debt_id | Debe pertenecer al cliente; registra una única selección activa por conversación; permite gestionar deudas sucesivamente, sin agregarlas ni borrar órdenes previas |
 | create_full_payment | debt_id | Deuda seleccionada; consulta versión actual y crea orden por saldo sin descuento |
 | quote_agreement | debt_id, offer_amount_usd string | Valida oferta en central; devuelve condiciones o requires_human; sin condonar |
 | accept_agreement | agreement_id | Condiciones previas y mensaje posterior de conformidad; crea orden por oferta autorizada |

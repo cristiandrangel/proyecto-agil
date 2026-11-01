@@ -38,6 +38,11 @@ una ejecución puede generar varios puntos de guardado.
 
 ## Esquema propuesto del estado
 
+Se gestiona **una deuda a la vez por conversación**. El cliente puede consultar
+sus diferentes deudas y gestionarlas sucesivamente en el mismo thread_id.
+Cambiar de selección no borra acuerdos ni órdenes de la central: conservan su
+propia vigencia; las referencias activas del estado corresponden a la deuda elegida.
+
 | Campo | Contenido | Cómo se actualiza |
 |---|---|---|
 | messages | Mensajes normalizados de usuario/asistente y llamadas/resultados de herramientas, sin secretos | Incorporar mensajes por ID estable, evitando duplicarlos en reintentos; no reemplazar todo el historial con la ventana enviada al modelo |
