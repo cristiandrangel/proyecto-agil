@@ -473,15 +473,38 @@ def create_app(settings: RelaySettings | None = None, *, transport=None, clock=t
         if identifier(data.get("id")) != cfg.chatwoot_relay_inbox_id:
             raise RelayError("upstream_invalid", 503)
         templates = data.get("message_templates")
-        if not isinstance(templates, list) or not any(
-            isinstance(template, dict)
+        if not isinstance(templates, list):
+            raise RelayError("template_denied", 422)
+        matches = [
+            template
+            for template in templates
+            if isinstance(template, dict)
             and all(template.get(key) == params[key] for key in ("name", "language", "category"))
             and str(template.get("status", "")).upper() == "APPROVED"
-            for template in templates
-        ):
+        ]
+        if len(matches) != 1:
             raise RelayError("template_denied", 422)
-        # Demo templates currently have no dynamic parameters or URL/button overrides.
-        return {key: params[key] for key in ("name", "language", "category", "processed_params")}
+        components = matches[0].get("components")
+        bodies = [
+            component.get("text")
+            for component in components
+            if isinstance(component, dict) and component.get("type") == "BODY"
+        ] if isinstance(components, list) else []
+        if (
+            len(bodies) != 1
+            or not isinstance(bodies[0], str)
+            or not bodies[0].strip()
+            or len(bodies[0]) > MAX_MESSAGE_CHARS
+            or "{{" in bodies[0]
+            or "}}" in bodies[0]
+        ):
+            raise RelayError("template_body_unavailable", 422)
+        # Derive Chatwoot's display text from the same approved template Meta sends.
+        # Caller text is never used to represent a different template to the advisor.
+        return (
+            {key: params[key] for key in ("name", "language", "category", "processed_params")},
+            bodies[0],
+        )
 
     @app.get("/api/v1/accounts/{account_id}/conversations/{conversation_id}")
     async def get_conversation(account_id: str, conversation_id: str, request: Request):
@@ -553,7 +576,7 @@ def create_app(settings: RelaySettings | None = None, *, transport=None, clock=t
             if "template_params" in body:
                 if body["private"]:
                     raise RelayError("template_denied", 422)
-                template = await approved_template(body["template_params"])
+                template, template_text = await approved_template(body["template_params"])
             current = await checked_conversation(requested)
             if current["status"] != "pending":
                 raise RelayError("human_control", 409)
@@ -562,6 +585,7 @@ def create_app(settings: RelaySettings | None = None, *, transport=None, clock=t
             outgoing = {key: body[key] for key in ("content", "message_type", "private")}
             if template is not None:
                 outgoing["template_params"] = template
+                outgoing["content"] = template_text
             sends.take()  # Durable and conservative: timeout/failure never refunds an attempt.
             data = await upstream(
                 "POST", f"/conversations/{requested}/messages", body=outgoing, bot=True

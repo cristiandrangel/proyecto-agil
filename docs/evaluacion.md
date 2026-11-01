@@ -116,6 +116,14 @@ de pruebas se verificó el mensaje saliente en estado `delivered`, con referenci
 del proveedor y conversación `pending` asignada al bot de pruebas. La respuesta
 del evaluador y el resto de la conversación siguen pendientes.
 
+Durante la revisión de Chatwoot se detectó que el mensaje saliente mostraba un
+texto genérico aunque WhatsApp recibía la plantilla correcta. El relay se ajustó
+para obtener el cuerpo de la plantilla aprobada y enviarlo como contenido visible
+a Chatwoot. Se conserva el registro anterior; no se modifica ni se reenvía.
+Los 48 contratos del relay y del adaptador de Chatwoot aprobaron; el relay
+actualizado está saludable y su lectura de la conversación de pruebas pasó sin
+enviar mensajes. El contraste visual de ambos canales se hará en un próximo envío real.
+
 ## Integraciones reales y despliegue
 
 | Comprobación | Estado y alcance |

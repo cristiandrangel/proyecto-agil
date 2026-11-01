@@ -150,6 +150,10 @@ registran como simulados y la plantilla llega a tu WhatsApp. Los simulados no
 envían mensajes externos ni consumen IA. No relances una campaña para compensar
 una entrega incierta: consulta primero el resultado del destinatario.
 
+En los próximos envíos, el texto del mensaje registrado en Chatwoot debe coincidir
+con el cuerpo de la plantilla aprobada que recibe el WhatsApp. El relay obtiene
+ese texto del catálogo de plantillas; no genera una versión alternativa.
+
 El estado de envío y el acuse de entrega son distintos. Si Chatwoot omite el
 estado exacto, no se debe presentar como entregado o leído. La recepción en el
 WhatsApp del evaluador es una comprobación adicional del recorrido.

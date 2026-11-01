@@ -17,6 +17,10 @@ E.164, preparación de contactos y sus bindings/conversaciones; consulta mínima
 una conversación; creación de conversación pendiente con binding existente exacto;
 envío de texto, nota privada o plantilla aprobada sin parámetros dinámicos; y
 cambio de estado exclusivamente a `open`. Todas las demás rutas se deniegan.
+Para plantillas, el relay obtiene el cuerpo BODY del catálogo aprobado y lo utiliza
+como contenido visible en Chatwoot. Conserva sus saltos de línea y no usa el texto
+genérico del solicitante. Rechaza cuerpos ausentes, ambiguos, demasiado largos o
+con parámetros dinámicos; nunca reemplaza una plantilla con un texto supuesto.
 Las lecturas y contactos usan el usuario; las escrituras de conversaciones usan el
 bot para conservar el actor y el comportamiento de transferencia. Las respuestas
 no incluyen contenido de mensajes, historial, credenciales ni metadatos privados.

@@ -54,6 +54,7 @@ class Upstream:
         self.fail_send = False
         self.message_counter = 600
         self.contactable_source = RAW_SOURCE
+        self.template_components = [{"type": "BODY", "text": PRIVATE}]
 
     def conversation(self, identifier=401, *, inbox=INBOX, contact_id=12, status="pending"):
         return {
@@ -104,7 +105,7 @@ class Upstream:
                             "status": "APPROVED",
                             "category": "UTILITY",
                             "provider_config": {"token": PRIVATE},
-                            "components": [{"type": "BODY", "text": PRIVATE}],
+                            "components": self.template_components,
                         }
                     ],
                 },
@@ -653,6 +654,8 @@ async def test_message_whitelist_open_control_and_open_only_status(tmp_path):
 @pytest.mark.asyncio
 async def test_template_matches_current_approved_catalog_and_has_no_parameter_override(tmp_path):
     app, upstream = build(tmp_path)
+    approved_text = "Hola. Tienes una factura pendiente.\nResponde para consultar las opciones de pago."
+    upstream.template_components = [{"type": "BODY", "text": approved_text}]
     upstream.conversations[401]["can_reply"] = False
     path = f"/api/v1/accounts/{ACCOUNT}/conversations/401/messages"
     template = {
@@ -679,6 +682,30 @@ async def test_template_matches_current_approved_catalog_and_has_no_parameter_ov
         assert response.status_code == 200 and response.json() == {"id": 601}
     writes = [call for call in upstream.calls if call.method == "POST"]
     assert len(writes) == 1 and json.loads(writes[0].content)["template_params"] == template
+    assert json.loads(writes[0].content)["content"] == approved_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("components", [
+    None,
+    [],
+    [{"type": "BODY", "text": "   "}],
+    [{"type": "BODY", "text": "Hola {{1}}"}],
+    [{"type": "BODY", "text": "x" * 20001}],
+    [{"type": "BODY", "text": "Uno"}, {"type": "BODY", "text": "Dos"}],
+])
+async def test_template_without_one_static_body_never_sends_placeholder(tmp_path, components):
+    app, upstream = build(tmp_path)
+    upstream.template_components = components
+    params = {"name": "demo_notice", "language": "es", "category": "UTILITY", "processed_params": {}}
+    async with client(app) as api:
+        response = await api.post(
+            f"/api/v1/accounts/{ACCOUNT}/conversations/401/messages",
+            json=message(template_params=params),
+        )
+    assert response.status_code == 422
+    assert response.json()["code"] == "template_body_unavailable"
+    assert all(call.method == "GET" for call in upstream.calls)
 
 
 @pytest.mark.asyncio
