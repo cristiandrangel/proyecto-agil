@@ -144,7 +144,7 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 
 1. Recibe una plantilla previamente aprobada asociada a una campaña de prueba.
 2. Responde por WhatsApp; el backend obtiene la identidad del canal.
-3. El agente localiza un candidato y solicita el PIN ficticio sin revelar aún saldos o datos completos.
+3. El agente recibe el source_id literal en su contexto e interpreta si es teléfono o Business ID. Intenta localizar por celular o pide tipo/número de identificación ficticia; presenta una pista enmascarada para confirmar el registro y pide su PIN. Si el candidato no corresponde, busca otro por identificación.
 4. El backend verifica el PIN y habilita consultas autorizadas.
 5. El agente consulta los servicios y el cliente selecciona una deuda.
 6. El agente crea una orden por el saldo vigente y entrega su enlace.
@@ -185,6 +185,13 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 6. No se envían recordatorios automáticos fuera de las reglas de contacto definidas. Su incorporación futura requiere configuración explícita.
 
 Los valores iniciales de demo son 30 minutos para sesión y orden, configurables según la especificación. Mantener memoria no equivale a mantener una sesión autenticada indefinidamente.
+
+La llave de memoria es el source_id del contacto tal como llegó, sin transformaciones
+ni otros IDs añadidos. Otro número o identificador mantiene otra memoria. El ID
+de conversación de Chatwoot queda asociado a cada evento y respuesta para conservar
+el destino correcto. Un interlocutor puede gestionar otro titular con su PIN:
+se invalida la sesión previa y se limpia el contexto financiero activo, manteniendo
+la llave del canal. La central almacena celulares y documentos, sin Business IDs.
 
 ### 7.5. Excepción y atención humana
 
@@ -303,11 +310,11 @@ El diagrama representa responsabilidades de producto. Todos los componentes prop
 | FR-05 | Campañas | Excluir pagados y bajas; permitir destinos ficticios solo en simulación y exigir habilitación para el destino real del evaluador; revalidar antes del envío e impedir doble lanzamiento accidental |
 | FR-06 | Campañas | Recorrer personas únicas en orden, una por una, con plantilla preparada y aprobada; registrar simulación, aceptación real, entrega y error por separado, sin doble envío al reanudar |
 | FR-07 | Canal | Recibir y validar eventos; distinguir entradas del cliente, salidas y notas privadas; deduplicar por identidad de mensaje |
-| FR-08 | Identidad | Localizar por teléfono o identificador disponible del canal; comprobar PIN y limitar intentos; no devolver PIN al modelo |
+| FR-08 | Identidad | Inyectar source_id literal al LLM para que elija buscar por celular o pedir identificación, sin clasificador previo; confirmar candidato con pista enmascarada, permitir otro registro y verificar su PIN fuera del modelo, limitando intentos |
 | FR-09 | Autorización | Limitar herramientas a deudas y órdenes del cliente autenticado; renovar verificación cuando corresponda |
 | FR-10 | Medios | Procesar texto, audio e imágenes por tipo real; conservar mensaje acompañante y procedencia; manejar archivos no soportados o ilegibles |
 | FR-11 | Agente | Interpretar lenguaje libre, aclarar ambigüedades y seleccionar herramientas mediante llamadas reales a OpenAI; usar también OpenAI para transcribir audio e interpretar imágenes antes del agente principal |
-| FR-12 | Memoria | Mantener continuidad por conversación y separación entre clientes; la sesión de identidad es independiente de la memoria |
+| FR-12 | Memoria | Usar source_id literal del contacto como thread_id, sin normalizar ni concatenar; conservar destino Chatwoot por evento; cambiar de cliente exige nuevo PIN y limpiar contexto financiero activo; autorización independiente de memoria |
 | FR-13 | Política | Validar en código deuda, saldo vigente y oferta en USD; rechazar importes no positivos o superiores al saldo; aclarar datos ambiguos y no convertir otras monedas |
 | FR-14 | Acuerdo | Aplicar umbral del 80% a la deuda elegida; presentar condiciones y obtener conformidad antes de emitir la orden con descuento |
 | FR-15 | Orden | Crear enlace asociado a una orden con importe autorizado, token opaco y caducidad; impedir que el navegador altere el importe |
@@ -510,7 +517,7 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-01 | Arranque limpio y carga de fixtures | Interfaces y dependencias listas según README | FR-20 |
 | AC-02 | Persona con dos servicios | Consulta autorizada y selección explícita; sin mezclar saldos | FR-01–03, FR-09 |
 | AC-03 | PIN incorrecto o no verificado | Sin saldos ni datos completos; manejo de intentos | FR-08–09 |
-| AC-04 | Identificador de canal sin coincidencia | Fallback documentado, sin inventar identidad | FR-08 |
+| AC-04 | Business ID, formato desconocido, celular sin coincidencia o candidato rechazado | LLM recibe source_id literal, pide identificación y confirma candidato enmascarado; sin inventar teléfono ni identidad | FR-08 |
 | AC-05 | Pago completo | Orden por saldo vigente y aplicación correcta | FR-13, FR-15–16 |
 | AC-06 | Oferta del 90% | Condiciones claras; pago 90 y condonación 10 sobre saldo 100 | FR-13–16 |
 | AC-07 | Oferta exactamente del 80% | Autorización por el umbral y liquidación tras pago | FR-13–16 |
@@ -525,7 +532,7 @@ Mensajes de prueba: texto, ofertas expresadas informalmente, audios claros/ambig
 | AC-16 | Imagen ilegible o medio no soportado | Pide aclaración o deriva; no inventa contenido | FR-10 |
 | AC-17 | Solicitud de asesor o disputa de deuda | Caso, resumen y suspensión del bot | FR-18 |
 | AC-18 | Conversación fuera de pending, incluso durante una inferencia | Sin respuestas automáticas; retorno explícito a pending conserva contexto | FR-07, FR-18 |
-| AC-19 | Reinicio y reanudación | Memoria persistente; validación de sesión y saldo actual | FR-09, FR-12 |
+| AC-19 | Reinicio y reanudación | Memoria por source_id literal; sesión y saldo vigentes; destino correcto con varios chats; cambio de cliente limpia contexto y exige nuevo PIN | FR-09, FR-12 |
 | AC-20 | Campaña con varios servicios del mismo cliente | Destinatario agrupado; sin contactos duplicados por error | FR-04–06 |
 | AC-21 | Baja, deuda ya pagada o lanzamiento repetido | Exclusión o deduplicación observable | FR-05–06 |
 | AC-22 | Caída del sistema central o del LLM | Sin afirmar éxito; reintento limitado o atención humana | FR-11, FR-16–18 |

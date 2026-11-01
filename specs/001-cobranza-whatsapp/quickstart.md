@@ -68,7 +68,8 @@ En EC2 se usa HTTPS y las rutas públicas definidas en
    ya aprobada y lanzar una vez. Ver avanzar el lote uno por uno: ficticios como
    simulados sin envío real; solo el evaluador recibe WhatsApp. Confirmar que las
    simulaciones no inflan envíos reales ni el denominador de contactabilidad.
-5. Responder, introducir el PIN ficticio que indique el README y seleccionar servicio.
+5. Responder, confirmar el candidato o indicar otra identificación, introducir el PIN
+   ficticio que indique el README y seleccionar servicio.
    El PIN se entrega al backend, nunca se registra en trazas ni se pasa al modelo.
 6. Pedir enlace, aprobar el pago simulado y comprobar USD recibidos, cero condonados
    y saldo cero únicamente en el servicio elegido.
@@ -120,7 +121,9 @@ con modelo, configuración, fecha y limitaciones. No afirmar aprobado porque hay
 ## Restauración y Floci
 
 El comando objetivo `python -m scripts.reset_demo --confirm` dentro del contenedor
-restaura escenarios locales, invalida sesiones y cambia epoch. Nunca borra ledger
+restaura escenarios locales, invalida sesiones, elimina checkpoints/writes y cambia
+epoch como metadato junto con la fecha de corte. thread_id sigue siendo source_id
+literal, sin prefijos nuevos. Nunca borra ledger
 de gasto ni historial externo. No usar `down -v` como reset rutinario: elimina datos
 persistentes, incluido consumo si se usa sobre todos los volúmenes.
 

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `main` (sin extensión de ramas; feature `001-cobranza-whatsapp`)
 **Created**: 2026-10-31
-**Status**: Especificación funcional lista para planificación; implementación pendiente.
+**Status**: Especificación y diseño disponibles; implementación pendiente.
 **Input**: PRD integral y aclaraciones de Cristian; entrega lunes 2026-11-02,
 America/Bogota, hora pendiente. Véanse [PRD](../prd.md) y
 [arquitectura inicial](../arquitectura-inicial.md).
@@ -38,6 +38,12 @@ deja saldo cero exclusivamente en la deuda seleccionada.
    **Then** la deuda conserva el saldo y recibe una siguiente acción coherente.
 5. **Given** un evento repetido o dos intentos simultáneos de liquidación,
    **When** se procesan, **Then** el pago y la liquidación tienen efecto una vez.
+6. **Given** source_id de contacto literal, **When** llegan mensajes desde distintas
+   conversaciones de Chatwoot con ese valor, **Then** comparten memoria, se procesan
+   en serie y cada respuesta vuelve a la conversación del evento que la originó.
+7. **Given** un candidato rechazado o un Business ID, **When** el interlocutor
+   aporta otra identificación, **Then** puede gestionar ese registro solo tras su
+   PIN, sin arrastrar saldos ni referencias del cliente anterior.
 
 ### User Story 2 - Preparar contacto y lanzar una campaña (Priority: P1)
 
@@ -175,7 +181,9 @@ inspeccionar trazas de un turno y restaurar el entorno con el guion documentado.
 - Mensajes repetidos, privados o enviados por el propio bot: no iniciar otro turno.
 - Reinicio: conservar conversación y eventos pendientes sin conservar indefinidamente
   la autorización; volver a comprobar sesión, saldo y control humano.
-- Dos mensajes del mismo cliente: respetar su orden; otros clientes pueden avanzar.
+- Dos mensajes del mismo source_id, incluso en diferentes conversaciones Chatwoot:
+  respetar su orden y conservar el destino de cada salida; otros threads pueden avanzar.
+- source_id ausente: no inventar una llave ni usar el identificador externo del mensaje.
 - Dos órdenes para una deuda o pago mientras se prepara enlace: una sola liquidación
   con saldo actual y sin una segunda condonación.
 - Archivo excesivo, origen no permitido, medio ilegible o fallo de inferencia:
@@ -210,16 +218,20 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   un fallo o resultado incierto, sin repetir automáticamente este último.
 - **FR-07**: El canal DEBE distinguir mensajes entrantes, salidas y notas privadas,
   deduplicar e impedir negociaciones simultáneas incoherentes en una conversación.
-- **FR-08**: La identidad DEBE localizarse por datos del canal o identificación
-  ficticia y verificarse con PIN antes de revelar cartera, con límite de intentos.
+- **FR-08**: El LLM DEBE recibir el source_id literal y decidir buscar por teléfono
+  o pedir identificación ficticia, sin clasificación previa. Un candidato se confirma
+  con pista enmascarada y se verifica su PIN fuera del modelo antes de revelar cartera.
+  Rechazar al candidato permite buscar otro registro; se limitan intentos.
 - **FR-09**: Todas las consultas y acciones DEBEN limitarse al cliente autenticado;
   conocer una referencia de otra persona no concede acceso.
 - **FR-10**: Audio, imagen y texto DEBEN conservar contexto y procedencia y
   producir una aclaración cuando no puedan interpretarse con confianza suficiente.
 - **FR-11**: Las decisiones conversacionales DEBEN usar inferencia real y
   herramientas ejecutadas realmente; las reglas financieras no dependen del modelo.
-- **FR-12**: La memoria DEBE mantener continuidad por conversación, separada
-  entre clientes; recordar datos no sustituye una sesión de identidad vigente.
+- **FR-12**: La memoria DEBE usar como thread_id el source_id literal del contacto,
+  sin normalización ni concatenaciones. Cambiar de identificador abre otra memoria;
+  cambiar de cliente exige nuevo PIN y limpiar contexto financiero activo. Cada
+  respuesta conserva el conversation_id de su evento; recordar no concede acceso.
 - **FR-13**: Las ofertas DEBEN validarse contra saldo vigente, deuda y USD;
   importes no positivos o superiores al saldo se rechazan, sin conversiones monetarias.
 - **FR-14**: Un acuerdo automático DEBE ofrecerse solo desde el 80% e inferior
@@ -297,6 +309,11 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   números ficticios. Los KPI de contacto usan solo destinatarios reales.
 - La demo tiene una campaña activa por persona y una deuda seleccionada por gestión;
   varios servicios pueden producir resultados distintos sin duplicar contactos.
+- El despliegue acepta una cuenta/inbox configurados, con memoria por source_id
+  literal y destino por evento. No fusiona identidades del canal. El mismo usuario
+  puede gestionar otro titular con su PIN; la cartera no guarda Business IDs.
+- El reset elimina checkpoints y escrituras locales y fija una fecha de corte,
+  sin cambiar la llave de memoria. epoch se conserva solo como control del escenario.
 - Valores iniciales configurables: sesión verificada de 30 minutos, orden/acuerdo
   de 30 minutos y ventana de seguimiento de campaña de 24 horas. El operador puede
   cerrar una campaña para demostrar resultados al corte, sin alterar eventos previos.

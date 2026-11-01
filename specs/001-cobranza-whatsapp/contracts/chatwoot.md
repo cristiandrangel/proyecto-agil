@@ -33,6 +33,31 @@ real y límites prevalecen sobre extensión y metadata. Guardar mensaje normaliz
 y trabajo antes de ACK; PIN se intercepta sin persistir el texto secreto.
 Eventos creados antes del epoch de reset no inician turnos del escenario nuevo.
 
+## Llave de memoria y destino de respuesta
+
+Se extrae el source_id del contact_inbox de la conversación, conservando su valor
+literal; la ruta prevista es body.conversation.contact_inbox.source_id. Ese valor
+es thread_id, sin quitar prefijos ni concatenar otros IDs. El source_id externo
+del mensaje no se usa como llave de memoria. Falta de identidad o de destino
+válidos impide iniciar un turno; no se adivinan valores a partir de otro mensaje.
+
+Cada inbox_event conserva account_id, inbox_id, conversation_id, message_id y
+thread_id del mensaje entrante. conversation_job referencia ese evento y usa
+thread_id para exclusión mutua. Al generar una respuesta, outbox copia esos
+datos de destino y source_event_id, además de identity_revision. No consulta una
+variable global de «última conversación» ni toma el destino del texto del LLM.
+
+El worker de salida comprueba esa conversación concreta y publica en su endpoint
+de mensajes. Varias conversaciones con el mismo source_id comparten memoria pero
+mantienen destinos independientes. El destino de una nota y de la transferencia
+humana también proviene del evento que originó el caso. Cuenta/inbox se limitan
+a los configurados, aunque no formen parte del thread_id literal.
+
+Si durante una respuesta se solicita otro cliente, las salidas de la revisión
+anterior se cancelan. Un caso humano activo bloquea la gestión automática del
+mismo thread hasta devolución explícita; cada envío exige además pending en su
+conversación de destino. Compartir memoria no devuelve por sí solo control al bot.
+
 ## Control y salida
 
 - GET `/api/v1/accounts/{account}/conversations/{conversation}` al iniciar y antes

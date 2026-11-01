@@ -34,7 +34,7 @@ concurrencia, contratos y aislamiento; guion de integración con servicios reale
 **Performance Goals**: ACK del webhook tras persistencia, sin esperar al LLM; medir
 p50/p95 en texto/audio/imagen. El timeout de integración se valida en preflight;
 no se promete capacidad comercial. Dos slots de trabajo y dos inferencias máximas
-simultáneas, con una sola ejecución por conversación.
+simultáneas, con una sola ejecución por thread_id/source_id literal.
 **Constraints**: USD fijo; una deuda por contrato; 80% mínimo; presupuesto IA USD 5
 con corte local conservador 4.50; cinco llamadas del agente por turno; sin OTP,
 dinero real, ERP completo, IaC o migración a otros servicios en esta entrega.
@@ -71,6 +71,7 @@ specs/001-cobranza-whatsapp/
 ├── plan.md
 ├── research.md
 ├── data-model.md
+├── agent-state.md
 ├── quickstart.md
 ├── contracts/
 │   ├── application.md
@@ -135,7 +136,7 @@ No quedan decisiones de diseño marcadas NEEDS CLARIFICATION.
 1. El webhook valida autenticidad, cuenta/inbox y tipo; persiste mensaje normalizado
    sin PIN ni secretos y responde. Un PIN se procesa por la ruta determinista de
    identidad antes de guardar texto conversacional o llamar al modelo.
-2. El worker toma trabajo durable y obtiene exclusión de conversación. Comprueba
+2. El worker toma trabajo durable y obtiene exclusión de thread. Comprueba
    el estado real pending y la sesión; rechaza notas/salidas o mensajes repetidos.
 3. Descarga medios con límites, transcribe o extrae contexto no verificado. Reserva
    gasto antes de cada llamada, incluso las de preprocesamiento.
@@ -151,12 +152,19 @@ No quedan decisiones de diseño marcadas NEEDS CLARIFICATION.
    enviarse. Un estado humano conocido cancela la salida; un envío incierto no se
    repite automáticamente. El caso humano se guarda antes de nota y cambio a open.
 
+El thread_id es exactamente el source_id del contacto del evento. Se valida la
+cuenta/inbox por separado; no se normaliza la llave ni se agregan prefijos. El
+lock del worker abarca el thread, incluso si agrupa varios conversation_id. Cada
+trabajo conserva el evento y cada outbox copia su destino: cuenta, inbox y
+conversation_id. La respuesta se publica en esa conversación, no en una «última
+conversación» global ni en un destino elegido por el modelo.
+
 ### Estado y ventana de contexto
 
-[agent-state.md](agent-state.md) concreta el estado propuesto, sus referencias a
+[agent-state.md](agent-state.md) concreta el estado, sus referencias a
 cartera y la ventana seleccionada antes de cada inferencia. Los checkpoints pueden
-conservar más historial del que se envía al LLM. La propuesta de 20 mensajes visibles
-es configurable y está subordinada al límite total de 12 000 tokens de entrada.
+conservar más historial del que se envía al LLM. El valor inicial de 20 mensajes visibles
+es configurable y está subordinado al límite total de 12 000 tokens de entrada.
 No se crea una tabla propia de estados ni un nodo por fase conversacional.
 
 ### Identidad y acceso
@@ -168,17 +176,29 @@ datos completos de identificación. API central: credencial interna de servicio 
 grant temporal de cliente en consultas conversacionales. Operador y agente usan
 permisos distintos. El modelo no puede consultar un cliente arbitrario.
 
-El teléfono se normaliza en formato internacional. Cambiarlo incrementa una versión
+El teléfono de cartera se normaliza en formato internacional. Cambiarlo incrementa una versión
 de contacto e invalida la vinculación Chatwoot anterior; se resuelve de nuevo por
-inbox al enviar. La identificación ficticia y PIN constituyen fallback para BSUID
-o contacto ambiguo. Sesión 30 minutos, tres intentos incorrectos y bloqueo 15 minutos;
+inbox al enviar. Esa normalización no se aplica al source_id de memoria.
+El LLM recibe source_id literal en el contexto, sin clasificación previa, y usa
+locate_customer por teléfono o pide documento si interpreta Business ID, formato
+desconocido, no hay coincidencia o se rechaza al candidato. La herramienta devuelve
+solo una pista enmascarada. El backend registra confirmación y PIN pendientes;
+la verificación escrita queda fuera del modelo. La central guarda teléfonos y
+documentos ficticios, sin IDs de Meta; recibe un binding_ref opaco para autorizar.
+
+Se permite gestionar otro titular tras validar su PIN. Cambiar de cliente revoca
+la sesión anterior, limpia el historial financiero activo y referencias, cancela
+salidas anteriores e incrementa identity_revision sin cambiar thread_id. Antes de
+cada inferencia se contrasta esa revisión con el estado recuperado. El caso humano
+activo bloquea el thread hasta devolución explícita; pending se comprueba además
+en el destino de cada respuesta. Sesión 30 minutos, tres intentos incorrectos y bloqueo 15 minutos;
 son defaults de demo configurables y explícitos, no política productiva.
 
 ### Trabajo durable y efectos externos
 
 El PostgreSQL operativo tiene inbox_events, conversation_jobs, outbox y business_events.
 Una clave única evita recepción duplicada. Para una conversación se respeta el orden
-de recepción persistida y se ejecuta el nodo bajo advisory lock de sesión. Las
+de recepción persistida y se ejecuta el nodo bajo advisory lock por thread_id. Las
 herramientas mutantes llevan clave estable por mensaje y acción; al reejecutar un
 nodo después de caída recuperan el mismo resultado en lugar de crear otra orden.
 
@@ -236,9 +256,9 @@ contactos reales se redactan antes de persistencia y de Langfuse.
 
 ### Entrega, dimensionamiento y validación
 
-El sábado 31 se priorizan base y primer recorrido; domingo 1, campaña, medios,
-acuerdos, handoff y métricas; lunes 2, aceptación desde entorno limpio, guion,
-respaldo y entrega. Es orden orientativo, sin promesa de horas ni reducción de Must Have.
+Orden de trabajo hasta el lunes 2: base y primer recorrido; campaña, medios,
+acuerdos, handoff y métricas; aceptación desde entorno limpio, guion y entrega.
+Es orden orientativo, sin promesa de horas ni reducción de Must Have.
 
 Preflight privado prueba acceso a modelos, Chatwoot y plantilla; no envía campañas
 ni consume inferencia de forma silenciosa. Las pruebas pagadas y de mensajería se

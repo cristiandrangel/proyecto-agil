@@ -30,6 +30,7 @@ Floci valida APIs AWS locales y se distingue del runtime de la aplicación.
 - [Plan técnico y estructura prevista](specs/001-cobranza-whatsapp/plan.md).
 - [Decisiones investigadas](specs/001-cobranza-whatsapp/research.md).
 - [Modelo de datos y estados](specs/001-cobranza-whatsapp/data-model.md).
+- [Estado del agente, source_id literal y memoria](specs/001-cobranza-whatsapp/agent-state.md).
 - [Contratos entre sistemas](specs/001-cobranza-whatsapp/contracts/).
 - [56 tareas de implementación pendientes](specs/001-cobranza-whatsapp/tasks.md).
 - [Guion de validación previsto](specs/001-cobranza-whatsapp/quickstart.md).
@@ -53,6 +54,13 @@ El evaluador pondrá su WhatsApp en el teléfono de un cliente ficticio desde la
 lanzará la campaña con despacho uno por uno —simulado para números ficticios y
 real solo para su contacto habilitado— y recorrerá PIN, deuda, pago, captura y consulta real. Podrá repetir
 con descuento, atención humana y medios, inspeccionar métricas/trazas y restaurar.
+
+La memoria usa exactamente el source_id del contacto recibido, sin transformarlo.
+El LLM recibe ese valor y decide buscar por celular o pedir identificación; el PIN
+se valida fuera del modelo. La cuenta/inbox se verifican por separado. Cada evento
+y salida conservan el conversation_id de Chatwoot para responder al chat correcto,
+aunque varias conversaciones del mismo origen compartan memoria. Gestionar otro
+titular exige su PIN y limpiar el contexto financiero activo.
 
 ## Configuración privada
 

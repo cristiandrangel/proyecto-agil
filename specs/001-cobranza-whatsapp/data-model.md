@@ -176,8 +176,9 @@ permiten calcular contactabilidad y resultados sin contar dos veces el mismo hec
 ### 4. Dónde viven los demás datos
 
 Las flechas siguientes representan intercambios o procesamiento, no claves foráneas.
-`conversation_key` identifica la conversación de Chatwoot: no supone una nueva tabla
-propia llamada «conversación».
+`thread_id` es el source_id literal del contacto y agrupa la memoria. Los campos
+account_id, inbox_id y conversation_id identifican el destino concreto en Chatwoot;
+se conservan por evento y salida, sin incorporarlos a la llave de memoria.
 
 ```mermaid
 flowchart TB
@@ -218,7 +219,7 @@ la separación del dibujo es entre responsabilidades y bases de datos.
 |---|---|---|
 | customer | id, document_type, document_number, display_name, phone_e164, email, customer_type, pin_hash, delivery_mode, test_contact_enabled, contact_version | Documento ficticio único por tipo/número; PIN de fixture se almacena como hash y no se devuelve; delivery_mode simulated por defecto o live para el evaluador; editar teléfono/modo incrementa versión |
 | debt | id, customer_id, contract_reference, service_type, original_cents, balance_cents, due_date, dias_mora, debt_status, service_status, version | Cliente con varias deudas; mora entero no negativo; balance >= 0; pendiente con saldo > 0 y liquidada con cero |
-| identity_session | id, customer_id, channel_key, token_hash, expires_at, failed_attempts, locked_until | Sin grant válido no se revela cartera; PIN no forma parte de la sesión ni de checkpoints; intentos vinculados también al mensaje para no duplicar por retry |
+| identity_session | id, customer_id, binding_ref, token_hash, expires_at, failed_attempts, locked_until | binding_ref es UUID opaco del backend, sin IDs de Meta; sin grant válido no se revela cartera; PIN fuera de sesión/checkpoints; intentos vinculados al mensaje para no duplicar por retry |
 | agreement | id, customer_id, debt_id, debt_version, base_cents, offer_cents, expected_discount_cents, quoted_at, source_message_id, accepted_at opcional, expires_at, status | Oferta positiva e inferior al saldo; oferta * 100 >= base * 80; descuento previsto no equivale a condonación aplicada |
 | payment_order | id, customer_id, debt_id, agreement_id opcional, base_version, base_cents, payable_cents, discount_cents, token_nonce, expires_at, receipt_expires_at, status, idempotency_key | Importe y descuento server-side; status vigente/pagada/vencida; token opaco firmado, derivable al repetir creación, no guardado en logs |
 | payment_attempt | id, order_id, decision, applied, created_at, idempotency_key | Aprobado o rechazado; applied indica efecto durable; mismo comando devuelve mismo resultado |
@@ -254,21 +255,45 @@ operación, permisos y efectos externos.
 | Entidad | Campos esenciales | Restricciones y relación |
 |---|---|---|
 | campaign | id, filter_snapshot, template_snapshot, created_at, launched_at, closed_at, followup_until, status, launch_key | Draft/running/completed/closed; una campaña activa por persona; segmento conservado para métricas |
-| campaign_recipient | id, campaign_id, customer_id, selected_debt_ids, contact_version, position, delivery_mode, destination_binding, conversation_key, send_status | Único (campaign_id, customer_id); posición estable; simulated/sent/failed/uncertain/skipped separados; un mensaje inicial; no usar binding de otra versión del teléfono |
+| campaign_recipient | id, campaign_id, customer_id, selected_debt_ids, contact_version, position, delivery_mode, destination_binding, account_id, inbox_id, conversation_id, thread_id, send_status | Único (campaign_id, customer_id); posición estable; simulated/sent/failed/uncertain/skipped separados; un mensaje inicial; no usar binding de otra versión del teléfono |
 | channel_binding | customer_id, contact_version, account_id, inbox_id, contact_id, source_id, conversation_id | Source_id opaco del inbox correcto; editar contacto invalida vinculación; resolver antes de envío |
-| inbox_event | id, account_id, inbox_id, message_id, conversation_id, sender_key, normalized_content, attachments, received_at, status | Unique (account_id, message_id); sin PIN ni payload de credenciales; tipos privados/salidas no generan turno |
-| conversation_job | id, event_id, conversation_key, state, attempts, next_attempt_at, last_error | Un trabajo por evento; orden por received_at e id; ejecución bajo lock de conversación |
-| verified_context | conversation_key, customer_id, central_grant, expires_at, selected_debt_id | Grant privado solo para adaptador central; no se serializa al modelo o trazas; independiente del checkpoint |
-| outbox | id, operation_key, conversation_key, kind, payload_privado, state, channel_message_id, attempts | Unique operation_key; queued/sent/uncertain/cancelled/failed; uncertain no provoca reenvío ciego |
-| human_case | id, conversation_key, source_event_id, customer_id, debt_id, reason, origin, offer_cents, verification_summary, status | Clave única por evento/origen; cliente/regla/incidencia; open/closed; nota y cambio Chatwoot reintentables por separado |
-| business_event | id, source_key, event_type, campaign_id opcional, customer_id, debt_id opcional, conversation_key, occurred_at | Unique source_key evita duplicar canal o central; evento conserva su origen y significado |
+| inbox_event | id, account_id, inbox_id, message_id, conversation_id, thread_id, normalized_content, attachments, received_at, status | Unique (account_id, message_id); thread_id igual a source_id literal del contacto; sin PIN ni credenciales; privados/salidas no generan turno |
+| conversation_job | id, event_id, thread_id, state, attempts, next_attempt_at, last_error | Un trabajo por evento; orden por received_at e id; exclusión por thread, aun con varios conversation_id |
+| verified_context | thread_id, identity_revision, candidate_reference opcional, challenge_state, binding_ref, customer_id opcional, central_grant opcional, expires_at opcional, selected_debt_id opcional | Una fila por thread; candidato pendiente no equivale a cliente autenticado; grant privado solo para adaptador central, fuera del modelo y trazas |
+| outbox | id, operation_key, source_event_id, thread_id, identity_revision, account_id, inbox_id, conversation_id, kind, payload_privado, state, channel_message_id, attempts | Destino copiado del evento o del binding validado de campaña; nunca una última conversación global; unique operation_key; queued/sent/uncertain/cancelled/failed; incierto sin reenvío ciego |
+| human_case | id, thread_id, account_id, inbox_id, conversation_id, source_event_id, customer_id opcional, debt_id opcional, reason, origin, offer_cents, verification_summary, status | Clave única por evento/origen; bloqueo del thread mientras esté bajo control humano; nota/status se envían a la conversación del caso |
+| business_event | id, source_key, event_type, campaign_id opcional, customer_id, debt_id opcional, thread_id, account_id, inbox_id, conversation_id, occurred_at | Unique source_key evita duplicar canal o central; atribuir al cliente efectivamente autorizado sin cambiar el destinatario original de campaña |
 | inference_reservation | id, turn_id, modality, model, price_version, reserved_usd, actual_usd, state, provider_response_id | Decimal para USD de inferencia; reserved/settled/uncertain; reservas atómicas comunes a workers |
 | central_cursor | consumer, last_sequence | Avanza al guardar eventos conciliados; no perder pago por respuesta HTTP perdida |
-| LangGraph checkpoints | thread_id, checkpoints y writes administrados por AsyncPostgresSaver | Thread = epoch/cuenta/inbox/conversación; no duplicar schema manualmente; setup explícito |
+| LangGraph checkpoints | thread_id, checkpoints y writes administrados por AsyncPostgresSaver | thread_id = source_id literal del contacto; no normalizar ni concatenar; no duplicar schema manualmente; setup explícito |
 
 Los grants y la outbox son datos privados operativos del servidor, nunca archivos
 versionados ni entradas del modelo. Los mensajes PIN se verifican antes de escribir
 texto del evento; se conserva resultado de identidad, no el PIN original.
+
+La central no guarda Business IDs de Meta. Los identificadores del canal son datos
+operativos del backend. Al cambiar de cliente se invalida la sesión previa y
+aumenta identity_revision; se limpia el estado activo y se cancelan salidas de la
+revisión anterior. Se exige un nuevo PIN sin cambiar thread_id. La revisión sirve
+para detectar un checkpoint que todavía contenga contexto del cliente previo.
+
+### Destino de respuesta independiente de la memoria
+
+```mermaid
+flowchart LR
+    E["inbox_event<br/>source_id literal + conversation_id de origen"]
+    J["conversation_job<br/>Referencia al evento + lock por thread_id"]
+    M["Memoria LangGraph<br/>thread_id = source_id literal"]
+    O["outbox<br/>Evento + revision + destino concreto"]
+    C["Chatwoot<br/>POST a la conversacion de ese evento"]
+    E --> J
+    J <--> M
+    J --> O --> C
+```
+
+Cada salida conserva su propio destino. El LLM no elige account_id, inbox_id o
+conversation_id. Se comprueba pending y la revisión antes de publicar; dos chats
+con igual source_id no sobrescriben el destino de sus respuestas pendientes.
 
 ## Estados independientes
 
@@ -320,4 +345,6 @@ eliminan al terminar su preprocesamiento o al limpiar fallos; no se suben al rep
 El reset restaura solo clientes/deudas de demo, sesiones, conversaciones locales,
 órdenes y eventos del escenario, coordinando ambos servicios. No borra gasto, claves
 ni trazas reales del proveedor ni modifica el historial de Chatwoot. Nueva campaña
-y nuevo epoch local evitan que webhooks antiguos se apliquen al escenario restaurado.
+y una fecha de corte local evitan que webhooks antiguos se apliquen al escenario
+restaurado. El reset elimina checkpoints/writes y contextos locales; la llave
+source_id literal permanece igual. epoch sigue como metadato, no como prefijo de memoria.

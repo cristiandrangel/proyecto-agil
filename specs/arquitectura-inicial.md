@@ -68,7 +68,7 @@ Backend, preprocesamiento y agente son responsabilidades lógicas; el dibujo no 
 | Web de pago | Mostrar orden, simular aprobación/rechazo y presentar comprobante | Web en EC2 |
 | Backend y agente | Integrar Chatwoot, autenticar, negociar, generar enlaces y consultar herramientas | Contenedores en EC2 |
 | Sistema central simulado | Consultar cartera y registrar pago, condonación y saldo de forma consistente | API y PostgreSQL de cartera en EC2 |
-| Memoria | Conservar contexto por conversación, separado de la cartera | Otro contenedor PostgreSQL en EC2 |
+| Memoria | Conservar contexto por source_id literal del contacto; destino Chatwoot por evento, separado de la cartera | Otro contenedor PostgreSQL en EC2 |
 | Langfuse | Consultar trazas, herramientas, errores, latencias y consumo | Stack autoalojado completo en EC2 |
 | Persistencia | Conservar bases, archivos y datos de observabilidad fuera de las imágenes | Volúmenes Docker sobre EBS |
 | Entrada pública | Dirigir HTTPS del dominio de prueba hacia las webs y el webhook | Proxy en EC2; DNS en el proveedor del dominio |

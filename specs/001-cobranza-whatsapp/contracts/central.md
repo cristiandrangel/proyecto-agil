@@ -31,8 +31,8 @@ vencido para la acción solicitada, 423 identidad temporalmente bloqueada y 503 
 
 | Método/ruta | Entrada | Respuesta y permisos |
 |---|---|---|
-| POST /identity/locate | phone_e164 o channel_identifier, inbox_id | Solo candidate_count y pista enmascarada; sin saldo, PIN ni datos completos; actor agente |
-| POST /identity/verify | referencia de candidato o documento ficticio, pin, channel_key, source_message_id | customer_id, display_name, grant_token, expires_at; PIN no se devuelve ni entra al modelo; tres intentos y bloqueo |
+| POST /identity/locate | phone_e164 o document_type + document_number, excluyentes | candidate_count, candidate_reference y pista enmascarada; sin saldo, PIN ni datos completos; actor agente |
+| POST /identity/verify | referencia de candidato confirmado, pin, binding_ref UUID del backend, source_message_id | customer_id, display_name, grant_token, expires_at; PIN no se devuelve ni entra al modelo; tres intentos y bloqueo |
 | GET /debts | filtros de mora, servicio, tipo de cliente, documento y estado; paginación | Operador: filas customer+debt; agente: solo sus deudas por grant, sin pin_hash |
 | GET /debts/{id} | grant para agente | Saldo vigente, mora, servicio, estado y version; 404 uniforme para deuda ajena |
 | PATCH /customers/{id} | campos editables, delivery_mode simulated/live, test_contact_enabled, expected_contact_version | Nombre/contacto compartidos; teléfono normalizado y modo de envío explícito; contact_version aumenta y emite evento contact_changed |
@@ -41,6 +41,13 @@ vencido para la acción solicitada, 423 identidad temporalmente bloqueada y 503 
 Las respuestas de operador incluyen únicamente identificación ficticia y campos
 necesarios. Editar teléfono no mueve conversaciones existentes de Chatwoot; el
 backend debe resolver nuevamente el destino con la versión de contacto devuelta.
+
+La cartera guarda celulares e identificaciones ficticias, sin source_id ni Business
+IDs de Meta. binding_ref es una referencia opaca de autorización creada por el
+backend, no un identificador del canal. El LLM elige la localización por teléfono
+o documento usando el source_id literal inyectado a su contexto; esta API valida
+los argumentos y limita la respuesta previa al PIN. Un registro seleccionado se
+autoriza con su PIN aunque el interlocutor escriba desde un teléfono distinto.
 
 ## Acuerdos, órdenes y pagos
 

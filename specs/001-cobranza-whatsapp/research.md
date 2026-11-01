@@ -22,7 +22,10 @@ permanente del producto. Dependencias exactas se fijarán en uv.lock al implemen
 
 **Decisión:** START → agent → END. El nodo encapsula un ciclo acotado de Responses
 API, validación de herramientas y devolución de sus resultados. El preprocesamiento
-de medios es anterior. AsyncPostgresSaver guarda estado por cuenta/inbox/conversación.
+de medios es anterior. AsyncPostgresSaver usa como thread_id el source_id literal
+del contacto. Cuenta/inbox se validan fuera de la llave. El ID de conversación de
+Chatwoot se conserva por evento para control y respuesta, aunque varias compartan
+memoria. No se normaliza, clasifica ni concatena el source_id antes del nodo.
 
 **Motivo:** reproduce el agente único solicitado. El límite del grafo no limita
 el while dentro del nodo: se impone un máximo de cinco llamadas del agente por turno.
@@ -100,7 +103,7 @@ se descartan como autoridad financiera.
 
 **Decisión:** tablas operativas en el PostgreSQL de memoria para recepción de
 mensajes, outbox, campañas, sesiones y gasto; checkpoints en tablas separadas.
-Worker del mismo backend, con dos slots iniciales y exclusión por conversación
+Worker del mismo backend, con dos slots iniciales y exclusión por thread_id
 mediante advisory lock de sesión en una conexión dedicada. La caída del proceso
 libera el lock; estados y claves durables permiten reintentar sin repetir efectos.
 No mantener una transacción financiera abierta durante inferencia o red.

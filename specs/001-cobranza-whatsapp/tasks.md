@@ -31,9 +31,9 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 
 - [ ] T006 Crear entidades y migraciones centrales con constraints de identidad, deuda, acuerdos, órdenes y settlement en apps/central/src/central/models.py y apps/central/alembic/ (FR-01, FR-02, FR-13, FR-16; AC-02, AC-14, AC-30).
 - [ ] T007 [P] Crear modelos/migraciones operativos, eventos, grants, outbox, gasto y cursor en apps/backend/src/backend/persistence/models.py y migrations/backend/ (FR-07, FR-12, FR-19, FR-22; AC-14, AC-19, AC-24, AC-27).
-- [ ] T008 Preparar checkpointer PostgreSQL y thread_id con epoch/cuenta/inbox/conversación en apps/backend/src/backend/persistence/checkpoints.py (FR-09, FR-12; AC-19).
-- [ ] T009 Implementar recepción durable, dedupe, retry acotado y locks por conversación en apps/backend/src/backend/persistence/queue.py y worker.py (FR-07, FR-12; AC-14, AC-19, AC-22).
-- [ ] T010 Implementar outbox con pending revalidado, cancelación y envío incierto sin repetición ciega en apps/backend/src/backend/persistence/outbox.py (FR-06, FR-07, FR-18; AC-18, AC-21, AC-22).
+- [ ] T008 Preparar checkpointer PostgreSQL con thread_id exactamente igual al source_id literal del contacto y revisión de identidad en apps/backend/src/backend/persistence/checkpoints.py (FR-09, FR-12; AC-19).
+- [ ] T009 Implementar recepción durable, dedupe, retry acotado y locks por thread_id que preservan el evento/destino en apps/backend/src/backend/persistence/queue.py y worker.py (FR-07, FR-12; AC-14, AC-19, AC-22).
+- [ ] T010 Implementar outbox con destino account/inbox/conversation copiado del evento o binding de campaña, pending y revisión revalidados, cancelación y envío incierto sin repetición ciega en apps/backend/src/backend/persistence/outbox.py (FR-06, FR-07, FR-12, FR-18; AC-18, AC-19, AC-21, AC-22).
 - [ ] T011 Implementar autenticación por rol de servicio, grants y cliente HTTP central sin acceso directo a cartera en apps/central/src/central/auth.py y apps/backend/src/backend/integrations/central.py (FR-03, FR-08, FR-09; AC-03, AC-13).
 - [ ] T012 [P] Escribir pruebas de reservas concurrentes, timeout y reset que conserva consumo en tests/integration/test_budget.py (FR-19, FR-20; AC-24).
 - [ ] T013 Implementar ledger/reservas de gasto, concurrencia global y corte 4.50 en apps/backend/src/backend/services/budget.py; no borrar al reset (FR-19; AC-24).
@@ -48,18 +48,18 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 
 **Independent Test**: escenarios de US1 en [spec.md](spec.md); fixtures aíslan el recorrido.
 
-- [ ] T016 [P] [US1] Escribir pruebas de PIN, expiración y aislamiento entre clientes en tests/integration/test_identity.py y tests/contracts/test_central_identity.py (FR-08, FR-09; AC-02, AC-03, AC-04, AC-13).
+- [ ] T016 [P] [US1] Escribir pruebas de localización enmascarada por teléfono/documento, confirmación, PIN, expiración y cambio de cliente que limpia contexto y revoca acceso anterior en tests/integration/test_identity.py y tests/contracts/test_central_identity.py (FR-08, FR-09, FR-12; AC-02, AC-03, AC-04, AC-13, AC-19).
 - [ ] T017 [P] [US1] Escribir pruebas de pago, duplicación, órdenes concurrentes y saldo actualizado con PostgreSQL real en tests/integration/test_payments.py (FR-13, FR-15, FR-16; AC-05, AC-10, AC-14, AC-30).
-- [ ] T018 [US1] Implementar localización, PIN hash/grant, limitación de intentos y deudas autorizadas en apps/central/src/central/identity.py y debts.py (FR-01, FR-02, FR-03, FR-08, FR-09; AC-02, AC-03, AC-04, AC-13).
+- [ ] T018 [US1] Implementar localización por celular/documento con pista enmascarada, PIN hash/grant y binding_ref opaco sin IDs de Meta, límite de intentos y deudas autorizadas en apps/central/src/central/identity.py y debts.py (FR-01, FR-02, FR-03, FR-08, FR-09; AC-02, AC-03, AC-04, AC-13).
 - [ ] T019 [US1] Crear fixtures ficticios con dos servicios, aislamiento, estados y límites de mora en apps/central/src/central/seed.py y scripts/seed.py (FR-01, FR-02, FR-20, FR-21; AC-01, AC-02, AC-25, AC-26).
-- [ ] T020 [US1] Implementar sesión de identidad e interceptar PIN antes de modelo/persistencia/traza en apps/backend/src/backend/services/identity.py (FR-08, FR-09, FR-12; AC-03, AC-04, AC-19, AC-24).
+- [ ] T020 [US1] Implementar candidato/confirmación pendientes, PIN escrito fuera de inferencia/persistencia/traza, sesión por source_id literal y cambio de cliente con revisión, limpieza y cancelación de salidas en apps/backend/src/backend/services/identity.py (FR-08, FR-09, FR-12; AC-03, AC-04, AC-13, AC-19, AC-24).
 - [ ] T021 [US1] Implementar órdenes por saldo vigente y capability opaca firmada en apps/central/src/central/orders.py (FR-13, FR-15; AC-05, AC-10, AC-30).
 - [ ] T022 [US1] Implementar intentos, settlement único, condonación cero y eventos centrales atómicos en apps/central/src/central/payments.py (FR-03, FR-16; AC-05, AC-10, AC-14, AC-30).
 - [ ] T023 [US1] Implementar web de pago/recibo y adaptador de intentos en apps/backend/src/backend/api/payments.py, templates/payment.html y static/payment.js (FR-15, FR-16; AC-05, AC-10).
-- [ ] T024 [US1] Implementar herramientas autorizadas de consulta, selección, pago íntegro y verificación en apps/backend/src/backend/agent/tools.py (FR-03, FR-09, FR-13, FR-15, FR-17; AC-02, AC-05, AC-11, AC-13).
-- [ ] T025 [US1] Construir único nodo con loop de cinco llamadas, esquema de agent-state.md, memoria persistente y ventana de historial con herramientas completas y límite total de tokens en apps/backend/src/backend/agent/graph.py y prompts.py (FR-11, FR-12, FR-19; AC-05, AC-19, AC-22, AC-23).
-- [ ] T026 [US1] Implementar adaptador Chatwoot, firma/relay, filtros, pending y ACK durable en apps/backend/src/backend/integrations/chatwoot.py y api/webhooks.py (FR-07, FR-08, FR-18; AC-04, AC-14, AC-18, AC-22).
-- [ ] T027 [US1] Crear entrada local marcada como simulada y prueba de recorrido por texto con inferencia opt-in, incluyendo reanudación y ventana de historial que conserva referencias y permisos, en apps/backend/src/backend/api/demo.py y tests/integration/test_text_journey.py (FR-11, FR-12, FR-16, FR-17, FR-20; AC-05, AC-14, AC-19).
+- [ ] T024 [US1] Implementar locate_customer previa al PIN y herramientas autorizadas de consulta, selección, pago íntegro y verificación en apps/backend/src/backend/agent/tools.py (FR-03, FR-08, FR-09, FR-13, FR-15, FR-17; AC-02, AC-04, AC-05, AC-11, AC-13).
+- [ ] T025 [US1] Construir único nodo con source_id literal en prompt sin clasificador previo, catálogo según autorización, loop de cinco llamadas, revisión, memoria persistente y ventana de historial con herramientas completas y límite total de tokens en apps/backend/src/backend/agent/graph.py y prompts.py (FR-08, FR-11, FR-12, FR-19; AC-04, AC-05, AC-19, AC-22, AC-23).
+- [ ] T026 [US1] Implementar adaptador Chatwoot, firma/relay, filtros, extracción literal de source_id del contacto, destino inmutable por evento, pending y ACK durable en apps/backend/src/backend/integrations/chatwoot.py y api/webhooks.py (FR-07, FR-08, FR-12, FR-18; AC-04, AC-14, AC-18, AC-19, AC-22).
+- [ ] T027 [US1] Crear entrada local simulada y recorrido por texto con inferencia opt-in, incluyendo reanudación, ventana, source_id literal, dos conversation_id bajo un thread con respuestas al destino correcto y cambio de cliente, en apps/backend/src/backend/api/demo.py y tests/integration/test_text_journey.py (FR-08, FR-11, FR-12, FR-16, FR-17, FR-20; AC-04, AC-05, AC-13, AC-14, AC-19).
 
 **Checkpoint**: verificar el incremento con evidencia antes de dar por terminada la fase.
 
@@ -127,7 +127,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 - [ ] T047 [US6] Implementar consumidor de eventos centrales y métricas reales separadas de simulaciones, deduplicadas por persona/deuda/campaña en apps/backend/src/backend/services/events.py y metrics.py (FR-06, FR-16, FR-19, FR-22; AC-14, AC-27, AC-31).
 - [ ] T048 [US6] Mostrar progreso procesados/total, simulados aparte, contadores reales, tasas, USD recibidos/condonados y casos al corte en apps/backend/src/backend/templates/central.html y static/central.js (FR-22; AC-27, AC-31).
 - [ ] T049 [US6] Completar spans Langfuse de preprocesamiento/LLM/tools y verificar lectura con scripts/preflight.py e integrations/observability.py (FR-19; AC-24).
-- [ ] T050 [US6] Implementar reset coordinado con nuevo epoch, no borrar gasto y documentar PIN ficticio/identidad en scripts/reset_demo.py, scripts/seed.py y README.md (FR-08, FR-12, FR-20; AC-01, AC-19, AC-28).
+- [ ] T050 [US6] Implementar reset coordinado que elimina checkpoints/writes y contextos, fija corte de eventos y actualiza epoch solo como metadato, sin cambiar thread_id ni borrar gasto; documentar PIN/identidad en scripts/reset_demo.py, scripts/seed.py y README.md (FR-08, FR-12, FR-20; AC-01, AC-19, AC-28).
 
 **Checkpoint**: verificar el incremento con evidencia antes de dar por terminada la fase.
 

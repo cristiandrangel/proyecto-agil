@@ -49,3 +49,13 @@ usa Chatwoot real. Las simulaciones se muestran aparte de los KPI reales.
 
 Agente principal: gpt-5.6-luna con reasoning.effort=high. La salida total inicial
 es 4096 tokens e incluye razonamiento. El presupuesto total de IA sigue en USD 5.
+
+## Memoria e identificación
+
+thread_id es exactamente el source_id del contacto recibido de Chatwoot, sin
+normalización, prefijos propios, hash ni concatenación con otros IDs. El inbox/cuenta
+permitidos se verifican por separado. Se inyecta el valor literal al prompt y el
+LLM decide si buscar por teléfono o pedir tipo/número de documento; no hay un nodo
+previo de clasificación. La central no guarda Business IDs de Meta. Cambiar de
+cliente exige nuevo PIN y limpiar el contexto financiero anterior, manteniendo
+la misma llave de memoria. El reset elimina checkpoints locales, sin cambiar la llave.
