@@ -261,7 +261,7 @@ registran correlación, tipo de medio, herramientas y uso, con el siguiente cont
 
 #### Árbol de observabilidad por mensaje
 
-**Implementado y verificado con pruebas deterministas:** al abrir una ejecución
+**Estructura implementada y verificada con pruebas deterministas:** al abrir una ejecución
 de mensaje, el árbol agrupa sus pasos desde una raíz `conversation`. Sigue pendiente
 repetir el nuevo árbol completo en Langfuse con WhatsApp y medios reales.
 La raíz corresponde a una ejecución del worker de ese mensaje, no a todo el chat;
@@ -331,40 +331,89 @@ incluye la espera posterior del envío asíncrono.** Los estados de envío son `
 no entrega ni lectura en WhatsApp. Esos hitos requieren evidencia exacta del canal;
 `response_enqueue` tampoco prueba un envío.
 
-#### Privacidad y lectura visual
+#### Captura privada de contenido y lectura visual
 
-Langfuse recibe únicamente metadatos permitidos: `event_id`, referencias opacas,
-estados de un enum fijo, latencias, modelo/modalidad, nombre fijo de herramienta,
-uso de tokens y costes estimados; las herramientas añaden fase resultante, conteos
-de coincidencias/deudas y estado operativo permitido del resultado. **No se exportan inputs/outputs, prompts,
-razonamiento, transcripciones, texto extraído de imágenes, mensajes, PIN, teléfono,
-documento, grants, credenciales, enlaces con capability ni errores crudos o
-tracebacks.** Los errores se representan con estado y clasificación fija. La
-restricción se aplica a raíz e hijos, incluidas generaciones y medios; no basta
-con ocultar columnas en la interfaz. La observabilidad no autoriza al cliente.
-Esta protección se limita al backend y su exportación: Chatwoot externo conserva
-los mensajes del canal y puede registrar el payload al reintentar.
+**Cambio de contrato por instrucción explícita del usuario:** se habilita captura
+completa de contenido de ejecución para depuración privada mediante
+`LANGFUSE_CAPTURE_CONTENT=true`. Esta instrucción reemplaza las restricciones
+anteriores que limitaban Langfuse a metadatos y ocultaban datos personales o
+financieros. `LANGFUSE_CAPTURE_CONTENT=false` conserva el modo de solo metadatos.
+La estructura de observaciones y la autorización financiera no cambian.
+
+| Observación | Contenido con captura activada |
+|---|---|
+| `conversation` / `identity_gate` | Mensaje protegido y evolución del turno; el PIN interceptado solo produce estado resuelto `handled`/`passed`, sin valor. |
+| `media_normalize`, `audio`, visión | Contexto, transcripción, extracción visual e inputs/outputs de procesamiento; audio e imagen completos usados como assets privados `LangfuseMedia`. |
+| `agent` | Prompt/contexto e historial usados, estado anterior y posterior, y respuesta generada. |
+| `llm` | Input completo realmente enviado al modelo y output disponible, sin razonamiento interno ni `encrypted_content`. |
+| `tool.<nombre>` | Argumentos y resultado completos, incluidos datos personales y financieros autorizados. |
+| `response_enqueue` / `delivery` | Respuesta preparada/enviada y resultado operativo, con capabilities y tokens de enlaces eliminados. |
+
+Se permite visualizar sin enmascarar mensajes, teléfono, documento, identidad y
+datos financieros dentro de este Langfuse privado. La sesión sigue siendo
+`opaque_id(source_id)` y LangGraph conserva `thread_id` literal; el hash del
+identificador de sesión no anonimiza el prompt ni el historial capturados, que
+pueden incluir el `source_id` recibido. Los nombres de spans, generaciones y
+herramientas siguen un catálogo fijo; no se construyen con texto del usuario.
+
+**Exclusiones en estructuras y texto:** se filtran los secretos conocidos de
+infraestructura, API keys, cabeceras `Authorization`, grants, capabilities y tokens
+de URL. Se conserva el resto del cuerpo de ejecución. El PIN **tecleado** se
+intercepta en ingreso antes de cola/modelo y solo deja el estado resuelto. No se
+captura razonamiento interno ni `encrypted_content`; los errores también se sanean.
+Los assets multimedia autorizados se almacenan completos en privado mediante
+`LangfuseMedia`. **No se hace OCR ni redacción automática previa del contenido
+visual o hablado del archivo**: la exclusión del PIN tecleado no garantiza eliminar
+PIN u otros secretos incrustados en imágenes o audio. El acceso a una traza no
+concede permisos de cliente ni sustituye la consulta autorizada a central.
+
+La captura de texto se limita a 1 000 000 de caracteres por cadena, profundidad 40
+y 20 000 elementos. Los límites generan marcadores explícitos
+`[TRUNCATED:original_chars=…]`, `[TRUNCATED:max_depth]` o `[TRUNCATED:max_items]`,
+en lugar de recortar silenciosamente. Los archivos se representan mediante assets;
+no se usa ese límite de texto como sustituto del archivo multimedia completo.
+Chatwoot externo conserva sus mensajes y puede registrar payloads al reintentar;
+este ajuste no altera su almacenamiento o logging.
+
+Con captura desactivada se mantienen correlación, estados permitidos, fase y
+conteos operativos de herramientas, modelo/modalidad, latencias, tokens y costes
+estimados. Las trazas anteriores siguen en su modo histórico, **sin backfill**.
+Un nuevo turno puede capturar el historial que carga para esa ejecución, pero no
+reescribe observaciones anteriores. Apagar la captura no elimina contenido ya
+exportado. Las fuentes o evidencias públicas no deben incluir esas trazas privadas.
 
 En la lista de Langfuse se filtran observaciones raíz
-(`isRootObservation:true`) y nombre `conversation` para buscar ejecuciones de mensajes. Con refresco **Off**, se pulsa **Refresh** después de
-esperar la exportación. Al abrir una fila se expande su árbol: herramientas por
-nombre y generaciones con latencia, tokens y coste. El coste vacío de una raíz
-que es un span no demuestra consumo cero: el detalle está en sus generaciones
-hijas. Se expande `response_enqueue` para revisar su `delivery` asíncrono. Si la
-salida es antigua y carece de contexto, se busca la raíz `delivery` y se contrasta
-sesión/evento; no se interpreta como un segundo turno conversacional.
+(`isRootObservation:true`) y nombre `conversation`. Con refresco **Off**, se pulsa
+**Refresh** después de esperar la exportación. Se abre una fila y después
+**agent → llm → Input / Output** para revisar el contexto realmente enviado y la
+respuesta disponible; **tool.<nombre> → Input / Output** muestra argumentos y
+resultado. Los pasos de medios muestran su contexto y el agente sus estados antes
+y después. El coste vacío de una raíz span no implica consumo cero: se revisan sus
+generaciones hijas. `response_enqueue → delivery` mantiene el envío en ese árbol;
+para salidas antiguas sin contexto se usa la sesión/evento para localizar otra raíz.
 
-**Evidencia y pendiente real:** la suite Docker completa aprobó 275 pruebas el
-1 de noviembre de 2026 a las 17:44:03 UTC, en 34,83 segundos, sin fallos ni omitidas.
-Las pruebas usan PostgreSQL y el SDK real con exportación en memoria para verificar
-sesiones, parentesco durable del envío y cobertura del worker. Una comprobación
-real de exportación recibió tres observaciones con la misma sesión y padre
-restaurado tras cerrar la raíz, sin inferencias ni envíos al canal. También se observó
-en la interfaz una traza real de texto con `llm`/`tool`/`llm`. Falta repetir el
-**nuevo árbol completo** con WhatsApp y el evaluador, audio/visión reales, PIN
-interceptado y entrega asíncrona, y contrastar la exportación efectiva y su
-privacidad. Esa validación de canal no se deduce de las pruebas deterministas,
-de una generación aislada ni de `health`/`auth_check`.
+**Evidencia determinista y validación real pendiente:** la suite Docker de **303
+pruebas** del 1 de noviembre de 2026 a las **18:14:58 UTC** aprobó sin fallos ni
+omitidas en 35,70 segundos, con limpieza posterior y Ruff aprobado. Incluye dos
+turnos de worker con checkpoint e inputs/outputs; SDK con captura completa y
+errores saneados; assets y formatos multimedia; continuidad ante fallos de
+telemetría; y transporte S3 firmado. PostgreSQL y el SDK real con exportación en
+memoria verifican captura, sesiones y parentesco durable. La lectura histórica de
+tres observaciones y la traza `llm`/`tool`/`llm` de la UI corresponden al modo previo.
+La nueva captura se leyó en el despliegue real: una llamada a Luna mostró prompt,
+mensaje con documento y respuesta en API y UI; una imagen PNG y un audio WAV
+ficticios se almacenaron y se visualizaron en el navegador, sin errores de carga.
+Coste estimado USD 0,00059875, cero envíos al canal. Falta repetir el árbol completo
+con WhatsApp/evaluador, medios y herramientas financieras. El diagnóstico no sustituye
+la aceptación de ese recorrido.
+
+Las cláusulas de redacción general en `agent-state.md` y `contracts/agent-tools.md`
+y la evidencia histórica sin prompts de `tasks.md` deben leerse junto con esta
+instrucción posterior: la captura privada permite contenido personal/financiero,
+pero conserva el filtrado de secretos en JSON/texto y la interceptación del PIN
+tecleado; los archivos completos tienen el límite de redacción descrito arriba.
+Esos archivos no se modifican en
+este encargo; la evidencia anterior mantiene su alcance temporal.
 
 ### Entrega, dimensionamiento y validación
 

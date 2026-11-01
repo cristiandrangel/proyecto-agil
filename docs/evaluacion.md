@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Suite Docker aislada: 275 pruebas aprobadas, cero fallos y cero omitidas, en 34,83 segundos**, el 2026-11-01 a las 17:44 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
+- **Suite Docker aislada: 303 pruebas aprobadas, cero fallos y cero omitidas, en 35,70 segundos**, el 2026-11-01 a las 18:14:58 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -99,6 +99,71 @@ canal; no se presenta como conversación del cliente. Readiness público respond
 200. Falta repetir el árbol ampliado completo desde WhatsApp, incluyendo medios y
 el recorrido financiero; las trazas antiguas no se reconstruyen retroactivamente.
 
+## Cambio autorizado: contenido completo en Langfuse privado
+
+El 1 de noviembre de 2026, el usuario pidió inspeccionar el contenido completo de
+cada ejecución para depuración privada. Esta instrucción **reemplaza la política
+anterior de trazas sin prompts, mensajes ni datos personales/financieros**. La
+jerarquía por mensaje y sus identificadores no cambian: sesión Langfuse opaca,
+`thread_id` literal en LangGraph y `delivery` unido mediante contexto durable.
+
+El contrato nuevo activa `LANGFUSE_CAPTURE_CONTENT=true`: mensajes protegidos,
+prompt/contexto e historial utilizados, inputs/outputs del modelo, argumentos y
+resultados de herramientas, estado anterior/posterior, respuesta preparada/enviada
+y contexto multimedia utilizado: transcripción, extracción visual y archivos
+completos de audio e imagen como assets `LangfuseMedia`, almacenados en privado.
+Los datos personales y financieros se muestran sin enmascarar en el proyecto
+privado. `LANGFUSE_CAPTURE_CONTENT=false` vuelve a metadatos. Las trazas históricas
+siguen como fueron exportadas, sin backfill; nuevos turnos sí pueden contener el
+historial que utilizan. Apagar la opción no borra contenido ya exportado.
+
+Se filtran secretos conocidos de infraestructura en JSON/texto, API keys,
+`Authorization`, grants, capabilities y tokens de enlaces. El PIN **tecleado** se
+intercepta en el ingreso antes de cola/modelo; solo se ve el paso resuelto. Los
+archivos autorizados se capturan completos, **sin OCR ni redacción automática
+previa de información escrita o hablada**: no se garantiza ocultar PIN o secretos
+que formen parte de una imagen o audio. No se captura razonamiento interno ni
+`encrypted_content`; los errores pasan por el saneamiento de texto/estructuras.
+La información de este proyecto privado no se copia a fuentes, capturas o
+evidencias públicas.
+
+Los límites de captura son 1 000 000 de caracteres por cadena, profundidad 40 y
+20 000 elementos, con marcadores explícitos de truncamiento. No se declara completo
+un objeto marcado ni se confunden estos límites con la carga de assets multimedia.
+
+Recorrido de revisión: abrir una raíz **conversation → agent → llm → Input / Output**;
+contrastar contexto/historial y output disponible; abrir **tool.<nombre> → Input /
+Output** para argumentos/resultados, y los pasos de medios para su contexto. La
+respuesta se contrasta en `response_enqueue → delivery`, conservando el significado
+de `sent` como aceptación de la API, sin inferir entrega de WhatsApp.
+
+**Pruebas deterministas aprobadas:** la suite Docker final registrada arriba
+incluye **303 pruebas**, el 2026-11-01 a las **18:14:58 UTC**, sin fallos ni
+omitidas, en 35,70 segundos; limpieza completada y Ruff aprobado. La nueva
+cobertura verifica dos turnos del worker con checkpoint e inputs/outputs, captura
+completa del SDK y errores saneados, assets y formatos multimedia, continuidad si
+falla la telemetría y transporte S3 firmado. No usó WhatsApp ni proveedores de
+inferencia reales. Esa cobertura amplía las pruebas anteriores de jerarquía,
+sesión y parentesco durable.
+
+**Comprobación real desplegada:** el 2026-11-01 a las 18:16 UTC se ejecutó una
+llamada a Luna mediante el cliente de inferencia y ledger compartido. La API y la
+interfaz de Langfuse mostraron el prompt, el mensaje con documento ficticio y la
+respuesta completa. El control de secretos del contenido pasó; la reserva quedó
+liquidada por **USD 0,00059875 estimados**. Se almacenaron una imagen PNG de 91 bytes
+y un audio WAV de 3244 bytes; la UI cargó la imagen de 24×24 y el audio de 0,2 s sin
+errores. El transporte preservó la firma S3 al subir desde Docker. Fueron tres
+observaciones de diagnóstico, una inferencia real y **cero envíos a WhatsApp**.
+No se presenta como conversación ni recorrido financiero del evaluador. Sigue
+pendiente el árbol completo con medios del canal y herramientas financieras.
+Las lecturas históricas en modo metadatos no se rellenan retroactivamente.
+
+Las cláusulas de redacción general de `agent-state.md` y
+`contracts/agent-tools.md` se reconciliaron con esta instrucción. El registro de
+`tasks.md` conserva su evidencia histórica. Se mantiene el filtrado de secretos
+en texto/JSON y la interceptación del PIN tecleado, con la limitación de archivos sin
+redacción visual/voz. Las pruebas históricas conservan su alcance.
+
 ## Reproducción sin dependencias externas
 
 ```bash
@@ -118,7 +183,7 @@ Todas las referencias de esta tabla se ejecutaron correctamente en la suite Dock
 |---|---|---|
 | AC-01 | [`test_central_finance::test_frozen_alembic_upgrade_downgrade_matches_models`](../tests/integration/test_central_finance.py)<br>[`test_web_frontends::test_private_console_login_and_csrf_rotation`](../tests/contracts/test_web_frontends.py) | Arranque limpio, login y preflight aprobados en copia aislada del mismo equipo; falta repetir en el equipo del evaluador. |
 | AC-02 | [`test_central_finance::test_customer_grants_isolate_debts_and_switch_revokes_prior`](../tests/integration/test_central_finance.py)<br>[`test_agent_context::test_debt_selection_required_and_select_clears_old_refs`](../tests/unit/test_agent_context.py) | Repetir en WhatsApp; identificación, listado y selección ya se ejecutaron con Luna real mediante entrada local. |
-| AC-03 | [`test_central_finance::test_masked_identity_pin_lock_and_retry_deduplication`](../tests/integration/test_central_finance.py)<br>[`test_backend_identity::test_invalid_pin_media_and_temporary_failure_do_not_reach_agent`](../tests/integration/test_backend_identity.py) | Recorrido real de PIN incorrecto; ausencia de datos financieros y de PIN en trazas. |
+| AC-03 | [`test_central_finance::test_masked_identity_pin_lock_and_retry_deduplication`](../tests/integration/test_central_finance.py)<br>[`test_backend_identity::test_invalid_pin_media_and_temporary_failure_do_not_reach_agent`](../tests/integration/test_backend_identity.py) | Recorrido real de PIN tecleado incorrecto y ausencia de ese PIN en trazas; los archivos multimedia completos no tienen redacción visual/voz automática. |
 | AC-04 | [`test_backend_identity::test_confirm_pin_is_neutral_and_grant_only_in_runtime`](../tests/integration/test_backend_identity.py)<br>[`test_text_journey::test_locate_preserves_only_fresh_masked_tool_after_identity_switch`](../tests/integration/test_text_journey.py) | Repetir en WhatsApp y probar candidato rechazado; origen opaco ficticio y documento ya se ejercitaron con inferencia real mediante entrada local. |
 | AC-05 | [`test_central_finance::test_full_payment_rejected_then_applied_idempotently_and_reference_isolated`](../tests/integration/test_central_finance.py) | Pago local simulado aplicado con HTTP 200 y USD 100/0 confirmado; faltan entrega del enlace por WhatsApp, comprobante multimedia y cierre conversacional. |
 | AC-06 | [`test_central_finance::test_discount_boundaries_and_accept_only_subsequent_message`](../tests/integration/test_central_finance.py) | 90% local sobre USD 60→54 aprobado y aplicado; faltan comprobante, confirmación posterior del pago y recorrido del canal real. |
@@ -139,7 +204,7 @@ Todas las referencias de esta tabla se ejecutaron correctamente en la suite Dock
 | AC-21 | [`test_campaigns::test_active_person_excluded_and_close_stops_pending_dispatch`](../tests/integration/test_campaigns.py)<br>[`test_campaigns::test_live_sequential_dispatch_launch_idempotency_and_immutable_outbox_destination`](../tests/integration/test_campaigns.py) | Exclusiones/lanzamiento repetido visibles en una campaña real y el canal configurado. |
 | AC-22 | [`test_text_journey::test_five_tool_responses_stop_and_register_honest_handoff`](../tests/integration/test_text_journey.py)<br>[`test_backend_identity::test_invalid_pin_media_and_temporary_failure_do_not_reach_agent`](../tests/integration/test_backend_identity.py) | Fallo del proveedor/central durante un turno real y comunicación al usuario; fallos deterministas usan dobles. |
 | AC-23 | [`test_agent_context::test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_grant`](../tests/unit/test_agent_context.py)<br>[`test_handoff::test_reason_amount_and_tenant_are_validated`](../tests/integration/test_handoff.py) | Tres muestras de inyección con Luna real sin divulgación ni confirmación falsa de pago; falta ampliar ataques y ejecutarlos por el grafo y WhatsApp. Los permisos y esquemas deterministas sí están limitados. |
-| AC-24 | [`test_budget::test_concurrent_budget_cutoff_is_atomic`](../tests/integration/test_budget.py)<br>[`test_budget::test_timeout_preserves_amount_and_expired_lease_only_releases_slot`](../tests/integration/test_budget.py)<br>[`test_agent_context::test_payment_capability_never_crosses_model_checkpoint_boundary`](../tests/unit/test_agent_context.py) | Tres generaciones reales leídas por API sin entradas/salidas; faltan traza de WhatsApp, revisión completa y contraste del coste estimado con el proveedor. |
+| AC-24 | [`test_budget::test_concurrent_budget_cutoff_is_atomic`](../tests/integration/test_budget.py)<br>[`test_budget::test_timeout_preserves_amount_and_expired_lease_only_releases_slot`](../tests/integration/test_budget.py)<br>[`test_agent_context::test_payment_capability_never_crosses_model_checkpoint_boundary`](../tests/unit/test_agent_context.py) | Captura completa y filtrado de secretos comprobados de forma determinista; falta leer la nueva exportación real, traza de WhatsApp y contraste del coste con el proveedor. |
 | AC-25 | [`test_central_finance::test_operator_contact_shared_version_mora_and_seed_never_overwrites`](../tests/integration/test_central_finance.py)<br>[`test_web_frontends::test_exact_mora_bucket_and_service_filters`](../tests/contracts/test_web_frontends.py) | Edición por navegador y entradas negativas/fraccionarias/vacías de extremo a extremo; persistencia y filtros sí probados. |
 | AC-26 | [`test_campaigns::test_mora_buckets_boundaries_and_multiple_services`](../tests/integration/test_campaigns.py) | Lanzamiento real por límites; pruebas deterministas ya comprueban 29/30/59/60 y varios servicios. |
 | AC-27 | [`test_metrics::test_metrics_real_cohort_dedup_money_agreement_and_human_milestones`](../tests/integration/test_metrics.py)<br>[`test_metrics::test_active_human_and_expired_agreement_are_current_results_not_milestones`](../tests/integration/test_metrics.py) | Contrastar panel con eventos del canal real; cohortes, dinero, acuerdos y humano sí probados en PostgreSQL. |
@@ -185,7 +250,7 @@ enviar mensajes. El contraste visual de ambos canales se hará en un próximo en
 | Chatwoot/WhatsApp | Plantilla del reintento recibida por el usuario; mensaje saliente `delivered` verificado en la bandeja de pruebas con conversación `pending`. Pendientes de respuesta, comprobante, audio y transferencia humana de extremo a extremo. |
 | Relay del canal | Configuración activa confirmada: ambos clientes usan el mismo relay HTTPS y clave limitada; los tokens de usuario y AgentBot permanecen exclusivamente en ASUS. Backend/worker reconstruidos saludables y preflight posterior completo, sin escrituras ni inferencia. Conversación de prueba: 200 con id/bandeja/estado/`can_reply`, sin binding supuesto. Probes de alcance: bandeja autorizada 200, otra bandeja/cuenta 403 y sin clave 401. Conserva el actor bot y no expone historial. |
 | Plantilla de prueba | Verificada mediante `sync_templates` real de Chatwoot: `recordatorio_factura_demo` / `es` / `APPROVED` / `UTILITY`. El `.env` privado ya usa esta plantilla principal. `hello_world` / `en_US` queda como respaldo. Sincronización y aprobación confirmadas; la plantilla del reintento llegó al usuario y figura delivered en Chatwoot. El recorrido conversacional restante sigue pendiente. |
-| Langfuse | Tres generaciones reales de audio/visión leídas por API; UI autenticada con trazas de conversación, herramienta y modelo, tokens, coste estimado y errores. Captura conservada como evidencia privada, sin publicarla. No registra prompts ni respuestas completas. Las métricas de negocio están en la central. T049 comprobada; sigue pendiente la traza del recorrido WhatsApp completo. |
+| Langfuse | Tres generaciones reales de audio/visión leídas por API; UI autenticada con trazas de conversación, herramienta y modelo, tokens, coste estimado y errores. Captura conservada como evidencia privada, sin publicarla. La evidencia histórica fue de metadatos, sin prompts ni respuestas completas. El usuario autorizó después captura privada completa y assets de audio/imagen; 303 pruebas incluyen su validación determinista. La captura desplegada se leyó por API y UI con una llamada real y dos archivos ficticios cargados. Las métricas de negocio están en la central. Sigue pendiente el recorrido WhatsApp completo. |
 | HTTPS y webhook | Modo `production`, entrada local 403, login HTTPS 303/cookie `Secure` y tabla 200 por HTTP. HMAC real: `200 ignored_event`; clave incorrecta 401 y bandeja ajena 403. Chrome real: login, 14 filas y acciones JavaScript verificados. |
 | Grabación y sustentación | Pendientes de realizar y revisar. |
 | AWS | No desplegado. Runtime local en Compose y una emulación Floci no acreditan EC2, EBS, IAM, capacidad ni costes AWS reales. |
@@ -198,9 +263,9 @@ Para cada recorrido del [README](../README.md), registrar fecha, versión del c�
 
 - Campaña: una persona por vez, simulados separados y una entrega real autorizada al evaluador. Una respuesta de preparación previa al envío no cuenta como contactabilidad.
 - Finanzas: pago completo recibido/condonado, acuerdo 90/10 y umbral 80%; deuda del otro servicio intacta; rechazo, caducidad, duplicación y consulta del comprobante.
-- Identidad: PIN fuera de inferencia y trazas, origen opaco literal, selección de servicio y nuevo PIN al cambiar de titular.
+- Identidad: PIN tecleado interceptado fuera de inferencia/trazas, origen opaco literal, selección de servicio y nuevo PIN al cambiar de titular. No atribuir redacción visual/voz automática a los archivos completos.
 - Medios y humano: audio más texto, captura aplicada y falsa, petición de asesor, nota privada/open y retorno explícito a pending.
-- Observabilidad: uso facturable por modalidad, reservas inciertas, trazas correlacionadas y redacción. El reset no borra el ledger ni el historial del proveedor.
+- Observabilidad: uso por modalidad, reservas inciertas, trazas correlacionadas y nueva captura privada completa con exclusión de secretos/PIN/capabilities. No publicar contenido personal o financiero de las trazas. El reset no borra el ledger ni el historial del proveedor.
 
 ## Límites conocidos
 

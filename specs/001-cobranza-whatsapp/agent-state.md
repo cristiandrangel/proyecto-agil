@@ -158,6 +158,10 @@ usan claves estables del evento para evitar efectos duplicados. Las verificacion
 de implementación deben cubrir reanudación, ventana acotada, herramientas completas,
 sesión vencida, cambio de cliente, referencias caducadas, igualdad literal de
 source_id/thread_id y ausencia de secretos en checkpoints y trazas. El teléfono
-puede formar parte de la llave privada; se redacta el thread_id al exportar trazas
-y logs. El source_id literal autorizado sí se entrega al proveedor de inferencia.
+puede formar parte de la llave privada; logs y metadatos de sesión usan una
+referencia opaca. Con captura de contenido habilitada, el source_id literal,
+estado conversacional y contexto del modelo se registran en las entradas/salidas
+del Langfuse privado para depuración, por autorización del propietario. No se
+exportan credenciales, grants ni PIN interceptados. El source_id literal
+autorizado sí se entrega al proveedor de inferencia.
 [Reejecución e idempotencia](https://docs.langchain.com/oss/python/langgraph/graph-api#re-execution-and-idempotency).

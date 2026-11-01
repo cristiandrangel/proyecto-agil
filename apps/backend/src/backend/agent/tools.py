@@ -113,7 +113,9 @@ class ToolRuntime:
                 )
         args = {k: v for k, v in args.items() if v is not None}
         with self.observability.span(
-            "tool", event_id=self.event.id, thread_id=self.event.thread_id, tool=name
+            "tool", event_id=self.event.id, thread_id=self.event.thread_id, tool=name,
+            input={"arguments": args, "phase_before": self.phase,
+                   "identity": self.identity.snapshot(self.event.thread_id)},
         ) as trace:
             result = await self._execute(name, args)
             if trace is not None:
@@ -123,7 +125,7 @@ class ToolRuntime:
                     summary["candidate_count"] = result.get("candidate_count")
                     if name == "list_debts" and isinstance(result.get("items"), list):
                         summary["debt_count"] = len(result["items"])
-                trace.update(**summary)
+                trace.update(output={"result": result, "phase_after": self.phase}, **summary)
             return result
 
     async def _execute(self, name, args):

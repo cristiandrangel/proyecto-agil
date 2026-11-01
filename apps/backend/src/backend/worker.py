@@ -56,14 +56,17 @@ async def process_job(runtime, job):
 async def _process_job(runtime, job):
     event = job.event
     with runtime.observability.span(
-        "conversation", event_id=event.id, thread_id=event.thread_id
+        "conversation", event_id=event.id, thread_id=event.thread_id,
+        input={"event_id": str(event.id), "source_id": event.thread_id,
+               "account_id": event.account_id, "inbox_id": event.inbox_id,
+               "conversation_id": event.conversation_id, "message_id": event.message_id},
     ) as trace:
-        status = await _process_turn(runtime, job)
+        status = await _process_turn(runtime, job, trace=trace)
         if trace is not None:
             trace.update(status=status)
 
 
-async def _process_turn(runtime, job):
+async def _process_turn(runtime, job, *, trace=None):
     event = job.event
     with runtime.sessions() as lock_session, thread_lock(lock_session, event.thread_id):
         local = event.account_id == "local"
@@ -74,10 +77,14 @@ async def _process_turn(runtime, job):
         )
         await runtime.handoff.reconcile_control(event, current["status"])
         if current["status"] != "pending" or runtime.handoff.blocked(event.thread_id):
+            if trace is not None:
+                trace.update(output={"status": "cancelled", "reason": "human_control"})
             runtime.queue.complete(job.id, job.claim_token)
             return "cancelled"
         snapshot = runtime.identity.snapshot(event.thread_id)
         if event.identity_revision != snapshot["identity_revision"]:
+            if trace is not None:
+                trace.update(output={"status": "cancelled", "reason": "identity_revision_changed"})
             runtime.queue.complete(job.id, job.claim_token)
             return "cancelled"
         with runtime.sessions() as session:
@@ -93,7 +100,19 @@ async def _process_turn(runtime, job):
             if protected is None:
                 raise DomainError("unsafe_message", "Mensaje interno sin protección válida.", 422)
             if gate is not None:
-                gate.update(status="handled" if protected["handled"] else "passed")
+                gate.update(
+                    input={"identity": snapshot, "message": protected["agent_message"]},
+                    output=protected,
+                    status="handled" if protected["handled"] else "passed",
+                )
+            if trace is not None:
+                trace.update(input={
+                    "event_id": str(event.id), "source_id": event.thread_id,
+                    "account_id": event.account_id, "inbox_id": event.inbox_id,
+                    "conversation_id": event.conversation_id, "message_id": event.message_id,
+                    "message": protected["agent_message"],
+                    "identity_handled": protected["handled"], "attachments": event.attachments,
+                })
         if protected["handled"]:
             reply = protected["response"] or "Envía tu consulta por escrito."
         else:
@@ -110,9 +129,17 @@ async def _process_turn(runtime, job):
             async with checkpointer(runtime.settings.memory_conninfo) as saver:
                 graph = build_graph(saver, runtime=tools, inference=runtime.inference, text=text)
                 with runtime.observability.span(
-                    "agent", event_id=event.id, thread_id=event.thread_id
-                ):
+                    "agent", event_id=event.id, thread_id=event.thread_id,
+                    input={"message": text, "identity": snapshot},
+                ) as agent_trace:
+                    if agent_trace is not None and getattr(runtime.observability, "capture_content", False):
+                        previous = await graph.aget_state(thread_config(event.thread_id))
+                        agent_trace.update(input={
+                            "message": text, "identity": snapshot, "state_before": previous.values,
+                        })
                     state = await graph.ainvoke({}, thread_config(event.thread_id))
+                    if agent_trace is not None:
+                        agent_trace.update(output={"state_after": state})
                 group = next(
                     (g for g in state.get("messages", []) if g["id"] == str(event.id)), None
                 )
@@ -123,14 +150,25 @@ async def _process_turn(runtime, job):
                     )
         snapshot = runtime.identity.snapshot(event.thread_id)
         if not runtime.handoff.blocked(event.thread_id):
-            with runtime.observability.span("response_enqueue", event_id=event.id, status="queued"):
-                runtime.outbox.enqueue(
+            with runtime.observability.span(
+                "response_enqueue", event_id=event.id, status="queued",
+                input={"content": reply, "identity_revision": snapshot["identity_revision"]},
+            ) as queued:
+                saved_output = runtime.outbox.enqueue(
                     event_id=event.id,
                     identity_revision=snapshot["identity_revision"],
                     kind="message",
                     payload={"content": reply},
                     operation_key=f"response:{event.id}",
                 )
+                if queued is not None:
+                    queued.update(output={"outbox_id": str(saved_output.id), "state": saved_output.state})
+        if trace is not None:
+            trace.update(output={
+                "reply": reply,
+                "identity": runtime.identity.snapshot(event.thread_id),
+                "handoff_blocked": runtime.handoff.blocked(event.thread_id),
+            })
         runtime.queue.complete(job.id, job.claim_token)
 
         return "completed"
@@ -163,6 +201,8 @@ async def send_outputs(runtime):
         with runtime.observability.span(
             "delivery", event_id=row.source_event_id, thread_id=row.thread_id,
             trace_context=(row.payload_private or {}).get("_trace_context"),
+            input={"outbox_id": str(row.id), "kind": row.kind,
+                   "conversation_id": row.conversation_id, "payload": row.payload_private},
         ) as delivery:
             try:
                 with runtime.sessions() as lock_session, thread_lock(lock_session, row.thread_id):
@@ -194,6 +234,11 @@ async def send_outputs(runtime):
                             )
                         else:
                             content = await render_payment_links(runtime, row, snapshot)
+                            if delivery is not None:
+                                delivery.update(input={
+                                    "outbox_id": str(row.id), "kind": row.kind,
+                                    "conversation_id": row.conversation_id, "content": content,
+                                })
                             result = (
                                 {"id": "local-" + str(row.id)}
                                 if local
@@ -209,7 +254,7 @@ async def send_outputs(runtime):
                             claim_token=prepared.claim_token,
                         )
                         if delivery is not None:
-                            delivery.update(status="sent")
+                            delivery.update(output={"channel_response": result, "status": "sent"}, status="sent")
                         if local and row.kind == "message":
                             with runtime.sessions.begin() as session:
                                 saved = session.get(Outbox, row.id)
@@ -230,13 +275,13 @@ async def send_outputs(runtime):
                             delivery.update(status="uncertain" if exc.code in {
                                 "channel_uncertain", "channel_unavailable"
                             } else "failed")
-                            delivery.failed()
+                            delivery.failed(error=exc)
                         logger.warning("send_failed code=%s output=%s", exc.code, row.id)
             except DomainError as exc:
                 if delivery is not None:
                     delivery.update(status="deferred" if exc.code == "thread_busy" else "failed")
                     if exc.code != "thread_busy":
-                        delivery.failed()
+                        delivery.failed(error=exc)
                 if exc.code != "thread_busy":
                     logger.warning("send_deferred code=%s output=%s", exc.code, row.id)
 

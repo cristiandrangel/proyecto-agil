@@ -4,7 +4,7 @@ import io
 import json
 import socket
 import wave
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from types import SimpleNamespace
 
 import httpx
@@ -353,3 +353,245 @@ def test_image_resolution_honors_config_without_exceeding_2048(configured, expec
     )
     with Image.open(io.BytesIO(processor._image(png()))) as image:
         assert max(image.size) == expected
+
+
+class CapturedNormalization:
+    def __init__(self):
+        self.spans = []
+
+    @contextmanager
+    def span(self, name, **values):
+        record = {"name": name, **values, "updates": []}
+        self.spans.append(record)
+        yield SimpleNamespace(update=lambda **update: record["updates"].append(update))
+
+
+@pytest.mark.asyncio
+async def test_normalization_exposes_attachment_metadata_and_extracted_context_per_media():
+    image_bytes, audio_bytes = png(), wav(1)
+
+    def handler(request):
+        audio = request.url.path.endswith(".wav")
+        return httpx.Response(
+            200,
+            content=audio_bytes if audio else image_bytes,
+            headers={"content-type": "audio/wav" if audio else "image/png"},
+        )
+
+    traces = CapturedNormalization()
+    processor = MediaProcessor(
+        settings(), Inference(), traces, transport=httpx.MockTransport(handler), resolver=public_dns
+    )
+    attachments = [
+        {
+            "data_url": "https://media.example.test/receipt.png",
+            "file_type": "image",
+            "name": "recibo-demo.png",
+        },
+        {
+            "data_url": "https://media.example.test/voice.wav",
+            "file_type": "audio",
+            "name": "consulta-demo.wav",
+        },
+    ]
+    result = await processor.process(attachments, event_id="fictional-media-event")
+    assert len(traces.spans) == 2
+    image, audio = traces.spans
+    assert image["name"] == audio["name"] == "media_normalize"
+    assert image["input"] == {"attachment": attachments[0], "index": 1}
+    assert audio["input"] == {"attachment": attachments[1], "index": 2}
+    image_output = image["updates"][-1]["output"]
+    assert image_output["kind"] == "image"
+    assert image_output["mime_type"] == "image/png"
+    assert image_output["size_bytes"] == len(image_bytes)
+    assert image_output["normalized_mime_type"] == "image/jpeg"
+    assert image_output["normalized_size_bytes"] > 0
+    assert "DEMO-PAY-ficticia" in image_output["context"]
+    assert image_output["context"] in result
+    audio_output = audio["updates"][-1]["output"]
+    assert audio_output["kind"] == "audio"
+    assert audio_output["mime_type"] == "audio/wav"
+    assert audio_output["size_bytes"] == len(audio_bytes)
+    assert audio_output["duration_seconds"] == 1.0
+    assert audio_output["transcription"] == "Solicito hablar con un asesor."
+    assert audio_output["context"] in result
+
+
+def test_vision_debug_media_asset_preserves_actual_provider_input_and_drops_encrypted_history():
+    import base64
+
+    from backend.integrations.openai import telemetry_request
+    from langfuse import LangfuseMedia
+
+    image_bytes = png()
+    uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+    request = {
+        "model": "gpt-5.6-luna",
+        "instructions": "Texto de instrucciones ficticio",
+        "tools": [],
+        "max_output_tokens": 400,
+        "reasoning": {"effort": "none"},
+        "input": [
+            {
+                "role": "user",
+                "content": [{"type": "input_image", "image_url": uri, "detail": "high"}],
+            },
+            {"type": "reasoning", "encrypted_content": "private-encrypted-fixture", "summary": []},
+        ],
+    }
+    debug = telemetry_request(request, capture_content=True)
+    asset = debug["input"][0]["content"][0]["image_url"]
+    assert isinstance(asset, LangfuseMedia)
+    assert asset._content_bytes == image_bytes
+    assert asset._content_type == "image/png"
+    assert request["input"][0]["content"][0]["image_url"] == uri
+    assert request["input"][1]["encrypted_content"] == "private-encrypted-fixture"
+    assert "encrypted_content" not in debug["input"][1]
+    for key in ("model", "instructions", "tools", "max_output_tokens", "reasoning"):
+        assert debug[key] == request[key]
+    # With capture disabled there is no SDK media wrapping or upload path.
+    assert telemetry_request(request, capture_content=False) is request
+
+
+def test_provider_debug_response_keeps_tools_usage_and_incomplete_cause_without_encrypted_state():
+    from backend.integrations.openai import provider_response_content
+
+    provider_data = {
+        "id": "resp-fixture",
+        "status": "incomplete",
+        "output": [
+            {"type": "reasoning", "encrypted_content": "encrypted-private"},
+            {
+                "type": "function_call",
+                "name": "verify_payment",
+                "arguments": '{"payment_reference":"DEMO-PAY-ficticia"}',
+            },
+        ],
+        "usage": {"input_tokens": 1000, "output_tokens": 400},
+        "incomplete_details": {"reason": "max_output_tokens"},
+        "error": None,
+    }
+    response = SimpleNamespace(
+        model_dump=lambda **kwargs: provider_data, output_text="Texto ficticio"
+    )
+    actual = provider_response_content(response)
+    assert actual["status"] == "incomplete"
+    assert actual["output_text"] == "Texto ficticio"
+    assert actual["output"][1] == provider_data["output"][1]
+    assert actual["usage"] == provider_data["usage"]
+    assert actual["incomplete_details"] == {"reason": "max_output_tokens"}
+    assert "encrypted_content" not in actual["output"][0]
+    assert provider_data["output"][0]["encrypted_content"] == "encrypted-private"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("modality", ["vision", "audio"])
+async def test_media_capture_constructor_failure_does_not_interrupt_provider_or_settlement(
+    monkeypatch, modality
+):
+    import base64
+    from decimal import Decimal
+
+    import langfuse
+    from backend.integrations.openai import InferenceClient
+    from pydantic import SecretStr
+
+    order, provider_calls = [], []
+
+    def broken_media(**kwargs):
+        raise RuntimeError("private diagnostic exception must not escape")
+
+    monkeypatch.setattr(langfuse, "LangfuseMedia", broken_media)
+
+    class Budget:
+        def reserve(self, **kwargs):
+            order.append("reserved")
+            return SimpleNamespace(id="fixture-reservation")
+
+        def settle(self, reservation_id, **kwargs):
+            assert reservation_id == "fixture-reservation"
+            assert order == ["reserved", "provider"]
+            order.append("settled")
+            return SimpleNamespace(actual_usd=Decimal("0.00032"))
+
+        def settle_amount(self, reservation_id, actual_usd):
+            assert reservation_id == "fixture-reservation"
+            assert order == ["reserved", "provider"]
+            order.append("settled")
+            return SimpleNamespace(actual_usd=actual_usd)
+
+        def mark_uncertain(self, reservation_id):
+            pytest.fail("A diagnostic-only failure must not make provider usage uncertain")
+
+    async def provider(**kwargs):
+        assert order == ["reserved"]
+        order.append("provider")
+        provider_calls.append(kwargs)
+        return SimpleNamespace(
+            id="response-fixture",
+            status="completed",
+            output_text="Extracción ficticia",
+            output=[],
+            text="Transcripción ficticia",
+            usage=SimpleNamespace(
+                input_tokens=1000,
+                output_tokens=100,
+                input_tokens_details={"cached_tokens": 0, "cache_write_tokens": 0},
+            ),
+        )
+
+    cfg = SimpleNamespace(
+        openai_api_key=SecretStr("sk-fake-media-failure-fixture"),
+        openai_timeout_seconds=2,
+        openai_agent_model="gpt-5.6-luna",
+        openai_vision_model="gpt-5.6-luna",
+        openai_transcription_model="gpt-transcribe",
+        ai_max_input_tokens=12000,
+        ai_max_output_tokens=4096,
+        ai_vision_max_output_tokens=400,
+        ai_max_calls_per_turn=5,
+        openai_agent_reasoning_effort="high",
+        openai_vision_reasoning_effort="none",
+        audio_max_seconds=60,
+    )
+    traces = CapturedNormalization()
+    traces.capture_content = True
+    sdk = SimpleNamespace(
+        responses=SimpleNamespace(create=provider),
+        audio=SimpleNamespace(transcriptions=SimpleNamespace(create=provider)),
+    )
+    client = InferenceClient(cfg, Budget(), traces, sdk=sdk)
+    if modality == "vision":
+        uri = "data:image/png;base64," + base64.b64encode(png()).decode()
+        inputs = [
+            {
+                "role": "user",
+                "content": [{"type": "input_image", "image_url": uri, "detail": "high"}],
+            }
+        ]
+        result = await client.response(
+            event_id="fixture-vision",
+            input=inputs,
+            instructions="Extrae campos ficticios.",
+            vision=True,
+        )
+        assert result.output_text == "Extracción ficticia"
+        assert provider_calls[0]["input"] is inputs
+        assert provider_calls[0]["input"][0]["content"][0]["image_url"] == uri
+        assert traces.spans[0]["input"] == {
+            "capture_error": "media_capture_failed",
+            "model": "gpt-5.6-luna",
+        }
+    else:
+        data = wav(1)
+        result = await client.transcribe(
+            event_id="fixture-audio", data=data, filename="audio.wav", duration=1
+        )
+        assert result == "Transcripción ficticia"
+        assert provider_calls[0]["file"] == ("audio.wav", data)
+        assert traces.spans[0]["input"]["capture_error"] == "media_capture_failed"
+        assert "asset" not in traces.spans[0]["input"]
+        assert traces.spans[0]["input"]["size_bytes"] == len(data)
+    assert order == ["reserved", "provider", "settled"]
+    assert len(provider_calls) == 1
+    assert traces.spans[0]["updates"][-1]["status"] == "completed"

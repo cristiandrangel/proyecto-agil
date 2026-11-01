@@ -67,6 +67,7 @@ class BackendSettings(BaseSettings):
     audio_max_seconds: int = 60
     image_max_dimension: int = 2048
     langfuse_enabled: bool = True
+    langfuse_capture_content: bool = True
     langfuse_base_url: str = "http://langfuse-web:3000"
     langfuse_public_key: SecretStr = SecretStr("")
     langfuse_secret_key: SecretStr = SecretStr("")

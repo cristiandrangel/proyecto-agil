@@ -46,7 +46,9 @@ el token; el cliente recibe el enlace real por Chatwoot.
    del plan. Si la respuesta queda incomplete, no afirmar éxito ni ejecutar una
    llamada a herramienta con argumentos truncados.
 3. Validar nombre, argumentos y permisos; ejecutar contra central o integración
-   correspondiente; registrar resultado redactado y devolverlo al modelo.
+   correspondiente; registrar argumentos y resultado en Langfuse privado cuando
+   la captura de contenido esté habilitada, excluyendo secretos y autorizaciones;
+   devolver al modelo el resultado permitido por su sesión.
 4. Repetir hasta respuesta final o cinco llamadas. Error persistente o límite
    produce explicación o handoff, sin afirmar una acción no ejecutada.
 5. Guardar respuesta pendiente en outbox; consultar pending antes del envío.
@@ -92,5 +94,6 @@ exitosa. La referencia ajena produce respuesta segura, sin datos del otro client
 thread_id = source_id del contacto exactamente como llega. Cuenta/inbox se validan
 por separado; conversation_id determina el destino y control humano de cada evento.
 El reset borra memoria local y actualiza el corte de eventos, sin modificar esa llave
-ni el historial externo de Chatwoot. Los IDs operativos se redactan en trazas/logs
-cuando contienen teléfono u otros identificadores personales.
+ni el historial externo de Chatwoot. Los logs y metadatos de sesión usan referencias
+opacas. La captura de contenido autorizada conserva identificadores personales,
+argumentos y resultados en Langfuse privado; no incluye credenciales ni grants.

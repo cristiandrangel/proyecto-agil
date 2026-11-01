@@ -56,6 +56,87 @@ def cache_usage(usage):
     return cached, written
 
 
+def provider_response_content(response):
+    """Serialize provider results for the central content sanitizer, never encrypted state.
+
+    Diagnostic serialization must not change an already-paid response or settlement.
+    The central sanitizer removes remaining credentials, PIN and capability URLs.
+    """
+
+    def unpack(value):
+        if hasattr(value, "model_dump"):
+            value = value.model_dump(mode="json")
+        if isinstance(value, dict):
+            return {key: unpack(item) for key, item in value.items() if key != "encrypted_content"}
+        if isinstance(value, (list, tuple)):
+            return [unpack(item) for item in value]
+        return value
+
+    try:
+        if hasattr(response, "model_dump"):
+            content = unpack(response)
+        else:
+            content = {
+                key: unpack(getattr(response, key, None))
+                for key in (
+                    "id",
+                    "model",
+                    "status",
+                    "output",
+                    "usage",
+                    "incomplete_details",
+                    "error",
+                )
+            }
+        content["output_text"] = getattr(response, "output_text", "")
+        return content
+    except Exception:
+        return {"status": getattr(response, "status", None), "serialization_failed": True}
+
+
+def telemetry_request(request, *, capture_content):
+    """Separate telemetry media references from the unchanged provider request."""
+    if not capture_content:
+        return request
+
+    def convert(value):
+        if isinstance(value, dict):
+            result = {
+                key: convert(item) for key, item in value.items() if key != "encrypted_content"
+            }
+            url = value.get("image_url")
+            if (
+                value.get("type") == "input_image"
+                and isinstance(url, str)
+                and url.startswith("data:image/")
+            ):
+                from langfuse import LangfuseMedia
+
+                result["image_url"] = LangfuseMedia(base64_data_uri=url)
+            return result
+        if isinstance(value, (list, tuple)):
+            return [convert(item) for item in value]
+        return value
+
+    try:
+        return convert(request)
+    except Exception:
+        # Diagnostics must not stop the provider call or strand a reserved turn.
+        # Do not fall back to raw data URIs that trigger automatic SDK uploads.
+        return {"capture_error": "media_capture_failed", "model": request.get("model")}
+
+
+def audio_mime(filename):
+    extension = str(filename).rsplit(".", 1)[-1].lower()
+    return {
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+        "opus": "audio/ogg",
+        "mp3": "audio/mpeg",
+        "webm": "audio/webm",
+    }.get(extension, "application/octet-stream")
+
+
 def token_count(value) -> int:
     return len(tiktoken.get_encoding("o200k_base").encode(json.dumps(value, ensure_ascii=False)))
 
@@ -120,6 +201,23 @@ class InferenceClient:
             lease_seconds=cfg.openai_timeout_seconds + 30,
             max_turn_calls=cfg.ai_max_calls_per_turn if not vision else None,
         )
+        request = {
+            "model": model,
+            "input": input,
+            "instructions": instructions,
+            "tools": tools or [],
+            "parallel_tool_calls": False,
+            "store": False,
+            "prompt_cache_options": {"ttl": "30m"},
+            "include": ["reasoning.encrypted_content"],
+            "max_output_tokens": limit,
+            "reasoning": {
+                "effort": cfg.openai_vision_reasoning_effort
+                if vision
+                else cfg.openai_agent_reasoning_effort
+            },
+            **({"tool_choice": tool_choice} if tool_choice is not None else {}),
+        }
         with self.observability.span(
             "llm",
             event_id=event_id,
@@ -127,36 +225,29 @@ class InferenceClient:
             modality=modality,
             price_version=PRICE_VERSION,
             reserved_usd=reserved,
+            input=telemetry_request(
+                request, capture_content=getattr(self.observability, "capture_content", False)
+            ),
         ) as trace:
             started = perf_counter()
             try:
-                response = await self.sdk.responses.create(
-                    model=model,
-                    input=input,
-                    instructions=instructions,
-                    tools=tools or [],
-                    parallel_tool_calls=False,
-                    store=False,
-                    prompt_cache_options={"ttl": "30m"},
-                    include=["reasoning.encrypted_content"],
-                    **({"tool_choice": tool_choice} if tool_choice is not None else {}),
-                    max_output_tokens=limit,
-                    reasoning={
-                        "effort": cfg.openai_vision_reasoning_effort
-                        if vision
-                        else cfg.openai_agent_reasoning_effort
-                    },
-                )
-            except asyncio.CancelledError:
+                response = await self.sdk.responses.create(**request)
+            except asyncio.CancelledError as exc:
                 self._uncertain(reservation.id)
                 trace_update(
-                    trace, status="cancelled", provider_latency_ms=(perf_counter() - started) * 1000
+                    trace,
+                    status="cancelled",
+                    error=exc,
+                    provider_latency_ms=(perf_counter() - started) * 1000,
                 )
                 raise asyncio.CancelledError() from None
-            except Exception:
+            except Exception as exc:
                 self._uncertain(reservation.id)
                 trace_update(
-                    trace, status="uncertain", provider_latency_ms=(perf_counter() - started) * 1000
+                    trace,
+                    status="uncertain",
+                    error=exc,
+                    provider_latency_ms=(perf_counter() - started) * 1000,
                 )
                 # This safe exception crosses the tracing boundary; never the SDK's
                 # response body, authorization header, request or exception string.
@@ -165,10 +256,14 @@ class InferenceClient:
                     "No pude procesar el mensaje. Solicitaré apoyo si el fallo continúa.",
                     503,
                 ) from None
-            trace_update(trace, provider_latency_ms=(perf_counter() - started) * 1000)
+            trace_update(
+                trace,
+                output=provider_response_content(response),
+                provider_latency_ms=(perf_counter() - started) * 1000,
+            )
             if response.usage is None:
                 self._uncertain(reservation.id)
-                trace_update(trace, status="uncertain")
+                trace_update(trace, status="uncertain", error={"code": "usage_unknown"})
                 raise DomainError(
                     "usage_unknown", "No se pudo verificar el consumo de la respuesta.", 503
                 )
@@ -200,13 +295,20 @@ class InferenceClient:
                     actual_usd=settled.actual_usd,
                     status="completed" if response.status == "completed" else "incomplete",
                 )
-            except Exception:
+            except Exception as exc:
                 self._uncertain(reservation.id)
-                trace_update(trace, status="uncertain")
+                trace_update(trace, status="uncertain", error=exc)
                 raise DomainError(
                     "usage_settlement_failed", "No se pudo confirmar el registro del consumo.", 503
                 ) from None
             if response.status != "completed":
+                trace_update(
+                    trace,
+                    error={
+                        "code": "inference_incomplete",
+                        "details": getattr(response, "incomplete_details", None),
+                    },
+                )
                 raise DomainError(
                     "inference_incomplete", "No pude completar la respuesta dentro del límite.", 503
                 )
@@ -238,6 +340,22 @@ class InferenceClient:
             reserved_usd=amount,
             lease_seconds=cfg.openai_timeout_seconds + 30,
         )
+        audio_input = {
+            "model": cfg.openai_transcription_model,
+            "filename": filename,
+            "mime_type": audio_mime(filename),
+            "duration_seconds": float(seconds),
+            "size_bytes": len(data),
+        }
+        if getattr(self.observability, "capture_content", False):
+            try:
+                from langfuse import LangfuseMedia
+
+                audio_input["asset"] = LangfuseMedia(
+                    content_bytes=data, content_type=audio_mime(filename)
+                )
+            except Exception:
+                audio_input["capture_error"] = "media_capture_failed"
         with self.observability.span(
             "audio",
             event_id=event_id,
@@ -246,31 +364,39 @@ class InferenceClient:
             price_version=PRICE_VERSION,
             reserved_usd=amount,
             duration_seconds=float(seconds),
+            input=audio_input,
         ) as trace:
             started = perf_counter()
             try:
                 response = await self.sdk.audio.transcriptions.create(
                     model=cfg.openai_transcription_model, file=(filename, data)
                 )
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as exc:
                 self._uncertain(reservation.id)
                 trace_update(
-                    trace, status="cancelled", provider_latency_ms=(perf_counter() - started) * 1000
+                    trace,
+                    status="cancelled",
+                    error=exc,
+                    provider_latency_ms=(perf_counter() - started) * 1000,
                 )
                 raise asyncio.CancelledError() from None
-            except Exception:
+            except Exception as exc:
                 self._uncertain(reservation.id)
                 trace_update(
-                    trace, status="uncertain", provider_latency_ms=(perf_counter() - started) * 1000
+                    trace,
+                    status="uncertain",
+                    error=exc,
+                    provider_latency_ms=(perf_counter() - started) * 1000,
                 )
                 raise DomainError(
                     "audio_failed", "No pude transcribir el audio. Puedes escribir el mensaje.", 503
                 ) from None
+            trace_update(trace, output={"text": response.text})
             try:
                 settled = self.budget.settle_amount(reservation.id, actual_usd=amount)
-            except Exception:
+            except Exception as exc:
                 self._uncertain(reservation.id)
-                trace_update(trace, status="uncertain")
+                trace_update(trace, status="uncertain", error=exc)
                 raise DomainError(
                     "usage_settlement_failed", "No se pudo confirmar el registro del consumo.", 503
                 ) from None

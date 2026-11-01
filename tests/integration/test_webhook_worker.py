@@ -897,6 +897,7 @@ def exported_span_data(spans):
             for span in spans
         ],
         default=str,
+        ensure_ascii=False,
     )
 
 
@@ -1067,3 +1068,68 @@ async def test_delivery_restores_persisted_parent_after_root_closed_despite_unre
     with runtime.sessions() as session:
         assert session.get(Outbox, row.id).state == "sent"
         assert session.get(Outbox, row.id).payload_private["_trace_context"] == context
+
+
+@pytest.mark.asyncio
+async def test_full_content_turn_exports_messages_checkpoint_and_delivery_in_private_trace(
+    runtime, webapp
+):
+    from backend.integrations.observability import Observability
+    from langfuse import Langfuse
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    observation = Observability(SimpleNamespace(
+        langfuse_enabled=False, langfuse_capture_content=True,
+        session_secret=runtime.settings.session_secret,
+        chatwoot_webhook_secret=runtime.settings.chatwoot_webhook_secret,
+    ))
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    sdk = Langfuse(
+        public_key='pk-lf-private-content-' + uuid4().hex,
+        secret_key='sk-lf-fictional-private-content', base_url='http://127.0.0.1:1',
+        tracer_provider=provider, span_exporter=exporter, mask=observation.sanitizer.mask,
+    )
+    observation.client = sdk
+    runtime.observability = observation
+    source = 'whatsapp:+15550004567'
+    messages = ['Soy Ana Martínez, CC 10000001; consulto mi deuda de USD 100.',
+                '¿Qué opciones tengo para pagar?']
+    try:
+        async with checkpointer(runtime.settings.memory_conninfo, setup=True):
+            pass
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(webapp), base_url='http://testserver'
+        ) as client:
+            for index, message in enumerate(messages, 1):
+                response = await post(client, runtime, payload(
+                    source, message=1200 + index, content=message,
+                ))
+                assert response.status_code == 200
+                await process_job(runtime, runtime.queue.claim('private-content-worker'))
+                await send_outputs(runtime)
+        observation.flush()
+        spans = exporter.get_finished_spans()
+        serialized = json.dumps([
+            json.loads(value)
+            for span in spans for key, value in span.attributes.items()
+            if key in {"langfuse.observation.input", "langfuse.observation.output"}
+        ], ensure_ascii=False)
+        for value in messages + [source, '10000001', 'Ana Martínez', 'Respuesta ficticia 1',
+                                 'Respuesta ficticia 2', 'state_before', 'state_after']:
+            assert value in serialized
+        for value in [runtime.settings.session_secret.get_secret_value(),
+                      runtime.settings.chatwoot_webhook_secret.get_secret_value(),
+                      'PRIVATE-RUNTIME-GRANT', 'sk-lf-fictional-private-content']:
+            assert value not in serialized
+        assert len([span for span in spans if span.name == 'conversation']) == 2
+        agents = [span for span in spans if span.name == 'agent']
+        assert len(agents) == 2
+        second_agent = max(agents, key=lambda span: span.start_time)
+        assert 'Respuesta ficticia 1' in second_agent.attributes['langfuse.observation.input']
+        assert len([span for span in spans if span.name == 'delivery']) == 2
+        assert len(runtime.channel.sent) == 2
+    finally:
+        observation.flush()
+        provider.shutdown()

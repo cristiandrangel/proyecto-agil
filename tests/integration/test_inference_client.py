@@ -494,7 +494,7 @@ async def test_ambiguous_cache_usage_keeps_reservation_without_retry(budget_stor
 
 
 @pytest.fixture
-def real_trace_exporter():
+def real_trace_exporter(request):
     """Exercise actual SDK context propagation; every export remains in memory."""
     import httpx
     from langfuse import Langfuse
@@ -510,6 +510,13 @@ def real_trace_exporter():
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     transport = httpx.Client(transport=httpx.MockTransport(reject_request))
+    observation = Observability(
+        settings(
+            langfuse_capture_content=getattr(request, "param", False),
+            operator_password=SecretStr("operator-private-password"),
+            session_secret=SecretStr("session-infrastructure-private-value"),
+        )
+    )
     sdk = Langfuse(
         public_key="pk-lf-fictional-" + uuid4().hex,
         secret_key="sk-lf-fictional-no-provider-access",
@@ -517,9 +524,8 @@ def real_trace_exporter():
         httpx_client=transport,
         tracer_provider=provider,
         span_exporter=exporter,
-        mask=mask_payload,
+        mask=observation.sanitizer.mask if observation.capture_content else mask_payload,
     )
-    observation = Observability(settings())
     observation.client = sdk
     try:
         yield observation, exporter
@@ -712,3 +718,232 @@ def test_observability_context_helpers_fail_safe_without_sdk(caplog):
     assert current_trace_context() is None
     assert PRIVATE not in caplog.text
     assert "telemetry_start_failed" in caplog.text
+
+
+@pytest.mark.parametrize("real_trace_exporter", [True], indirect=True)
+def test_real_capture_content_keeps_prompts_history_and_financial_pii_without_secrets(
+    real_trace_exporter,
+):
+    observation, exporter = real_trace_exporter
+    instructions = "Atiende a Ana Martínez López, documento CC 10000001; deuda USD 60."
+    history = [{"role": "user", "content": "Mi teléfono es +15551234567 y propongo USD 54."}]
+    payload = {
+        "instructions": instructions,
+        "input": history,
+        "pin": "2468",
+        "grant_token": "opaque-customer-grant-private",
+        "headers": {"Authorization": "Bearer header-credential-private"},
+        "api_key": "a-structured-api-key-private",
+        "configured_values": "operator-private-password session-infrastructure-private-value",
+        "tool_arguments": json.dumps({"document": "10000001", "grant_token": "json-grant-private"}),
+        "reasoning": {"encrypted_content": "encrypted-reasoning-private", "summary": "Resumen visible"},
+    }
+    result = {
+        "customer": "Ana Martínez López",
+        "document": "10000001",
+        "received_cents": 5400,
+        "forgiven_cents": 600,
+        "payment_url": "https://demo.invalid/pay/order?capability=opaque-capability-private&amount=54",
+    }
+    with observation.span("llm", input=payload, model="gpt-5.6-luna") as trace:
+        trace.update(output=result, input_tokens=100, output_tokens=20, actual_usd="0.01")
+        # Updating metadata later must preserve both previously supplied fields.
+        trace.update(status="completed")
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    span = spans[0]
+    captured_input = json.loads(exported_attribute(span, "observation_input"))
+    captured_output = json.loads(exported_attribute(span, "observation_output"))
+    assert captured_input["instructions"] == instructions
+    assert captured_input["input"] == history
+    assert captured_input["reasoning"]["summary"] == "Resumen visible"
+    assert "encrypted_content" not in captured_input["reasoning"]
+    assert captured_output["customer"] == "Ana Martínez López"
+    assert captured_output["document"] == "10000001"
+    assert captured_output["received_cents"] == 5400
+    assert captured_output["forgiven_cents"] == 600
+    assert "https://demo.invalid/pay/order" in captured_output["payment_url"]
+    assert "amount=54" in captured_output["payment_url"]
+    assert any("usage" in key for key in span.attributes)
+    assert any("cost" in key for key in span.attributes)
+    serialized = span.to_json()
+    for secret in (
+        "2468", "opaque-customer-grant-private", "header-credential-private",
+        "a-structured-api-key-private", "operator-private-password",
+        "session-infrastructure-private-value", "encrypted-reasoning-private",
+        "opaque-capability-private",
+        "json-grant-private",
+    ):
+        assert secret not in serialized
+
+
+@pytest.mark.parametrize("real_trace_exporter", [True], indirect=True)
+def test_real_capture_error_exports_sanitized_message_type_and_stack_without_locals(
+    real_trace_exporter,
+):
+    observation, exporter = real_trace_exporter
+
+    def business_failure():
+        local_variable_never_exported = "sensitive-local-not-for-traces"
+        assert local_variable_never_exported
+        raise RuntimeError(
+            "Ana Martínez López USD 54: sk-fictional-secret PIN=2468 "
+            "grant_token=opaque-error-grant-private Authorization: Bearer error-key-private"
+        )
+
+    with pytest.raises(RuntimeError):
+        with observation.span("tool", tool="locate_customer", input={"document": "10000001"}):
+            business_failure()
+    observation.flush()
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    span = spans[0]
+    content = json.loads(exported_attribute(span, "observation_output"))
+    error = content["error"]
+    assert error["type"] == "RuntimeError"
+    assert "Ana Martínez López USD 54" in error["message"]
+    assert "business_failure" in error["traceback"]
+    assert span.events == ()
+    serialized = span.to_json()
+    for secret in (
+        "sk-fictional-secret", "2468", "opaque-error-grant-private",
+        "error-key-private", "sensitive-local-not-for-traces",
+    ):
+        assert secret not in serialized
+
+
+@pytest.mark.parametrize("real_trace_exporter", [True], indirect=True)
+def test_real_capture_sdk_mask_also_sanitizes_direct_updates(real_trace_exporter):
+    observation, exporter = real_trace_exporter
+    with observation.client.start_as_current_observation(
+        name="direct-fixture",
+        input={"system_prompt": "Documento 10000001, saldo USD 100", "password": "direct-private"},
+    ) as raw:
+        raw.update(output="Nombre Ana Martínez López; Bearer direct-bearer-private PIN 2468")
+    observation.flush()
+    span = exporter.get_finished_spans()[0]
+    serialized = span.to_json()
+    assert "10000001" in serialized
+    assert "USD 100" in serialized
+    assert "Ana Martínez López" in exported_attribute(span, "observation_output")
+    for secret in ("direct-private", "direct-bearer-private", "2468"):
+        assert secret not in serialized
+
+
+@pytest.mark.parametrize("real_trace_exporter", [True], indirect=True)
+def test_capture_keeps_provider_diagnostic_before_domain_error_translation(real_trace_exporter):
+    observation, exporter = real_trace_exporter
+    with pytest.raises(DomainError):
+        with observation.span("llm") as trace:
+            try:
+                raise RuntimeError("provider-detail USD 54; Bearer provider-private")
+            except RuntimeError as provider_error:
+                trace.update(error=provider_error, status="uncertain")
+                raise DomainError("inference_failed", "safe business error") from None
+    observation.flush()
+    span = exporter.get_finished_spans()[0]
+    captured = json.loads(exported_attribute(span, "observation_output"))
+    assert captured["error"]["type"] == "RuntimeError"
+    assert "provider-detail USD 54" in captured["error"]["message"]
+    assert "provider-private" not in span.to_json()
+    assert json.loads(exported_attribute(span, "metadata_status")) == "uncertain"
+
+
+def test_content_sanitizer_limits_cycles_and_failures_are_explicit_without_breaking_business(caplog):
+    from backend.integrations.observability import ContentSanitizer
+
+    sanitizer = ContentSanitizer(settings(), max_text=30)
+    assert "TRUNCATED:original_chars=100" in sanitizer.sanitize("a" * 100)
+    cyclic = {"document": "10000001"}
+    cyclic["cycle"] = cyclic
+    assert sanitizer.sanitize(cyclic)["cycle"] == "[CIRCULAR]"
+
+    class BrokenContent:
+        def model_dump(self, **kwargs):
+            raise RuntimeError(PRIVATE)
+
+    observation = Observability(settings(langfuse_capture_content=True))
+    with observation.span("agent", input=BrokenContent()) as trace:
+        trace.update(output=BrokenContent(), error=RuntimeError(PRIVATE))
+        result = "business-completed"
+    assert result == "business-completed"
+    assert "UNAVAILABLE:sanitization_failed" in trace.content["output"]
+    assert PRIVATE not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "content,secret",
+    [
+        ("Authorization: Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA=="),
+        ("SDK request {'grant_token': 'python-repr-private'}", "python-repr-private"),
+        ("SDK request {'pin': '2468'}", "2468"),
+        ("PIN 2468", "2468"),
+        ("token=opaque-token-private", "opaque-token-private"),
+        ("https://demo.invalid/pay?capability=url-private&amount=54", "url-private"),
+        ("https://demo.invalid/media?X-Amz-Signature=signed-private", "signed-private"),
+        ("postgresql://demo:database-private@db:5432/demo", "database-private"),
+    ],
+)
+def test_capture_sanitizer_removes_secrets_from_provider_error_text(content, secret):
+    from backend.integrations.observability import ContentSanitizer
+
+    cleaned = ContentSanitizer(settings()).error(RuntimeError(content))
+    assert secret not in json.dumps(cleaned)
+    assert "REDACTED" in json.dumps(cleaned)
+
+
+def test_capture_preserves_numeric_documents_and_financial_strings():
+    from backend.integrations.observability import ContentSanitizer
+
+    content = {"offer_amount_usd": "1000", "document_number": "123456", "balance_cents": 10000}
+    assert ContentSanitizer(settings()).sanitize(content) == content
+
+
+def test_capture_sanitizer_preserves_explicit_sdk_media_without_exporting_obj_secrets():
+    from backend.integrations.observability import ContentSanitizer
+    from langfuse import LangfuseMedia
+
+    media = LangfuseMedia(
+        content_bytes=b"fictitious-image-only-no-network",
+        content_type="image/png",
+        obj={"document_number": "10000001", "grant_token": "media-obj-secret"},
+    )
+    captured = ContentSanitizer(settings()).sanitize({"asset": media})["asset"]
+    assert isinstance(captured, LangfuseMedia)
+    assert captured._reference_string == media._reference_string
+    assert captured.obj["document_number"] == "10000001"
+    assert "media-obj-secret" not in json.dumps(captured.obj)
+
+
+def test_capture_broken_sdk_update_end_and_flush_never_interrupt_business(caplog):
+    observation = Observability(settings(langfuse_capture_content=True))
+
+    class BrokenRaw:
+        @property
+        def trace_id(self):
+            raise RuntimeError(PRIVATE)
+
+        def update(self, **kwargs):
+            raise RuntimeError(PRIVATE)
+
+    class BrokenSDK:
+        @contextmanager
+        def start_as_current_observation(self, **kwargs):
+            yield BrokenRaw()
+            raise RuntimeError(PRIVATE)
+
+        def flush(self):
+            raise RuntimeError(PRIVATE)
+
+    observation.client = BrokenSDK()
+    with observation.span("agent", input={"document": "10000001"}) as trace:
+        assert trace.export_context() is None
+        trace.update(output={"balance": "1000"}, error=RuntimeError(PRIVATE))
+        result = "completed"
+    observation.flush()
+    assert result == "completed"
+    assert PRIVATE not in caplog.text
+    assert "telemetry_update_failed" in caplog.text
+    assert "telemetry_end_failed" in caplog.text
+    assert "telemetry_flush_failed" in caplog.text

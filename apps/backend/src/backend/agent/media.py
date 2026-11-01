@@ -22,6 +22,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 from agil_shared.errors import DomainError
+from backend.integrations.openai import trace_update
 from mutagen import File as AudioFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -377,11 +378,18 @@ class MediaProcessor:
         for index, attachment in enumerate(attachments, 1):
             if not isinstance(attachment, dict):
                 raise DomainError("media_attachment_invalid", "El archivo no es válido.", 422)
-            with self.observability.span("media_normalize", event_id=event_id, modality="media"):
+            with self.observability.span(
+                "media_normalize",
+                event_id=event_id,
+                modality="media",
+                input={"attachment": attachment, "index": index},
+            ) as trace:
                 data, mime = await self._download(
                     attachment.get("data_url") or attachment.get("url")
                 )
                 kind, extension = self._kind(data)
+                details = {"kind": kind, "mime_type": mime, "size_bytes": len(data)}
+                trace_update(trace, output=details)
                 declared = attachment.get("file_type")
                 if declared in ("image", "audio") and declared != kind:
                     raise DomainError(
@@ -433,6 +441,15 @@ class MediaProcessor:
                         ],
                     )
                     normalized.append(self.image_observation(response.output_text, index=index))
+                    trace_update(
+                        trace,
+                        output={
+                            **details,
+                            "normalized_mime_type": "image/jpeg",
+                            "normalized_size_bytes": len(reduced),
+                            "context": normalized[-1],
+                        },
+                    )
                 else:
                     duration = await asyncio.to_thread(self._audio_duration, data, extension)
                     transcript = await self.inference.transcribe(
@@ -443,5 +460,14 @@ class MediaProcessor:
                     )
                     normalized.append(
                         f"MEDIO {index} NO VERIFICADO (transcripción de audio): {str(transcript).strip()[:12000]}"
+                    )
+                    trace_update(
+                        trace,
+                        output={
+                            **details,
+                            "duration_seconds": duration,
+                            "transcription": str(transcript),
+                            "context": normalized[-1],
+                        },
                     )
         return "\n\n".join(normalized)

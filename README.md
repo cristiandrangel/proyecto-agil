@@ -234,14 +234,18 @@ aplicar un segundo pago al recibir otra vez el mismo comprobante.
    para encontrar una ejecución de mensaje.
    Si la actualización está en **Off**, espera la exportación y pulsa **Refresh**:
    la lista no se refresca por sí sola. Abre una fila para ver y expandir su árbol.
-5. Revisa cada generación y herramienta: modelo, estado, latencia, tokens y coste
-   estimado. El coste vacío en la raíz no significa gasto cero: la raíz es un span
-   y el detalle de uso/coste está en las generaciones hijas.
+5. Con `LANGFUSE_CAPTURE_CONTENT=true`, abre **conversation → agent → llm** y
+   consulta **Input / Output** de la generación: contexto enviado y respuesta del
+   modelo. Abre cada **tool.<nombre> → Input / Output** para ver argumentos y
+   resultado; revisa también estado anterior/posterior y medios del turno.
+6. Contrasta modelo, estado, latencia, tokens y coste estimado. El coste vacío en
+   la raíz no significa gasto cero: la raíz es un span y el detalle de uso/coste
+   está en las generaciones hijas.
 
 La estructura implementada para abrir **un mensaje y ver qué ocurrió en ese turno**
-es la siguiente. Sus relaciones y privacidad se verificaron con pruebas
-deterministas; falta repetir el nuevo árbol completo por WhatsApp con el evaluador
-y con medios reales:
+es la siguiente. La jerarquía y la captura privada de contenido ya tienen
+verificación determinista. Falta comprobar la exportación de la nueva captura en
+el despliegue y repetir el árbol completo por WhatsApp con el evaluador y medios:
 
 ```text
 conversation                 raíz por ejecución de un mensaje
@@ -259,15 +263,17 @@ conversation                 raíz por ejecución de un mensaje
 ```
 
 `tool.verify_payment`, por ejemplo, permite reconocer la consulta financiera tras
-un comprobante; su resultado privado no se exporta. Un turno puede tener varios
+un comprobante; con captura activada se muestran sus argumentos y resultado
+financiero, excluyendo los secretos indicados abajo. Un turno puede tener varios
 llm/tools o resolverse sin modelo. El PIN se intercepta antes del worker y solo
 aparece el paso resuelto, sin su valor. Las operaciones de medios pertenecen a la
 raíz de ese mensaje, antes de `agent`.
 
 Todas las observaciones del turno deben heredar `session_id = opaque_id(source_id)`
-y el mismo `event_id` interno. La sesión permite agrupar los mensajes del chat sin
-mostrar el `source_id`; no cambia el `thread_id` literal de LangGraph ni concede
-identidad financiera. Un reintento puede mostrar otra ejecución del mismo evento.
+y el mismo `event_id` interno. La sesión usa un identificador técnico opaco para agrupar los mensajes del chat;
+no cambia el `thread_id` literal de LangGraph ni concede identidad financiera.
+El hash de sesión no anonimiza el contenido capturado: el contexto del modelo
+puede incluir el `source_id` literal. Un reintento puede mostrar otra ejecución del mismo evento.
 
 Para comprobar el envío, expande **`response_enqueue` → `delivery`**. Outbox
 persiste el contexto de traza del padre y el sender lo recupera: el envío queda en
@@ -283,24 +289,56 @@ significa que la API de Chatwoot aceptó el mensaje**, no que WhatsApp lo entreg
 leyó. El encolado por sí solo tampoco prueba envío. La entrega requiere evidencia
 exacta del canal.
 
-Langfuse muestra metadatos operativos, estados de nombres fijos, latencias, modelos,
-tokens y coste estimado. Las herramientas también muestran la fase resultante y, cuando
-aplica, conteos de coincidencias/deudas o el estado operativo del pago. No recibe inputs/outputs, prompts, razonamiento,
-transcripciones, texto de imágenes, mensajes, PIN, teléfono, documento, grants,
-claves, enlaces privados ni errores crudos. La conversación se consulta en WhatsApp
-o en la bandeja de pruebas de Chatwoot. Este límite corresponde a nuestro backend
-y sus trazas: Chatwoot externo conserva los mensajes y puede registrar su payload
-al reintentar.
+**Captura privada para depuración, por instrucción explícita del usuario:**
+`LANGFUSE_CAPTURE_CONTENT=true` habilita mensajes, prompt y contexto completos,
+historial utilizado, inputs/outputs del modelo, argumentos/resultados de
+herramientas, estado antes/después, respuesta preparada/enviada y contexto
+multimedia utilizado: transcripciones, extracción visual y **archivos completos
+de audio e imagen como assets `LangfuseMedia`**, almacenados en privado y visibles
+en las observaciones correspondientes. No se conserva únicamente el texto extraído.
+Los datos personales y financieros se muestran sin enmascarar en ese proyecto privado.
+Los nombres de observaciones siguen siendo fijos, aunque su contenido sea completo.
 
-**Validación realizada:** las pruebas con PostgreSQL y el SDK real con exportación
-en memoria verifican sesiones, parentesco durable de `delivery`, cobertura del
-worker y privacidad. Una comprobación real de exportación recibió tres
-observaciones con la misma sesión y padre restaurado, sin inferencias ni envíos
-al canal. En la interfaz también se observó una traza real de texto con
-`llm`/`tool`/`llm`. **Pendiente:** repetir el nuevo árbol completo con WhatsApp y
-el evaluador, medios reales y envío asíncrono, y contrastar las observaciones
-exportadas. Una generación aislada o la salud/autenticación de Langfuse no
-sustituyen esa comprobación.
+Se puede desactivar con `LANGFUSE_CAPTURE_CONTENT=false` para volver a metadatos:
+estados, correlación, latencias, modelos, tokens y coste. La nueva instrucción
+reemplaza la política anterior de no exportar contenido; no cambia la autorización
+financiera ni permite publicar las trazas privadas en el repositorio.
+
+**Exclusiones en JSON/texto:** se filtran los secretos de infraestructura conocidos,
+API keys, cabeceras `Authorization`, grants, capabilities y tokens de enlaces.
+El texto de una respuesta puede verse con el enlace sensible redactado. El **PIN
+tecleado** se intercepta en el ingreso, antes del modelo y de la cola de contenido;
+en la traza solo figura el paso resuelto. Los archivos multimedia autorizados se
+almacenan completos: **no hay OCR ni redacción automática previa de información
+escrita en una imagen o pronunciada en un audio**. No se promete ocultar un PIN u
+otro secreto que forme parte de esos archivos. No se captura razonamiento interno
+ni `encrypted_content`. La captura de errores también filtra los secretos conocidos.
+Chatwoot externo conserva sus mensajes y puede registrar el payload al reintentar;
+esta opción no modifica ese servicio.
+
+La captura de texto tiene límites de **1 000 000 de caracteres por cadena**, **40
+niveles de profundidad** y **20 000 elementos**. Si se alcanzan, aparecen marcadores
+explícitos, como `[TRUNCATED:original_chars=…]`, `[TRUNCATED:max_depth]` o
+`[TRUNCATED:max_items]`: un resultado marcado no se presenta como completo. Estos
+límites de estructura no sustituyen la captura de archivos mediante `LangfuseMedia`.
+
+Las trazas históricas de metadatos permanecen como se exportaron, **sin backfill**.
+Un nuevo turno con captura activada sí puede mostrar el historial que se utiliza
+en esa nueva ejecución. Desactivar la opción no borra el contenido ya exportado.
+
+**Validación determinista realizada:** la suite Docker completa aprobó **303
+pruebas**, sin fallos ni omitidas, el 1 de noviembre de 2026 a las **18:14:58 UTC**
+(35,70 segundos); Ruff pasó. Las regresiones incluyen dos turnos de worker con
+checkpoint e inputs/outputs, SDK con captura completa y errores saneados, assets
+y formatos multimedia, fallos de telemetría que no bloquean el recorrido y
+transporte de S3 firmado. Verifican también sesiones y parentesco durable de
+`delivery`. Se mantiene la evidencia histórica de lectura de metadatos y padre
+restaurado. **Validación real desplegada:** una llamada a Luna mostró prompt,
+mensaje con documento y respuesta en la API y la interfaz de Langfuse; una imagen
+PNG y un audio WAV ficticios quedaron almacenados y se abrieron en el navegador.
+Coste estimado: USD 0,00059875; cero envíos a WhatsApp. Fue una traza de diagnóstico,
+no una conversación del evaluador. Sigue pendiente el recorrido completo por
+WhatsApp con medios del canal, herramientas financieras y envío asíncrono.
 
 El presupuesto de IA es USD 5, con un corte local conservador en USD 4,50. Las
 reservas de resultados inciertos se conservan; el coste mostrado es estimado y
@@ -380,7 +418,7 @@ docker compose --env-file .env -f infra/compose.yaml stop
 
 ## Ejecutar las pruebas sin servicios externos
 
-La última ejecución Docker registrada aprobó **275 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 17:44 UTC (34,83 segundos).
+La última ejecución Docker registrada aprobó **303 pruebas, sin fallos ni omisiones**, el 1 de noviembre de 2026 a las 18:14:58 UTC (35,70 segundos).
 
 La batería usa PostgreSQL 17 real, esquemas aislados y dobles de los proveedores. Se ejecuta en un proyecto Docker separado, sin puertos publicados, sin montar `.env` ni compartir volúmenes del runtime. La red de pruebas es interna:
 
