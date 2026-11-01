@@ -156,12 +156,21 @@ WhatsApp del evaluador es una comprobación adicional del recorrido.
 
 ## 5. Responder e identificarse
 
-1. Responde a la plantilla desde tu WhatsApp, por ejemplo: `Hola, quiero revisar
+1. Abre Chatwoot con `CHATWOOT_UI_URL`, `CHATWOOT_UI_EMAIL` y
+   `CHATWOOT_UI_PASSWORD` del `.env` privado. Puedes usar una ventana de incógnito
+   para conservar otra sesión abierta.
+2. En **Conversaciones**, abre la bandeja de pruebas. Junto al título, cambia el
+   filtro **Abiertas** a **Pendientes**. Las conversaciones gestionadas por el bot
+   están en `pending` y no aparecen bajo el filtro de abiertas.
+3. Abre la conversación correspondiente al WhatsApp que configuraste en la central.
+   Déjala bajo control de **Alex TEST**, sin pulsar **Tomar el control**.
+4. Responde a la plantilla desde tu WhatsApp, por ejemplo: `Hola, quiero revisar
    mi deuda`.
-2. Si el agente encuentra una pista de identidad y pregunta si corresponde a ti,
+5. Comprueba en Chatwoot que aparezcan tu mensaje entrante y la respuesta del bot.
+6. Si el agente encuentra una pista de identidad y pregunta si corresponde a ti,
    confírmala. Si solicita documento, escribe `CC 10000001`.
-3. Cuando pida el PIN, escribe **2468**. Es el PIN ficticio de la demo.
-4. Selecciona explícitamente el servicio **hogar**.
+7. Cuando pida el PIN, escribe **2468**. Es el PIN ficticio de la demo.
+8. Selecciona explícitamente el servicio **hogar**.
 
 **Comprobar:** antes del PIN no revela el detalle financiero. Después de
 autenticarte, puedes gestionar las deudas de Ana, una a la vez. El PIN se verifica
