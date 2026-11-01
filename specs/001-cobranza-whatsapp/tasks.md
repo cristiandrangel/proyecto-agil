@@ -136,7 +136,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 **Goal**: Ensayar la entrega completa, documentar evidencia y límites reales.
 
 - [ ] T051 [P] Crear perfil Floci y smoke de APIs EC2/disco/red solo locales en infra/compose.floci.yaml y scripts/smoke_floci.py; registrar cobertura sin IaC obligatorio (FR-20; AC-01).
-- [ ] T052 [P] Preparar proxy HTTPS, override de una EC2, instrucciones de EBS y restore en infra/Caddyfile, infra/compose.ec2.yaml y docs/despliegue-ec2.md; sin desplegar AWS de forma implícita (FR-20; AC-01, AC-19).
+- [ ] T052 [P] Preparar entrada HTTPS fija con Cloudflare Tunnel para cobranza.agenx-dev-test.work, conector opcional en Compose y cambio secuencial de equipo según docs/dominio-demo.md; configurar PUBLIC_BASE_URL y verificar webhook y enlaces públicos. Preparar override de una EC2, instrucciones de EBS y restore en infra/compose.ec2.yaml y docs/despliegue-ec2.md; Caddy en infra/Caddyfile es alternativa de HTTPS directo. No desplegar AWS de forma implícita (FR-20; AC-01, AC-19).
 - [ ] T053 Implementar runner de aceptación y variantes de fallos/concurrencia en scripts/run_acceptance.py con reporte de AC-01–31 en docs/evaluacion.md (FR-03, FR-07, FR-09, FR-13, FR-16, FR-18, FR-20; AC-01–31).
 - [ ] T054 Ejecutar preflight y recorridos reales opt-in de WhatsApp/OpenAI/audio/imagen con captura y registrar modelo, consumo, control humano y limitaciones en docs/evaluacion.md (FR-06, FR-10, FR-11, FR-17, FR-18, FR-19, FR-20; AC-05, AC-06, AC-08, AC-11, AC-15, AC-18, AC-24, AC-28).
 - [ ] T055 Validar README.md desde entorno limpio y completar guion/diagramas de sustentación y grabación de respaldo en docs/evaluacion.md y docs/despliegue-ec2.md (FR-20; AC-01, AC-19, AC-28).

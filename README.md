@@ -12,6 +12,7 @@ reales del flujo completadas en esta fase.
 
 - [PRD](specs/prd.md), con FR-01–22 y AC-01–31.
 - [Arquitectura inicial: una sola EC2, con Mermaid](specs/arquitectura-inicial.md).
+- [Dominio fijo y cambio de equipo con Cloudflare Tunnel](docs/dominio-demo.md).
 - [Análisis inicial de conflictos](specs/prd-paso-0-conflictos.md).
 - [Prompt original del PRD](promptprd.md).
 

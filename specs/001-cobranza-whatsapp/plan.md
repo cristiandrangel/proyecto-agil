@@ -19,6 +19,12 @@ una sola EC2. Chatwoot existente y OpenAI son externos. Floci tiene un perfil de
 validación de APIs de infraestructura local; no se confunde con ejecutar la app.
 IaC y la separación en servicios especializados son planes futuros.
 
+La entrada pública prevista es `cobranza.agenx-dev-test.work`, bajo el dominio de
+pruebas administrado en Cloudflare. Un conector opcional `cloudflared` en Compose
+permitirá mantener el hostname al cambiar de PC o pasar a EC2, con un solo equipo
+activo y migración de datos separada. El túnel, su DNS y la integración real siguen
+pendientes. [Configuración y verificaciones](../../docs/dominio-demo.md).
+
 ## Technical Context
 
 **Language/Version**: Python 3.12 en contenedores; JavaScript nativo en las webs.

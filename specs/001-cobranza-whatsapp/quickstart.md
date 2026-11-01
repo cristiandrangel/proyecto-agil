@@ -28,7 +28,9 @@ habilitados. Confirmar hora límite del lunes 2026-11-02 al organizar la entrega
 
 1. Crear `.env` desde `.env.example` y poner claves reales solo en el archivo privado.
 2. Configurar URL/token/cuenta/inbox Chatwoot, esquema de autenticación y firma o relay.
-3. Configurar dominio HTTPS y asociarlo al webhook del bot sin publicar secretos.
+3. Conectar `cobranza.agenx-dev-test.work` mediante el túnel persistente previsto en
+   [dominio de demo](../../docs/dominio-demo.md), verificar HTTPS y asociarlo al
+   webhook del bot sin publicar secretos. Mantener un único equipo activo.
 4. Configurar OpenAI, modelos y control local de USD 4.50, dentro del presupuesto de 5.
 5. Configurar credencial del operador, claves de servicios, firma de pagos y Langfuse.
 

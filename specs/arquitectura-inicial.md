@@ -32,7 +32,6 @@ flowchart TB
         PROXY --> WEB
         PROXY --> PAYWEB
         PROXY --> BACK
-        PROXY --> LF
         WEB --> BACK
         BACK --> CENTRAL
         PAYWEB --> BACK
@@ -51,10 +50,12 @@ flowchart TB
         LFSTORE --- DISK
     end
 
-    USER -->|"HTTPS: webs y enlace de pago"| PROXY
+    EDGE["Cloudflare: dominio fijo y túnel persistente"]
+    USER -->|"HTTPS: webs y enlace de pago"| EDGE
+    EDGE -->|"Conector cloudflared en la máquina activa"| PROXY
     USER <-->|"Mensajes y adjuntos"| META
     META <--> CHAT
-    CHAT -->|"Webhook del bot"| PROXY
+    CHAT -->|"Webhook del bot HTTPS"| EDGE
     BACK -->|"Campañas, respuestas y control humano"| CHAT
     PRE <-->|"Transcripción o visión"| LLM
     AGENT <-->|"Texto y llamadas a herramientas"| LLM
@@ -71,7 +72,7 @@ Backend, preprocesamiento y agente son responsabilidades lógicas; el dibujo no 
 | Memoria | Conservar contexto por source_id literal del contacto; destino Chatwoot por evento, separado de la cartera | Otro contenedor PostgreSQL en EC2 |
 | Langfuse | Consultar trazas, herramientas, errores, latencias y consumo | Stack autoalojado completo en EC2 |
 | Persistencia | Conservar bases, archivos y datos de observabilidad fuera de las imágenes | Volúmenes Docker sobre EBS |
-| Entrada pública | Dirigir HTTPS del dominio de prueba hacia las webs y el webhook | Proxy en EC2; DNS en el proveedor del dominio |
+| Entrada pública | Dirigir HTTPS del dominio de prueba hacia las webs y el webhook | Cloudflare Tunnel y conector en el equipo activo; alternativa de HTTPS directo con proxy |
 | Canal y atención humana | Mensajería y control pending/open | Chatwoot ya desplegado y Meta; integraciones externas |
 | Inferencia | Agente principal, transcripción y contexto visual | API externa de OpenAI con clave privada |
 
@@ -121,7 +122,7 @@ El estado pending de Chatwoot determina el control del bot. Al salir de pending 
 
 ## Ejecución local y Floci
 
-El evaluador podrá ejecutar los contenedores de aplicación, las bases y Langfuse en su equipo. Un endpoint HTTPS accesible permite conectar ese backend con el Chatwoot existente. En AWS, los mismos componentes se alojarán en la única EC2; la exposición pública y la configuración se ajustarán al entorno.
+El evaluador podrá ejecutar los contenedores de aplicación, las bases y Langfuse en su equipo. La entrada prevista es `cobranza.agenx-dev-test.work` mediante Cloudflare Tunnel, con un solo equipo activo. El hostname permanece al cambiar de equipo; los datos requieren backup y restauración por separado. En AWS, los mismos componentes se alojarán en la única EC2. Véase [dominio y conexión pendiente](../docs/dominio-demo.md). Langfuse se consulta localmente y no se publica por esta ruta.
 
 Floci queda reservado al perfil de emulación de infraestructura local. Los scripts que ejerciten APIs compatibles apuntarán a su endpoint y usarán credenciales ficticias. Ejecutar los contenedores con Compose no demuestra por sí solo que se haya emulado el aprovisionamiento de EC2: las operaciones cubiertas y sus resultados se documentarán explícitamente. La inferencia sigue siendo real mediante OpenAI. [Integración local de Floci](https://floci.io/floci/getting-started/terraform/).
 
