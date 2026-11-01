@@ -1,0 +1,47 @@
+# Independent disposable PostgreSQL 17; no runtime volumes, ports or private .env.
+name: proyecto-agil-tests
+services:
+  test-postgres:
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_DB: agil_test
+      POSTGRES_USER: agiltest
+      POSTGRES_PASSWORD: test-only-not-a-real-secret
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U agiltest -d agil_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [test-internal]
+  tests:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.test
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+    environment:
+      TEST_DATABASE_URL: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      TEST_MEMORY_DATABASE_URL: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      CENTRAL_TEST_DATABASE_URL: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      TEST_CENTRAL_DATABASE_URL: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      CENTRAL_DATABASE_URL: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      MEMORY_DATABASE_URL_OVERRIDE: postgresql+psycopg://agiltest:test-only-not-a-real-secret@test-postgres:5432/agil_test
+      APP_ENV: test
+      PUBLIC_BASE_URL: http://testserver
+      OPERATOR_PASSWORD: test-only-operator-password
+      SESSION_SECRET: test-only-session-secret-0000000000000000
+      CENTRAL_OPERATOR_TOKEN: test-only-operator-token-0000000000000000
+      CENTRAL_AGENT_TOKEN: test-only-agent-token-0000000000000000000
+      PAYMENT_SIGNING_KEY: test-only-payment-signing-key-00000000000
+      MEMORY_DB_PASSWORD: test-only-not-a-real-secret
+      OPENAI_API_KEY: ''
+      CHATWOOT_API_TOKEN: ''
+      CHATWOOT_BASE_URL: ''
+      LANGFUSE_ENABLED: 'false'
+    networks: [test-internal]
+networks:
+  test-internal:
+    internal: true

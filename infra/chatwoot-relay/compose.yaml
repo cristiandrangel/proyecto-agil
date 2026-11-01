@@ -1,0 +1,44 @@
+# Deploy separately beside the OWNER'S Chatwoot. Never distribute its private .env.
+# Keep BOTH user and AgentBot credentials owner-side; neither is inbox-scoped.
+# Evaluator backend uses the shared relay key and relay origin for both API clients.
+# The existing cloudflared connector may reach http://chatwoot-contacts-relay:8090.
+services:
+  chatwoot-contacts-relay:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      CHATWOOT_UPSTREAM_BASE_URL: ${CHATWOOT_UPSTREAM_BASE_URL:?Set the private fixed Chatwoot origin}
+      CHATWOOT_UPSTREAM_BOT_TOKEN: ${CHATWOOT_UPSTREAM_BOT_TOKEN:?Owner-side Chatwoot bot token required}
+      CHATWOOT_UPSTREAM_API_TOKEN: ${CHATWOOT_UPSTREAM_API_TOKEN:?Owner-side Chatwoot user token required}
+      CHATWOOT_RELAY_SHARED_TOKEN: ${CHATWOOT_RELAY_SHARED_TOKEN:?Distinct scoped relay token required}
+      CHATWOOT_RELAY_ACCOUNT_ID: ${CHATWOOT_RELAY_ACCOUNT_ID:?Set the allowed account}
+      CHATWOOT_RELAY_INBOX_ID: ${CHATWOOT_RELAY_INBOX_ID:?Set the test inbox}
+      CHATWOOT_UPSTREAM_AUTH_SCHEME: ${CHATWOOT_UPSTREAM_AUTH_SCHEME:-api_access_token}
+      CHATWOOT_RELAY_QUOTA_PATH: /var/lib/channel-relay/quota.sqlite3
+    volumes:
+      - relay_quota:/var/lib/channel-relay
+    networks:
+      - chatwoot
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,noexec,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import socket; socket.create_connection(('127.0.0.1',8090),3).close()"]
+      interval: 15s
+      timeout: 4s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # No host ports; only the owner's Chatwoot network can reach the listener.
+networks:
+  chatwoot:
+    external: true
+    name: ${CHATWOOT_DOCKER_NETWORK:?Set the existing owner-side Docker network}
+volumes:
+  relay_quota: {}

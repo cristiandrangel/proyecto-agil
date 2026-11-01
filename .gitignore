@@ -42,3 +42,8 @@ terraform.tfvars.json
 # Estado privado de agentes; solo se versionan las skills del proyecto.
 .agents/*
 !.agents/skills/
+
+# Artefactos de verificación local.
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

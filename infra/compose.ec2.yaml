@@ -1,0 +1,86 @@
+# Override the same application stack on ONE EC2 host. No AWS resource creation.
+# Mount an encrypted EBS filesystem at AGIL_DATA_ROOT before starting Docker.
+x-log-policy: &log-policy
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  backend:
+    environment:
+      APP_ENV: production
+      ENABLE_LOCAL_MESSAGE_ENDPOINT: "false"
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://cobranza.agenx-dev-test.work}
+    logging: *log-policy
+  worker:
+    environment:
+      APP_ENV: production
+      ENABLE_LOCAL_MESSAGE_ENDPOINT: "false"
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://cobranza.agenx-dev-test.work}
+    logging: *log-policy
+  central:
+    logging: *log-policy
+  central-db:
+    logging: *log-policy
+  memory-db:
+    logging: *log-policy
+  cloudflared:
+    profiles: [public]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    logging: *log-policy
+  langfuse-web:
+    logging: *log-policy
+  langfuse-worker:
+    logging: *log-policy
+  langfuse-db:
+    logging: *log-policy
+  langfuse-clickhouse:
+    logging: *log-policy
+  langfuse-minio:
+    logging: *log-policy
+  langfuse-redis:
+    logging: *log-policy
+volumes:
+  central_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/central
+  memory_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/memory
+  langfuse_postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/langfuse-postgres
+  langfuse_clickhouse_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/clickhouse
+  langfuse_clickhouse_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/clickhouse-logs
+  langfuse_minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/minio
+  langfuse_redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGIL_DATA_ROOT:-/srv/proyecto-agil/data}/redis

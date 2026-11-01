@@ -1,0 +1,10 @@
+{
+  "python:3.12-slim": "python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159",
+  "postgres:17-alpine": "postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b",
+  "docker.langfuse.com/langfuse/langfuse:4": "docker.langfuse.com/langfuse/langfuse:4@sha256:c311fd9db4b69f6514fdcb1b86a2a105d5a4ed51fbf0ded033ff2722459c804a",
+  "docker.langfuse.com/langfuse/langfuse-worker:4": "docker.langfuse.com/langfuse/langfuse-worker:4@sha256:aa1724b989a00f1e4ca9930709202489c73deaaf2f1116bbd3d71c77edb8fedb",
+  "clickhouse/clickhouse-server:26.3.62.3": "clickhouse/clickhouse-server:26.3.62.3@sha256:de3e47c64078aa196dae2349e048fc98ba81947f651f5c20e06e46baea8ae40a",
+  "redis:7-alpine": "redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+  "cgr.dev/chainguard/minio:latest": "cgr.dev/chainguard/minio:latest@sha256:0a01100085e30fb08d2f39e39c9f5c9d83a95707f220b007d813b690cd41622d",
+  "cloudflare/cloudflared:latest": "cloudflare/cloudflared:latest@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba"
+}

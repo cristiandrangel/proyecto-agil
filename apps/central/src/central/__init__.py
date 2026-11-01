@@ -1,0 +1,1 @@
+"""Authoritative simulated receivables service."""

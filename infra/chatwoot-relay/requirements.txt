@@ -1,0 +1,6 @@
+# Exact versions used by the application lock, 2026-11-01.
+fastapi==0.162.0
+httpx==0.28.1
+uvicorn==0.54.0
+pydantic==2.14.2
+pydantic-settings==2.16.2

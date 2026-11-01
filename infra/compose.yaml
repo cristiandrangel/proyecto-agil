@@ -1,0 +1,376 @@
+name: ${COMPOSE_PROJECT_NAME:-proyecto-agil}
+services:
+  central-db:
+    restart: unless-stopped
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_DB: ${CENTRAL_DB_NAME}
+      POSTGRES_USER: ${CENTRAL_DB_USER}
+      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD}
+    volumes:
+    - central_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  memory-db:
+    restart: unless-stopped
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_DB: ${MEMORY_DB_NAME}
+      POSTGRES_USER: ${MEMORY_DB_USER}
+      POSTGRES_PASSWORD: ${MEMORY_DB_PASSWORD}
+    volumes:
+    - memory_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  central:
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.central
+    environment:
+      CENTRAL_DB_HOST: ${CENTRAL_DB_HOST}
+      CENTRAL_DB_PORT: ${CENTRAL_DB_PORT}
+      CENTRAL_DB_NAME: ${CENTRAL_DB_NAME}
+      CENTRAL_DB_USER: ${CENTRAL_DB_USER}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD}
+      CENTRAL_OPERATOR_TOKEN: ${CENTRAL_OPERATOR_TOKEN}
+      CENTRAL_AGENT_TOKEN: ${CENTRAL_AGENT_TOKEN}
+      PAYMENT_SIGNING_KEY: ${PAYMENT_SIGNING_KEY}
+      DEMO_PIN: ${DEMO_PIN}
+      DEMO_MODE: ${DEMO_MODE}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS}
+      ORDER_TTL_SECONDS: ${ORDER_TTL_SECONDS}
+      RECEIPT_TTL_SECONDS: ${RECEIPT_TTL_SECONDS}
+      PIN_MAX_ATTEMPTS: ${PIN_MAX_ATTEMPTS}
+      PIN_LOCK_SECONDS: ${PIN_LOCK_SECONDS}
+    depends_on:
+      central-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8001/ready')
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  backend:
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    environment: &id001
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL}
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
+      CHATWOOT_INBOX_ID: ${CHATWOOT_INBOX_ID}
+      CHATWOOT_WEBHOOK_SECRET: ${CHATWOOT_WEBHOOK_SECRET}
+      CHATWOOT_TEMPLATE_NAME: ${CHATWOOT_TEMPLATE_NAME}
+      CHATWOOT_TEMPLATE_LANGUAGE: ${CHATWOOT_TEMPLATE_LANGUAGE}
+      CHATWOOT_TEMPLATE_CATEGORY: ${CHATWOOT_TEMPLATE_CATEGORY}
+      MEDIA_ALLOWED_HOSTS: ${MEDIA_ALLOWED_HOSTS}
+      APP_ENV: ${APP_ENV}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      TIMEZONE: ${TIMEZONE}
+      DEMO_MODE: ${DEMO_MODE}
+      ENABLE_LOCAL_MESSAGE_ENDPOINT: ${ENABLE_LOCAL_MESSAGE_ENDPOINT}
+      CHATWOOT_AUTH_SCHEME: ${CHATWOOT_AUTH_SCHEME}
+      CHATWOOT_WEBHOOK_AUTH_MODE: ${CHATWOOT_WEBHOOK_AUTH_MODE}
+      CHATWOOT_RELAY_TOKEN: ${CHATWOOT_RELAY_TOKEN}
+      CHATWOOT_WEBHOOK_TOLERANCE_SECONDS: ${CHATWOOT_WEBHOOK_TOLERANCE_SECONDS}
+      OPENAI_AGENT_MODEL: ${OPENAI_AGENT_MODEL}
+      OPENAI_AGENT_REASONING_EFFORT: ${OPENAI_AGENT_REASONING_EFFORT}
+      OPENAI_VISION_MODEL: ${OPENAI_VISION_MODEL}
+      OPENAI_VISION_REASONING_EFFORT: ${OPENAI_VISION_REASONING_EFFORT}
+      OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL}
+      AI_TOTAL_BUDGET_USD: ${AI_TOTAL_BUDGET_USD}
+      AI_LOCAL_SPEND_LIMIT_USD: ${AI_LOCAL_SPEND_LIMIT_USD}
+      AI_MAX_CONCURRENT_REQUESTS: ${AI_MAX_CONCURRENT_REQUESTS}
+      AI_MAX_CALLS_PER_TURN: ${AI_MAX_CALLS_PER_TURN}
+      AI_MAX_INPUT_TOKENS: ${AI_MAX_INPUT_TOKENS}
+      AI_MAX_OUTPUT_TOKENS: ${AI_MAX_OUTPUT_TOKENS}
+      AI_VISION_MAX_OUTPUT_TOKENS: ${AI_VISION_MAX_OUTPUT_TOKENS}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS}
+      OPENAI_MAX_RETRIES: ${OPENAI_MAX_RETRIES}
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      CENTRAL_OPERATOR_TOKEN: ${CENTRAL_OPERATOR_TOKEN}
+      CENTRAL_AGENT_TOKEN: ${CENTRAL_AGENT_TOKEN}
+      CENTRAL_API_URL: ${CENTRAL_API_URL}
+      MEMORY_DB_HOST: ${MEMORY_DB_HOST}
+      MEMORY_DB_PORT: ${MEMORY_DB_PORT}
+      MEMORY_DB_NAME: ${MEMORY_DB_NAME}
+      MEMORY_DB_USER: ${MEMORY_DB_USER}
+      MEMORY_DB_PASSWORD: ${MEMORY_DB_PASSWORD}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS}
+      CAMPAIGN_FOLLOWUP_HOURS: ${CAMPAIGN_FOLLOWUP_HOURS}
+      CAMPAIGN_INTERVAL_SECONDS: ${CAMPAIGN_INTERVAL_SECONDS}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY}
+      MEDIA_MAX_BYTES: ${MEDIA_MAX_BYTES}
+      AUDIO_MAX_SECONDS: ${AUDIO_MAX_SECONDS}
+      IMAGE_MAX_DIMENSION: ${IMAGE_MAX_DIMENSION}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL}
+      LANGFUSE_PUBLIC_URL: ${LANGFUSE_PUBLIC_URL}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      CHATWOOT_CONTACTS_API_TOKEN: ${CHATWOOT_CONTACTS_API_TOKEN:-}
+      CHATWOOT_CONTACTS_BASE_URL: ${CHATWOOT_CONTACTS_BASE_URL:-}
+    ports:
+    - 127.0.0.1:${BACKEND_PORT:-8080}:8000
+    depends_on:
+      central:
+        condition: service_healthy
+      memory-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  worker:
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    command:
+    - python
+    - -m
+    - backend.worker
+    environment: *id001
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - from pathlib import Path; import time; assert time.time()-Path('/tmp/agil-worker-heartbeat').stat().st_mtime<90
+      interval: 15s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+  cloudflared:
+    restart: unless-stopped
+    image: cloudflare/cloudflared:latest@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    profiles:
+    - public
+    command:
+    - tunnel
+    - --no-autoupdate
+    - run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      backend:
+        condition: service_started
+  langfuse-worker:
+    restart: unless-stopped
+    image: docker.langfuse.com/langfuse/langfuse-worker:4@sha256:aa1724b989a00f1e4ca9930709202489c73deaaf2f1116bbd3d71c77edb8fedb
+    depends_on:
+      langfuse-db: &id002
+        condition: service_healthy
+      langfuse-minio: &id003
+        condition: service_healthy
+      langfuse-redis: &id004
+        condition: service_healthy
+      langfuse-clickhouse: &id005
+        condition: service_healthy
+    environment:
+      NEXTAUTH_URL: ${LANGFUSE_PUBLIC_URL}
+      DATABASE_URL: postgresql://${LANGFUSE_DB_USER}:${LANGFUSE_DB_PASSWORD}@langfuse-db:5432/${LANGFUSE_DB_NAME}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: 'false'
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_CLUSTER_ENABLED: 'false'
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: '6379'
+      REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD}
+      REDIS_TLS_ENABLED: 'false'
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: 'true'
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+  langfuse-web:
+    restart: unless-stopped
+    image: docker.langfuse.com/langfuse/langfuse:4@sha256:c311fd9db4b69f6514fdcb1b86a2a105d5a4ed51fbf0ded033ff2722459c804a
+    depends_on:
+      langfuse-db: *id002
+      langfuse-minio: *id003
+      langfuse-redis: *id004
+      langfuse-clickhouse: *id005
+    environment:
+      NEXTAUTH_URL: ${LANGFUSE_PUBLIC_URL}
+      DATABASE_URL: postgresql://${LANGFUSE_DB_USER}:${LANGFUSE_DB_PASSWORD}@langfuse-db:5432/${LANGFUSE_DB_NAME}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: 'false'
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_CLUSTER_ENABLED: 'false'
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: '6379'
+      REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD}
+      REDIS_TLS_ENABLED: 'false'
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:9090
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: 'true'
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_S3_MEDIA_UPLOAD_INTERNAL_ENDPOINT: http://langfuse-minio:9000
+      HOSTNAME: 0.0.0.0
+    ports:
+    - 127.0.0.1:${LANGFUSE_PORT:-3000}:3000
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://localhost:3000/api/public/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+  langfuse-db:
+    restart: unless-stopped
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+    environment:
+      POSTGRES_DB: ${LANGFUSE_DB_NAME}
+      POSTGRES_USER: ${LANGFUSE_DB_USER}
+      POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD}
+    volumes:
+    - langfuse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  langfuse-clickhouse:
+    restart: unless-stopped
+    image: clickhouse/clickhouse-server:26.3.62.3@sha256:de3e47c64078aa196dae2349e048fc98ba81947f651f5c20e06e46baea8ae40a
+    user: 101:101
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD}
+    volumes:
+    - langfuse_clickhouse_data:/var/lib/clickhouse
+    - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit
+        1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+  langfuse-minio:
+    restart: unless-stopped
+    image: cgr.dev/chainguard/minio:latest@sha256:0a01100085e30fb08d2f39e39c9f5c9d83a95707f220b007d813b690cd41622d
+    entrypoint: sh
+    command:
+    - -c
+    - mkdir -p /data/langfuse && minio server --address ":9000" --console-address
+      ":9001" /data
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_ROOT_PASSWORD}
+    volumes:
+    - langfuse_minio_data:/data
+    ports:
+    - 127.0.0.1:9090:9000
+    healthcheck:
+      test:
+      - CMD
+      - mc
+      - ready
+      - local
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+  langfuse-redis:
+    restart: unless-stopped
+    image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+    command:
+    - redis-server
+    - --requirepass
+    - ${LANGFUSE_REDIS_PASSWORD}
+    - --maxmemory-policy
+    - noeviction
+    - --appendonly
+    - 'yes'
+    environment:
+      REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD}
+    volumes:
+    - langfuse_redis_data:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - redis-cli -a "$$REDIS_AUTH" ping | grep PONG
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  central_data: {}
+  memory_data: {}
+  langfuse_postgres_data: {}
+  langfuse_clickhouse_data: {}
+  langfuse_clickhouse_logs: {}
+  langfuse_minio_data: {}
+  langfuse_redis_data: {}

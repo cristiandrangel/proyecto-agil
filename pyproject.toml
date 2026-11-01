@@ -1,0 +1,31 @@
+[project]
+name = "proyecto-agil"
+version = "0.1.0"
+description = "Demo reproducible de cobranza conversacional"
+requires-python = ">=3.12,<3.13"
+dependencies = ["agil-backend", "agil-central", "agil-shared"]
+
+[tool.uv.workspace]
+members = ["apps/backend", "apps/central", "packages/shared"]
+
+[tool.uv.sources]
+agil-backend = { workspace = true }
+agil-central = { workspace = true }
+agil-shared = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.25", "ruff>=0.11", "pyyaml>=6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: requiere PostgreSQL de prueba", "live: integración externa opt-in"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501", "B008"]

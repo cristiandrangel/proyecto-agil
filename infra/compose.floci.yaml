@@ -1,0 +1,17 @@
+# Local API contract smoke only. EC2 execution is explicitly mocked by Floci.
+# Registry index digest verified 2026-11-01 with docker buildx imagetools inspect.
+services:
+  floci:
+    image: floci/floci:latest@sha256:5ee85db604c4aa74ac76e07ea5cc83086f37bb472bf3dbb97e34019e48efae9c
+    profiles: [floci]
+    ports:
+      - "127.0.0.1:${FLOCI_PORT:-4566}:4566"
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_STORAGE_MODE: memory
+      FLOCI_SERVICES_EC2_MOCK: "true"
+      FLOCI_SERVICES_EC2_VPC_NETWORKS_ENABLED: "false"
+      FLOCI_SERVICES_EC2_PUBLISH_SECURITY_GROUP_PORTS: "false"
+      FLOCI_SERVICES_UI_ENABLED: "false"
+    # No Docker socket: this profile cannot launch host guest containers.
+    restart: "no"
