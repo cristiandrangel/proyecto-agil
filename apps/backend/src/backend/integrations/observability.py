@@ -97,7 +97,7 @@ class ContentSanitizer:
                 "pin", "pincode", "verificationcode", "otp", "capability", "grant",
                 "credential", "credentials", "encryptedcontent", "privatekey",
             }
-            or normalized.endswith(("token", "password", "passwd", "secret", "apikey",
+            or normalized.endswith(("token", "grant", "password", "passwd", "secret", "apikey",
                                     "signature", "credential", "authorization"))
         )
 
@@ -140,7 +140,7 @@ class ContentSanitizer:
 
         value = re.sub(r"(?:https?|postgresql(?:\+psycopg)?|redis)://[^\s\"'<>]+", clean_url, value)
         value = re.sub(
-            r"(?i)\b(pin(?:_code)?|otp|grant(?:_token)?|capability|(?:api[_-]?(?:access[_-]?)?token)|"
+            r"(?i)\b(pin(?:_code)?|otp|(?:central[_-])?grant(?:_token)?|capability|(?:api[_-]?(?:access[_-]?)?token)|"
             r"api[_-]?key|access[_-]?token|token|password|secret|authorization)[\"']?\s*[:=]\s*"
             r"(?:\"[^\"]*\"|'[^']*'|[^\s,;&<>]+)",
             lambda match: match.group(1) + "=" + REDACTED,

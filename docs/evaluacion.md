@@ -16,6 +16,34 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 La prueba inicial de Docker con red interna detectó además una descarga implícita de tiktoken en el primer uso, oculta por la caché de desarrollo. La imagen de pruebas ahora precarga `o200k_base` durante el build; la ejecución aislada posterior aprobó las 245 pruebas. Esa descarga es un recurso público del tokenizer y no una inferencia.
 
+## Reinicio para el recorrido del evaluador
+
+El 2026-11-01 se restauró el entorno de desarrollo con los productores detenidos:
+13 personas y 14 deudas ficticias, todos los contactos simulados, cero acuerdos,
+órdenes, liquidaciones y sesiones de identidad. Campañas, vínculos de canal,
+eventos de negocio, casos humanos, entradas, trabajos, salidas y checkpoints
+quedaron en cero. La limpieza de entradas y salidas históricas fue una operación
+puntual de preparación; el reset habitual conserva esa auditoría.
+
+Se eliminó únicamente la conversación de la demo en la bandeja de test. Las
+credenciales, la configuración y el ledger de inferencia se conservaron:
+29 reservas históricas y USD 0,0145786447 de consumo registrado. El reinicio no
+envió mensajes al canal ni ejecutó inferencia. En una instalación nueva los
+volúmenes empiezan vacíos; estos valores de consumo pertenecen al desarrollo.
+
+Se eliminaron selectivamente las 20 trazas de estudio del proyecto demo de
+Langfuse. La API aceptó la eliminación y la consulta individual de los 20 IDs
+devolvió cero observaciones. Proyecto, usuarios, claves e infraestructura de
+archivos se conservaron. Esta limpieza externa fue puntual: el botón habitual
+de restauración de la central no borra las trazas de Langfuse ni Chatwoot.
+
+La revisión de captura completa también detectó el alias `central_grant` en el
+snapshot de identidad. Se corrigió su redacción tanto en campos estructurados
+como en errores de texto. La regresión falló antes del cambio y pasó después:
+tres pruebas enfocadas con el SDK real, sin HTTP al proveedor. Las entradas de
+negocio y los importes siguen visibles. La suite completa de 303 casos citada
+arriba corresponde a la revisión anterior a esta regresión adicional.
+
 ## Runtime y preflight de lectura
 
 En desarrollo, `/health` y `/ready` locales respondieron 200; `/central`, 303 hacia `/login`; `/login`, 200, con `Cache-Control: no-store`. El preflight de lectura pasó completo en desarrollo y después en la instalación limpia: backend, central, tres modelos del catálogo, bandeja/relay y salud/autenticación SDK de Langfuse. Ambos se ejecutaron sin inferencia ni envíos; el fallo anterior de lectura de bandeja quedó resuelto.

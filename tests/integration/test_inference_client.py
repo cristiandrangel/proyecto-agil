@@ -947,3 +947,33 @@ def test_capture_broken_sdk_update_end_and_flush_never_interrupt_business(caplog
     assert "telemetry_update_failed" in caplog.text
     assert "telemetry_end_failed" in caplog.text
     assert "telemetry_flush_failed" in caplog.text
+
+
+@pytest.mark.parametrize("real_trace_exporter", [True], indirect=True)
+def test_capture_redacts_central_grant_alias_in_tool_identity_snapshot(real_trace_exporter):
+    observation, exporter = real_trace_exporter
+    grant = "opaque-runtime-central-grant-never-export"
+    with observation.span(
+        "tool",
+        tool="locate_customer",
+        input={
+            "identity": {"verified": True, "grant_token": grant, "central_grant": grant},
+            "arguments": {"document_type": "CC", "document_number": "10000001"},
+        },
+    ) as trace:
+        trace.update(output={
+            "central_grant": grant,
+            "balance_cents": 10000,
+            "provider_error": f"central_grant={grant}",
+        })
+    observation.flush()
+    span = exporter.get_finished_spans()[0]
+    captured_input = json.loads(exported_attribute(span, "observation_input"))
+    captured_output = json.loads(exported_attribute(span, "observation_output"))
+    assert captured_input["identity"]["verified"] is True
+    assert captured_input["arguments"]["document_number"] == "10000001"
+    assert captured_input["identity"]["grant_token"] == "[REDACTED]"
+    assert captured_input["identity"]["central_grant"] == "[REDACTED]"
+    assert captured_output["central_grant"] == "[REDACTED]"
+    assert captured_output["balance_cents"] == 10000
+    assert grant not in span.to_json()
