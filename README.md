@@ -427,6 +427,17 @@ Conserva el panel abierto durante la evaluación: **Actualizar** y la actualizac
 
 ## 7. Revisar cada turno completo en Langfuse
 
+**Qué significa cada término:** una *observación* es el registro de una operación
+instrumentada: llamada al modelo, herramienta, procesamiento de un medio o envío.
+Según la operación contiene entradas, salidas, duración, estado y, en las generaciones,
+modelo, tokens y coste estimado. Una *traza* agrupa observaciones relacionadas;
+en el flujo actual, la raíz `conversation` corresponde al procesamiento de un mensaje,
+no al historial completo del chat. Una *sesión* permite agrupar los turnos del mismo chat.
+Por eso puede haber varias observaciones por mensaje y varias trazas por conversación.
+En Home se ven totales del intervalo y proyecto, incluidos diagnósticos `preflight`;
+no equivalen al número de mensajes reales de WhatsApp. Para abrir ejecuciones usa
+**Tracing** en el menú lateral y después filtra las raíces `conversation`.
+
 Haz esta revisión **al terminar el recorrido funcional**, incluidas las variantes
 de la sección 4 y la persistencia de la sección 8 si las ejecutaste. Conserva
 Chatwoot y la central abiertos para comparar cada resultado con su traza.
