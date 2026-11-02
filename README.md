@@ -518,6 +518,9 @@ Conserva el panel abierto durante la evaluación: **Actualizar** y la actualizac
 
 ## 7. Revisar cada turno completo en Langfuse
 
+La ubicación del stack, la instrumentación en código y el recorrido de los
+datos se describen en [arquitectura, sección 7](docs/arquitectura.md#7-observabilidad-y-operación-comercial).
+
 **Qué significa cada término:** una *observación* es el registro de una operación
 instrumentada: llamada al modelo, herramienta, procesamiento de un medio o envío.
 Según la operación contiene entradas, salidas, duración, estado y, en las generaciones,

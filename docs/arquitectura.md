@@ -308,22 +308,134 @@ persona y conserva las deudas elegibles, evitando una plantilla por servicio.
 
 ## 7. Observabilidad y operación comercial
 
-Cada turno produce una traza con identidad, medios, ejecución del agente, llamadas
-LLM, tools y preparación de respuesta. La outbox conserva el contexto padre para
-registrar `delivery` aun después de reiniciar. Sesiones agrupan conversaciones;
-un `completed` técnico no significa que la respuesta sea semánticamente correcta.
+### 7.1. Langfuse: ubicación y conexión
 
-La captura privada permite depurar entradas y salidas, con exclusión de secretos
+**Langfuse es la plataforma de observabilidad del agente.** Permite inspeccionar
+lo que recibió una operación, sus resultados, herramientas, llamadas al modelo,
+duraciones, errores y consumo. Está autoalojado dentro de la misma EC2 emulada:
+no usamos Langfuse Cloud. Sus seis contenedores se muestran en la sección 2.
+
+`backend` y `worker` utilizan el SDK de Langfuse a través de nuestra clase
+`Observability`. `LANGFUSE_BASE_URL` configura el destino interno de ingesta,
+`langfuse-web:3000` con esquema HTTP, y las claves privadas autentican el proyecto.
+`langfuse-worker` procesa eventos; PostgreSQL, ClickHouse, Redis y MinIO aportan
+los almacenes y la coordinación de ese stack. Estas bases están separadas de
+cartera y memoria conversacional.
+
+La interfaz para el evaluador se abre en `LANGFUSE_PUBLIC_URL`, actualmente
+`http://localhost:13000`. Sus credenciales están al final del entorno privado
+exportado. No se publica por el túnel de cobranza. En la propuesta AWS, Langfuse
+seguiría autoalojado en EC2 y con acceso operativo restringido; CloudWatch
+complementaría la salud de infraestructura y las alertas, sin reemplazar el
+detalle de las llamadas del agente.
+
+```mermaid
+flowchart LR
+    APP["backend y worker"]
+    OBS["Observability.span: entrada, salida, duración y error"]
+    SDK["SDK Langfuse: exportación"]
+    WEB["langfuse-web: API e interfaz"]
+    WORK["langfuse-worker: procesamiento"]
+    STORE[("PostgreSQL, ClickHouse, Redis y MinIO")]
+    USER["Evaluador: localhost:13000"]
+    APP --> OBS
+    OBS --> SDK
+    SDK --> WEB
+    WEB <--> STORE
+    WORK <--> STORE
+    USER -- "Tracing y Sessions" --> WEB
+```
+
+### 7.2. Instrumentación y organización de una ejecución
+
+El código abre una observación con `observability.span(...)` antes de la
+operación, registra su `input`, ejecuta el trabajo y actualiza su `output`.
+Al salir del bloque se registra la duración y se cierra la observación. Si la
+operación falla se registra el error. El SDK gestiona la exportación, que puede
+ser asíncrona; una actualización no equivale necesariamente a un HTTP inmediato.
+Langfuse muestra los puntos instrumentados, no todas las variables del proceso.
+
+| Punto instrumentado | Entrada y salida relevantes | Código |
+|---|---|---|
+| `conversation` | Identificadores del evento, resultado del procesamiento y respuesta | [worker.py](../apps/backend/src/backend/worker.py#L57) |
+| `identity_gate` | Contexto de autenticación y resultado seguro del filtro de PIN | [worker.py](../apps/backend/src/backend/worker.py) |
+| `media_normalize`, `audio` y visión | Adjunto admitido, transcripción o extracción y consumo | [media.py](../apps/backend/src/backend/agent/media.py), [openai.py](../apps/backend/src/backend/integrations/openai.py) |
+| `agent` | Mensaje, identidad y snapshots `state_before` / `state_after` | [worker.py](../apps/backend/src/backend/worker.py#L145) |
+| `llm` | Prompt, contexto y catálogo enviados; texto o llamadas propuestas; tokens y coste calculado | [openai.py](../apps/backend/src/backend/integrations/openai.py#L221) |
+| `tool.*` | Argumentos, identidad y fase anterior; resultado y fase posterior | [tools.py](../apps/backend/src/backend/agent/tools.py#L147) |
+| `response_enqueue` y `delivery` | Respuesta preparada, referencia de outbox e intento de envío al canal | [worker.py](../apps/backend/src/backend/worker.py) |
+
+La conexión con el SDK y la creación de observaciones se implementan en
+[observability.py](../apps/backend/src/backend/integrations/observability.py#L441).
+Su organización tiene tres niveles:
+
+- **Sesión:** agrupa trazas del contacto. En Langfuse usamos una huella del
+  `source_id`; LangGraph conserva el `source_id` literal como llave de memoria.
+- **Traza:** agrupa observaciones de una ejecución. La raíz `conversation` se
+  abre cuando el worker procesa el job; no incluye la espera previa en cola.
+  Un reintento puede generar otra ejecución del mismo evento.
+- **Observación:** representa una operación, con ID propio y referencia al
+  padre. El anidamiento produce el árbol de agente, modelos y herramientas.
+
+Un turno ordinario puede mostrar:
+
+```text
+conversation
+├── identity_gate
+├── media_normalize       si hay un adjunto
+├── agent
+│   ├── llm
+│   ├── tool.verify_payment
+│   └── llm
+└── response_enqueue
+    └── delivery
+```
+
+La outbox conserva el contexto padre para registrar `delivery` aun después de
+reiniciar. El envío puede ocurrir después de cerrar la raíz; su espera no queda
+incluida en la duración de esa raíz. Algunas trazas históricas de envío quedaron
+separadas y se relacionan por sesión y evento. Durante un rechazo estático de
+PIN no se espera una generación del modelo. Los mensajes pasivos del asesor se
+incorporan al historial de un turno posterior, sin ejecutar un LLM al guardarlos.
+
+### 7.3. Cómo verificar una traza y sus límites
+
+En Langfuse, abrir el proyecto **Cobranza-Demo**, entrar en **Tracing** y localizar
+el turno por hora, evento o sesión. Comparar el mensaje recibido, argumentos y
+resultado de tools, entrada/salida del LLM y salida preparada/enviada. Los casos
+guiados y la navegación están en [README, sección 7](../README.md#7-revisar-cada-turno-completo-en-langfuse).
+
+Un `completed` técnico no significa que la respuesta sea semánticamente correcta.
+`sent` indica aceptación del envío por la API, no lectura o entrega de WhatsApp.
+La instrumentación registra fallos de telemetría como advertencias: una operación
+de negocio completada o una respuesta HTTP saludable de Langfuse no demuestran
+que su traza haya llegado. La comprobación exige abrir la ejecución y verificar
+sus observaciones, como se registra en [evaluación](evaluacion.md).
+
+### 7.4. Captura privada de contenido
+
+`LANGFUSE_CAPTURE_CONTENT=true` permite depurar entradas y salidas; con `false`
+se conservan metadatos operativos sin ese contenido. Aplicamos exclusión de secretos
 conocidos y del PIN procesado en autenticación. Los adjuntos autorizados pueden
 contener información visible o hablada: no hay promesa de redacción automática
 de su contenido. Antes de producción se deben definir retención, borrado,
 acceso, consentimiento y clasificación de trazas con seguridad y jurídico.
+
+Langfuse no es el origen del saldo, de los checkpoints ni del presupuesto. La
+verdad financiera pertenece a central, la memoria al checkpointer PostgreSQL y
+el control de gasto al ledger `inference_reservation`; las trazas ayudan a
+inspeccionar lo ocurrido, sin sustituir esos registros.
+
+### 7.5. Métricas de negocio y responsabilidades
 
 El negocio observa personas con envío real, entregas conocidas, personas que
 responden al menos una vez, pagos íntegros, acuerdos, condonación, recaudo,
 solicitudes de asesor y casos sin resultado al corte. Los simulados se muestran
 aparte. La contactabilidad usa la población con envío real según la definición
 de la demo; se debe acompañar de cobertura y fallos para no ocultar exclusiones.
+Estos indicadores se calculan en el backend a partir de eventos de operación y
+central, y se muestran en la interfaz de campañas; no se deducen del número de
+trazas de Langfuse.
 Para un piloto, comparar recaudo neto por persona asignada y cartera comparable
 por riesgo, monto y mora; incluir coste operativo y condonación, no solo respuestas.
 
