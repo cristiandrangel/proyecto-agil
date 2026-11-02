@@ -45,9 +45,13 @@ El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es d
 2. Abre en **otra pestaña** la dirección que figura como valor de `CHATWOOT_UI_URL`. Conserva abierta la central. Si el navegador ya tiene otra cuenta de Chatwoot iniciada, usa una ventana privada para entrar como evaluador.
 3. En el formulario de acceso, introduce el valor de `CHATWOOT_UI_EMAIL` como correo y el de `CHATWOOT_UI_PASSWORD` como contraseña. Copia solo los valores, sin el nombre de las variables, `=` ni las comillas delimitadoras. Inicia sesión.
 4. Comprueba que estás usando el usuario **Evaluador Cobranza** y que aparece el canal **Test Agenx WhatsApp** en el menú lateral.
-5. Abre ese canal y cambia el filtro **Abiertas** por **Pendientes**. Las conversaciones del bot se gestionan en `pending`.
+5. Abre ese canal y pulsa el icono de filtros junto al título **Conversaciones**. En **Estado → Igual a**, incluye **Pendientes** y pulsa **Aplicar filtros**. Puedes mantener también **Abiertas**, como en la captura, para ver tanto conversaciones del bot como las transferidas a humanos. Después selecciona la pestaña **Todos**, en lugar de **Mías**, para incluir las conversaciones que aún no tienes asignadas.
 6. Antes de lanzar la campaña puede no haber ninguna conversación de tu prueba; es normal. Después del envío, abre la conversación que corresponde a tu WhatsApp y comprueba que aparece la plantilla enviada.
 7. Déjala bajo control de **Alex TEST**. No pulses **Tomar el control** durante el recorrido del bot: al pasar a `open`, la conversación queda para atención humana.
+
+La captura muestra el filtro con **Abiertas** y **Pendientes** seleccionadas. Tras aplicarlo, recuerda pasar de **Mías** a **Todos**:
+
+![Chatwoot: filtro Estado igual a Abiertas y Pendientes, y botón Aplicar filtros](docs/imagenes/chatwoot-filtros-conversaciones.png)
 
 Mantén esta pestaña abierta para ver los mensajes entrantes, las respuestas del agente y, más adelante, la transferencia humana. Si ya lanzaste la campaña desde la central, entra aquí para revisar esa conversación; no vuelvas a lanzarla para que aparezca.
 
@@ -97,7 +101,7 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 ### 3.3. Preparar Chatwoot y lanzar una sola vez
 
 1. Abre en otra pestaña el valor de `CHATWOOT_UI_URL`, al final del `.env`. Inicia sesión con `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`, siguiendo la sección **1.2**. Mantén abierta la central.
-2. En Chatwoot, selecciona el canal **Test Agenx WhatsApp** y cambia el filtro **Abiertas** por **Pendientes** para encontrar las conversaciones del bot.
+2. En Chatwoot, selecciona el canal **Test Agenx WhatsApp**, incluye **Pendientes** en el filtro de estado y pulsa **Aplicar filtros**, como en la captura de la sección **1.2**. Selecciona **Todos** para encontrar también conversaciones no asignadas a ti.
 3. Si ya existe tu conversación, debe estar en `pending` y bajo el bot de pruebas **Alex TEST**. No pulses **Tomar el control**. `open` significa atención humana. Si es nueva, la campaña preparará el destino.
 4. Vuelve a la central. Pon un nombre como `Evaluación · dos servicios`.
 5. Comprueba la plantilla fija que muestra la página: la entregada es `recordatorio_factura_demo`, idioma `es`, previamente aprobada. No tienes que crear una plantilla en Meta ni escribir su nombre.
