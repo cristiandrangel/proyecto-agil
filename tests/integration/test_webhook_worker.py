@@ -1055,6 +1055,58 @@ def exported_span_data(spans):
     )
 
 
+def test_all_agent_tools_keep_their_names_and_auth_phase_in_real_traces(traced_runtime):
+    from backend.agent.tools import TOOL_SCHEMAS
+
+    runtime, exporter = traced_runtime
+    expected = {"tool." + tool["name"] for tool in TOOL_SCHEMAS}
+    with runtime.observability.span("conversation", thread_id="literal-tool-catalog"):
+        for tool in TOOL_SCHEMAS:
+            with runtime.observability.span("tool", tool=tool["name"]) as span:
+                span.update(phase="awaiting_pin")
+    runtime.observability.flush()
+    tools = [span for span in exporter.get_finished_spans() if span.name != "conversation"]
+    assert {span.name for span in tools} == expected
+    for span in tools:
+        assert json.loads(span.attributes["langfuse.observation.metadata.phase"]) == "awaiting_pin"
+
+
+@pytest.mark.asyncio
+async def test_handoff_deliveries_keep_original_tool_parent_after_root_and_retry(traced_runtime):
+    runtime, exporter = traced_runtime
+    source = "literal-handoff-trace-source"
+    await runtime.identity.locate(source, {"phone_e164": "+573000000001"}, "lookup")
+    await runtime.identity.manage(source, "confirm_candidate")
+    await runtime.identity.intercept(source, "246810", False, "pin")
+    event, _ = runtime.queue.enqueue(
+        account_id="9", inbox_id="7", conversation_id="11", message_id="handoff-trace",
+        source_id=source, content="Quiero un asesor",
+    )
+    with runtime.observability.span("conversation", event_id=event.id, thread_id=source):
+        with runtime.observability.span("tool", event_id=event.id, tool="handoff_human") as tool:
+            original_context = tool.export_context()
+            first = await runtime.handoff.request(event, "requested", "Revisar una alternativa")
+    with runtime.observability.span("operation", thread_id="unrelated-retry"):
+        assert await runtime.handoff.request(event, "requested", "Solicitud repetida") == first
+    with runtime.sessions() as session:
+        effects = session.scalars(select(Outbox).where(Outbox.source_event_id == event.id)).all()
+        assert len(effects) == 3
+        for row in effects:
+            assert row.payload_private["_trace_context"] == original_context
+    await send_outputs(runtime)
+    runtime.observability.flush()
+    deliveries = [span for span in exporter.get_finished_spans() if span.name == "delivery"]
+    assert len(deliveries) == 3
+    for delivery in deliveries:
+        assert f"{delivery.context.trace_id:032x}" == original_context["trace_id"]
+        assert f"{delivery.parent.span_id:016x}" == original_context["parent_span_id"]
+        assert exported_status(delivery) == "sent"
+    with runtime.sessions() as session:
+        assert all(row.state == "sent" for row in session.scalars(select(Outbox)))
+    assert runtime.channel.status == "open"
+    assert not runtime.inference.calls
+
+
 @pytest.mark.asyncio
 async def test_pin_only_turn_exports_complete_tree_and_delivery_without_inference(
     traced_runtime, webapp

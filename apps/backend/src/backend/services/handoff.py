@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 from agil_shared.errors import DomainError
 from agil_shared.money import format_usd, parse_usd
+from backend.integrations.observability import current_trace_context
 from backend.persistence.database import get_session_factory
 from backend.persistence.models import HumanCase, InboxEvent, Outbox, VerifiedContext, utcnow
 from backend.services.events import EventService
@@ -193,6 +194,7 @@ class HandoffService:
                 ),
                 ("set_open", {"status": "open"}),
             ]
+            trace_context = current_trace_context()
             for kind, payload in effects:
                 outbox_id = uuid4()
                 session.add(
@@ -210,6 +212,7 @@ class HandoffService:
                             **payload,
                             "case_id": str(case_id),
                             "depends_on": list(previous),
+                            **({"_trace_context": trace_context} if trace_context else {}),
                         },
                         state="queued",
                     )

@@ -37,6 +37,7 @@ LABELS = {
     },
     "tool": {
         "locate_customer",
+        "manage_identity",
         "list_debts",
         "select_debt",
         "create_full_payment",
@@ -46,7 +47,7 @@ LABELS = {
         "handoff_human",
     },
     "price_version": {"openai-2026-11-01", "openai-2026-11-01-cache-v2"},
-    "phase": {"identify", "select_debt", "discuss_payment", "confirm_agreement",
+    "phase": {"identify", "awaiting_pin", "select_debt", "discuss_payment", "confirm_agreement",
               "await_payment", "payment_verified", "handoff_requested"},
     "result_status": {"applied", "pending", "absent", "requires_human", "action_pending",
                       "transferred", "returned", "proposed", "accepted", "expired"},

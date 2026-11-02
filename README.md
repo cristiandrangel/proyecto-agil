@@ -132,6 +132,11 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 ### 3.5. Pagar hogar sin descuento
 
+El orden es libre: también puedes empezar por telefonía, pagar sus USD 60 y
+continuar después con hogar. Elige por nombre o, si la lista es clara, con una
+referencia como `arranquemos con la segunda`. El agente debe conservar la deuda
+seleccionada y consultar de nuevo la cartera al preguntar por la obligación restante.
+
 1. Escribe: `Quiero pagar los USD 100 completos de hogar. Dame el enlace`.
 2. Abre el enlace del agente. Debe mostrar hogar, importe base USD 100, condonación USD 0 y pago simulado. No solicita datos bancarios.
 3. Pulsa **Simular aprobación** y espera el resultado. No edites el saldo desde la central para sustituir este paso.
@@ -209,6 +214,13 @@ Los casos que necesiten deuda pendiente se hacen antes de liquidarla o después 
 Para probar edición sin gasto de IA, pulsa **Deuda** y modifica mora o servicio de una deuda pendiente. Toda edición incrementa su versión e invalida enlaces/propuestas vigentes de ese servicio, incluso si no cambias el saldo. Puedes abrir el mismo diálogo en dos pestañas, guardar primero en una y después en la otra: la segunda debe avisar del conflicto y pedir recargar. No hagas esta prueba entre crear el enlace y pagar en el camino principal.
 
 ### 4.3. Aislamiento, identidad equivocada y cambio de titular
+
+**Prueba de cierre de sesión pendiente:** solicitar `Quiero cerrar sesión` debe
+revocar la autorización y limpiar selección y contexto financiero, volviendo a
+`identify` con el mismo thread. Después se debe poder localizar otro documento,
+confirmar su pista y autenticar su PIN. El backend ya dispone de la revocación al
+cambiar de cliente; queda ajustar y comprobar la intención explícita de cierre
+desde el prompt. Cambiar únicamente la fase no revoca los permisos.
 
 1. En la conversación de Ana, envía `Cambiar cliente`. El agente debe entender la intención, solicitar la transición con `manage_identity` y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de `awaiting_pin`; durante esa fase todos los mensajes se tratan como intentos de autenticación.
 2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN.
@@ -305,12 +317,40 @@ Conserva el panel abierto durante la evaluación: **Actualizar** y la actualizac
 
 ## 7. Revisar cada turno completo en Langfuse
 
+Haz esta revisión **al terminar el recorrido funcional**, incluidas las variantes
+de la sección 4 y la persistencia de la sección 8 si las ejecutaste. Conserva
+Chatwoot y la central abiertos para comparar cada resultado con su traza.
+
 1. Entra con las credenciales indicadas en la sección 1. Selecciona el proyecto y el horario de la prueba.
 2. Filtra observaciones raíz (`isRootObservation:true`) y nombre **`conversation`**. Si el refresco está en **Off**, espera la exportación y pulsa **Refresh**; puedes seleccionar actualización periódica.
 3. Abre la fila del mensaje y expande **agent → llm → Input / Output**. Debes poder inspeccionar el contexto realmente enviado y la respuesta disponible del modelo.
 4. Abre **tool.<nombre> → Input / Output** para argumentos y resultados; por ejemplo `tool.verify_payment` en la verificación del recibo. Revisa también los estados anterior y posterior.
 5. Para audio o imagen, abre sus generaciones y assets privados. Para el envío, expande **response_enqueue → delivery**.
 6. Contrasta estados, modelo, latencias, tokens y coste estimado. El coste vacío de una raíz span no significa consumo cero: el detalle está en sus generaciones hijas.
+
+### Recorrido guiado de las trazas del test
+
+Localiza un turno por su horario y mensaje en la raíz. Usa su sesión técnica para
+agrupar el mismo chat y `event_id` para enlazar observaciones de ese mensaje.
+Abre estos turnos en orden, comprobando juntos entrada, decisión y efecto:
+
+| Turno | Qué abrir y contrastar |
+|---|---|
+| Confirmación natural, como `Podemos proceder` | En `llm`, revisa instrucciones, historial y llamada propuesta; en `tool.manage_identity`, acción y resultado. Debe terminar pidiendo PIN sin una segunda generación. |
+| PIN incorrecto | Revisa `identity_gate`, respuesta estática y envío. No debe haber `agent` ni generación para comprobar el código. El código original no debe aparecer en la traza. |
+| PIN correcto | Comprueba `identity_verified` sin el código, después `tool.list_debts`, sus resultados y la respuesta que muestra las deudas. |
+| Selección contextual, como `la segunda` | Revisa cómo el historial da contexto a la frase y qué deuda recibe `tool.select_debt`. Contrástala con el servicio e importe respondidos. |
+| Solicitud de pagar el total | Abre `tool.create_full_payment`: deuda, orden e importe. Contrasta el marcador de pago del agente con el enlace entregado, cuyo token permanece oculto en la captura privada. |
+| Imagen del comprobante | Revisa `media_normalize`, generación visual y asset; después el contexto que llega al agente y `tool.verify_payment`. Debe confirmar según central, no solo por el texto de la imagen. |
+| Oferta inferior al mínimo | En `tool.handoff_human`, revisa motivo, oferta y caso; después compara nota privada, aviso y estado `open` en Chatwoot. Revisa las tres entregas y su relación con el turno. |
+| Acuerdo, audio, cambio de titular y cierre de sesión, cuando se hayan probado | Abre las tools y generaciones efectivamente utilizadas, compara sus resultados con central y revisa que una nueva identidad no reciba contexto financiero de la anterior. No marques estas variantes por aparecer solamente en la guía. |
+
+Para cada turno responde: **qué llegó, qué contexto recibió el modelo, qué decidió,
+qué validó el backend y qué terminó enviado**. Anota errores o huecos de evidencia.
+Una generación no implica una herramienta, y un turno de PIN incorrecto no necesita
+una generación. En las trazas anteriores a la corrección de observabilidad, la
+confirmación puede aparecer como `tool` y las entregas del handoff como raíces
+separadas: se localizan por sesión/evento y no se reconstruyen retroactivamente.
 
 ```text
 conversation                 una ejecución de un mensaje
@@ -416,9 +456,9 @@ La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticament
 
 ### Pruebas deterministas y límites de evidencia
 
-La última suite Docker completa registrada aprobó **351 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 01:53 UTC** —1 de noviembre, 20:53 en Bogotá—, en **40,85 segundos**. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
+La última suite Docker completa registrada aprobó **353 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 02:17 UTC** —1 de noviembre, 21:17 en Bogotá—, en **41,22 segundos**. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
 
-El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 351 casos ya verifica el documento completo con nombre enmascarado. La presentación actual en WhatsApp sigue pendiente de comprobar con una consulta posterior al despliegue.
+El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 353 casos ya verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
 
 Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
 
@@ -430,6 +470,49 @@ docker compose -p proyecto-agil-tests -f infra/compose.test.yaml down
 ```
 
 El runner falla ante pruebas omitidas, fallos o referencias de evidencia sin ejecutar. Su modo `--live` permanece bloqueado: no sustituye este recorrido guiado ni demuestra integraciones reales.
+
+### Recorrido real revisado el 1 de noviembre de 2026
+
+Se contrastaron mensajes de la bandeja TEST, registros de central, métricas y
+trazas privadas. Entre las **21:03 y 21:09 de Bogotá**, se comprobó este recorrido:
+
+| Acción realizada | Resultado observado |
+|---|---|
+| Retomar la identificación y responder `Podemos proceder` | El agente interpretó la confirmación mediante `manage_identity` y activó la solicitud estática de PIN. La pista nueva mostró nombre oculto con `•` y documento completo. |
+| Dos PIN incorrectos y después el correcto | Dos rechazos con oportunidades restantes, sin inferencia en esos turnos; el correcto produjo `identity_verified` y consulta de las dos deudas. No se agotaron tres intentos. |
+| Preguntar por mora y elegir `la segunda` | Informó hogar con 45 días y telefonía con 75; seleccionó telefonía conservando el contexto. |
+| Solicitar pago total, simular rechazo y luego aprobar | La orden de telefonía por USD 60 registró un intento rechazado sin aplicar y uno aprobado; quedó una liquidación de USD 60 y cero condonados. |
+| Enviar la imagen del comprobante por WhatsApp | Se ejecutaron visión y `verify_payment`; central devolvió pago aplicado y el bot confirmó telefonía con saldo cero. |
+| Preguntar por otra obligación | Volvió a consultar y mostró hogar pendiente por USD 100, sin volver a cobrar telefonía. |
+| Ofrecer USD 75 por hogar | Identificó el 75 %, creó caso por oferta inferior al mínimo, envió nota privada y aviso público y cambió Chatwoot a `open`. No creó acuerdo ni redujo el saldo. |
+
+Las métricas de esa campaña mostraron una persona contactada y una que responde
+(100 % de contactabilidad), un pago íntegro, USD 60 recibidos, cero condonados,
+USD 100 pendientes y un escalamiento automático. No hubo solicitud explícita de
+asesor. Otra campaña registró once envíos simulados y omitió el contacto real
+por campaña activa; esos simulados no entraron a sus KPI reales.
+
+**Pendiente del recorrido:** acuerdo con descuento y límite exacto del 80 %, nota
+de voz, captura falsa, tres fallos de autenticación, rechazo/cambio de titular,
+respuesta del asesor, comprobar silencio del bot en `open`, retorno explícito a
+`pending` y continuidad tras reiniciar. El pago rechazado no prueba por sí solo
+caducidad ni reintentos duplicados de un pago ya aplicado. Las variantes están
+en las secciones 4 y 8. La revisión no envió mensajes ni alteró los datos de la demo.
+
+La inspección de Langfuse encontró la herramienta de identidad con nombre genérico
+`tool` y los tres envíos de derivación en trazas separadas. La generación, las
+herramientas financieras y la verificación de imagen sí tenían entradas/salidas.
+La corrección y su evidencia se registran en [evaluación](docs/evaluacion.md);
+las trazas históricas conservan su estructura original.
+
+**Anotaciones para ajustar el prompt:** guiar hacia la selección de deuda y el
+pago con un siguiente paso concreto, interpretar el cierre explícito de sesión
+y negociar mediante hasta dos contraofertas antes de aceptar un descuento.
+Si el usuario acepta una contraoferta, se debe avanzar; no ofrecer un descuento
+adicional innecesario. La secuencia de porcentajes todavía debe concretarse y
+comprobarse. El mínimo del 80 %, la aceptación explícita del acuerdo y la
+revocación de acceso siguen siendo validaciones del backend. Estas anotaciones
+no se presentan como comportamiento ya probado en el recorrido anterior.
 
 ### Flujo técnico: del webhook a la respuesta, como un AI Agent de n8n
 
