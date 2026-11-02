@@ -25,8 +25,29 @@ OPTIONAL = {"type": ["string", "null"]}
 TOOL_SCHEMAS = [
     _schema(
         "locate_customer",
-        "Localiza un registro; teléfono O documento. Solo devuelve pista enmascarada.",
-        {"phone_e164": OPTIONAL, "document_type": OPTIONAL, "document_number": OPTIONAL},
+        "Localiza por teléfono O identificación. Interpreta el tipo expresado en lenguaje "
+        "natural y consulta usando su código canónico, no su nombre coloquial. "
+        "En esta demo, cédula de ciudadanía o cédula se consulta como CC. "
+        "Separa tipo y número aunque el usuario los escriba en otro orden. "
+        "Solo devuelve una pista de identidad, nunca cartera ni autenticación.",
+        {
+            "phone_e164": OPTIONAL,
+            "document_type": {
+                **OPTIONAL,
+                "description": "Código canónico del tipo de documento. CC = cédula de "
+                "ciudadanía; interpretar 'cédula' como CC en esta demo. No enviar 'cédula', "
+                "'cedula' ni el nombre desarrollado como valor del código. Si indica "
+                "otro tipo, no convertirlo a CC por suposición.",
+            },
+            "document_number": {
+                **OPTIONAL,
+                "description": "Identificación en el formato canónico de central, sin el nombre "
+                "del tipo. En números, elimina puntos o espacios que sean separadores de "
+                "agrupación, conservando todos los dígitos y ceros iniciales. Conserva letras "
+                "o caracteres significativos de otros documentos; aclara formatos ambiguos. "
+                "No tratarlo como dinero ni usarlo como PIN.",
+            },
+        },
     ),
     _schema(
         "manage_identity",

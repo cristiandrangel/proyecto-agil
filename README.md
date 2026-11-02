@@ -61,7 +61,7 @@ En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LA
 
 ## 2. Reconocer los datos de prueba
 
-**PIN ficticio: `2468` para todos los clientes.** Cuando se solicite documento, recomendamos escribir el tipo y el número juntos, por ejemplo `CC 10000001`, para mayor claridad. Fuera de la fase de PIN, un número aislado también llega al agente y puede interpretarse como identificación; no existe un filtro global que lo trate como PIN.
+**PIN ficticio: `2468` para todos los clientes.** En WhatsApp puedes indicar el tipo y número de documento con lenguaje natural: `10000002 cédula`, `mi cédula es 10.000.002` o `CC 10000002`. El agente debe separar ambos datos, usar el código canónico y quitar los separadores de agrupación claros, conservando los dígitos y ceros iniciales. No necesitas conocer códigos internos. Si falta un dato o el formato es ambiguo, debe aclararlo. Fuera de la fase de PIN, un número aislado también llega al agente y puede interpretarse como identificación; no existe un filtro global que lo trate como PIN.
 
 | Persona ficticia | Documento | Situación inicial |
 |---|---|---|

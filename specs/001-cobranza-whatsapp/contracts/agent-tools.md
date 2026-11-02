@@ -60,6 +60,17 @@ order_id, sin la capability. El backend sustituye ese marcador por la URL firmad
 al preparar la salida autorizada. Checkpoints y trazas conservan el marcador, no
 el token; el cliente recibe el enlace real por Chatwoot.
 
+## Identificación en lenguaje natural
+
+`locate_customer` recibe valores canónicos separados. El modelo interpreta nombres,
+códigos, tildes y el orden del mensaje; en esta demo cédula de ciudadanía/cédula se
+consulta con `document_type=CC`. Para identificación numérica elimina puntos o
+espacios de agrupación claros y conserva dígitos y ceros iniciales, sin ajustarla
+a la longitud del fixture. Otros tipos no se convierten en CC y sus caracteres
+significativos se conservan. La falta de datos o ambigüedad exige aclaración.
+El contrato se explica en el prompt y en las descripciones de la herramienta y
+sus campos; no hay un clasificador ni un normalizador de mensajes previo al LLM.
+
 ## Secuencia del nodo
 
 El prompt limita al agente a gestión de cartera: no responde programación,

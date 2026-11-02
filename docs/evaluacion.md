@@ -260,6 +260,30 @@ la pauta exige copia literal y esa fidelidad visual debe comprobarse también en
 el canal. No se observó divulgación del nombre completo ni cambio del documento.
 Los ejemplos son ficticios; la captura del usuario con contactos ajenos no se publica.
 
+### Contrato canónico de identificación y separadores
+
+La revisión del turno real con `10000002 cédula` mostró que el modelo envió
+`document_type=cédula` y el número correcto. La central almacena `CC` y compara
+literalmente, por lo que devolvió cero coincidencias. El registro ficticio de
+Bruno sí existía; el fallo fue traducir el tipo al contrato, no la inexistencia
+ni un PIN incorrecto. Se corrigieron el prompt y las descripciones de
+`locate_customer`, `document_type` y `document_number`: interpretación natural,
+códigos canónicos, orden flexible, separadores claros, ceros iniciales, datos
+faltantes y ambigüedad. No se añadieron filtros previos, regex de mensajes,
+concesiones de identidad ni cambios en la búsqueda de central.
+
+Once casos sintéticos con Luna real pasaron: número antes/después del tipo,
+nombre desarrollado, tildes, código en minúscula, puntos y espacios, nueve dígitos,
+ceros iniciales, otro tipo y número faltante. `100.203.234` produjo `100203234`,
+sin forzar ocho dígitos; `00.100.002` conservó `00100002`. Cédula de extranjería
+produjo CE, sin confundirla con CC; esto no afirma que existan fixtures de ese tipo.
+El número faltante pidió aclaración sin consulta. Once llamadas liquidadas por
+USD 0,00303905 estimados, herramientas solo propuestas, cero escrituras de canal
+o central. Además pasaron **28 tests unitarios de contexto y herramientas en
+0,40 segundos** y Ruff. La suite completa de 377 casos es anterior a esta
+modificación de instrucciones; falta repetir la consulta corregida en WhatsApp.
+La captura del usuario permanece privada.
+
 ### Ajuste de guía al pago, negociación y cierre de sesión
 
 Después del recorrido, se modificaron el system prompt y la descripción de
