@@ -68,7 +68,7 @@ El lanzador prepara la aplicación, sus bases y Langfuse dentro del entorno emul
 - Docker debe estar iniciado, con Compose v2 y **Linux containers**. No se requiere instalar Python ni SSH en el equipo; se ejecutan desde el contenedor auxiliar.
 - Usa una carpeta local. Se recomienda disponer de al menos 4 CPU, 12 GiB de RAM para Docker y 15 GiB libres más el espacio de sus imágenes/volúmenes. Son recomendaciones de arranque, no un mínimo medido en todos los equipos.
 - Docker debe permitir contenedores privilegiados y acceso al socket desde el lanzador. Rootless y daemons remotos no están soportados.
-- La ejecución completa se comprobó en Linux x86_64. Hay lanzadores e imágenes para Windows/macOS/ARM, pero no se ha validado el recorrido nativamente en todos ellos.
+- El lanzador elige `t2.xlarge` en Docker x86_64 y `m6g.large` en Docker ARM64, para que el tipo emulado sea compatible con la imagen nativa. La ejecución completa se comprobó en Linux x86_64. Hay lanzadores e imágenes para Windows/macOS/ARM, pero no se ha validado el recorrido nativamente en todos ellos.
 - Necesitas conexión a Internet, el archivo privado `.env.entrega` y un WhatsApp autorizado como destinatario del número de prueba de Meta. Solicita esa autorización al responsable de la entrega si falta; cambiar tu celular en la central no lo autoriza en Meta.
 
 Si vas a descargar el repositorio público por primera vez, clónalo y entra en

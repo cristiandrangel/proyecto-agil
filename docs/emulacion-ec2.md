@@ -34,11 +34,12 @@ No se modifica el contenedor desde el anfitrión para añadir privilegios despu�
 
 En la imagen fijada, `t3.xlarge` no está en el catálogo completo de capacidades:
 Floci acepta ese nombre pero no limita CPU/RAM. Este laboratorio solicita
-`t2.xlarge`, cuyo catálogo sí tiene 4 vCPU/16 GiB, y verifica los límites reales
-Docker. Es una elección para esta emulación; no dimensiona ni recomienda una
+`t2.xlarge` en x86_64 (4 vCPU/16 GiB) o `m6g.large` en ARM64 (2 vCPU/8 GiB),
+ambos presentes en ese catálogo. El tipo se elige con la arquitectura del daemon
+Docker, igual que la imagen, y se verifican sus límites reales Docker y cgroup. Es una elección para esta emulación; no dimensiona ni recomienda una
 familia AWS de producción. El engine exterior tiene techo de 8 CPU (o las CPU disponibles si hay menos) y
 24 GiB. Son límites máximos de cgroup: no se reservan ni se consumen 24 GiB al
-arrancar. El invitado conserva su límite de 4 CPU/16 GiB.
+arrancar. El invitado conserva los límites correspondientes a su tipo nativo.
 
 ## Requisitos y uso
 

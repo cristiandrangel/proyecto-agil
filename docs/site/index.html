@@ -119,7 +119,7 @@
 <li>Docker debe estar iniciado, con Compose v2 y <strong>Linux containers</strong>. No se requiere instalar Python ni SSH en el equipo; se ejecutan desde el contenedor auxiliar.</li>
 <li>Usa una carpeta local. Se recomienda disponer de al menos 4 CPU, 12 GiB de RAM para Docker y 15 GiB libres más el espacio de sus imágenes/volúmenes. Son recomendaciones de arranque, no un mínimo medido en todos los equipos.</li>
 <li>Docker debe permitir contenedores privilegiados y acceso al socket desde el lanzador. Rootless y daemons remotos no están soportados.</li>
-<li>La ejecución completa se comprobó en Linux x86_64. Hay lanzadores e imágenes para Windows/macOS/ARM, pero no se ha validado el recorrido nativamente en todos ellos.</li>
+<li>El lanzador elige <code>t2.xlarge</code> en Docker x86_64 y <code>m6g.large</code> en Docker ARM64, para que el tipo emulado sea compatible con la imagen nativa. La ejecución completa se comprobó en Linux x86_64. Hay lanzadores e imágenes para Windows/macOS/ARM, pero no se ha validado el recorrido nativamente en todos ellos.</li>
 <li>Necesitas conexión a Internet, el archivo privado <code>.env.entrega</code> y un WhatsApp autorizado como destinatario del número de prueba de Meta. Solicita esa autorización al responsable de la entrega si falta; cambiar tu celular en la central no lo autoriza en Meta.</li>
 </ul>
 <p>Si vas a descargar el repositorio público por primera vez, clónalo y entra en

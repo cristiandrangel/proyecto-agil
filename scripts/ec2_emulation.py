@@ -34,6 +34,10 @@ CONTROL_HOST = os.environ.get("EC2_CONTROL_HOST", "127.0.0.1")
 CONTROL_NETWORK = os.environ.get("EC2_CONTROL_NETWORK", "agil-ec2-control")
 TUNNEL_NAME = "agil-ec2-tunnel"
 RUNNER_IMAGE = "agil-ec2-runner:local"
+GUEST_PROFILES = {
+    "x86_64": {"instance_type": "t2.xlarge", "cpus": 4, "memory_gib": 16},
+    "arm64": {"instance_type": "m6g.large", "cpus": 2, "memory_gib": 8},
+}
 COMPOSE = ["docker", "compose", "-p", PROJECT, "-f", str(ROOT / "infra/compose.floci-runtime.yaml")]
 
 
@@ -248,7 +252,7 @@ def doctor():
         )
     if info["NCPU"] < 4:
         raise RuntimeError(
-            "Allocate at least 4 CPUs to Docker Desktop: the emulated t2.xlarge requires a 4-CPU quota"
+            "Allocate at least 4 CPUs to Docker Desktop for the nested application stack"
         )
     os.environ["EC2_ENGINE_CPUS"] = str(min(8, info["NCPU"]))
     print(
@@ -446,9 +450,11 @@ def create():
     client.import_key_pair(
         KeyName="agil-fixture-key", PublicKeyMaterial=(LOCAL / "id_ed25519.pub").read_bytes()
     )
+    profile = GUEST_PROFILES[docker_architecture()]
+    print(f"Creating native guest: {profile['instance_type']}", flush=True)
     instance = client.run_instances(
         ImageId="ami-agil-compose",
-        InstanceType="t2.xlarge",
+        InstanceType=profile["instance_type"],
         MinCount=1,
         MaxCount=1,
         KeyName="agil-fixture-key",
@@ -501,6 +507,19 @@ def bootstrap(delivery_file=None):
         current["live_applied"] = True
         write_json(LOCAL / "state.json", current)
     print("Fixture stack bootstrapped inside guest", flush=True)
+
+
+def verify_guest_resource_limits(instance_type, limits, cgroup):
+    profile = next(
+        (p for p in GUEST_PROFILES.values() if p["instance_type"] == instance_type), None
+    )
+    if profile is None:
+        raise RuntimeError("Unexpected guest instance type")
+    memory = profile["memory_gib"] * 1024**3
+    if cgroup[0] != str(memory) or cgroup[2] != f"{profile['cpus'] * 100000} 100000":
+        raise RuntimeError("Guest cgroup does not enforce requested resource limits")
+    if limits["Memory"] != memory or limits["NanoCpus"] != profile["cpus"] * 1_000_000_000:
+        raise RuntimeError("Unexpected effective guest CPU/RAM limits")
 
 
 def verify(mode="auto"):
@@ -564,10 +583,7 @@ def verify(mode="auto"):
         .stdout.decode()
         .splitlines()
     )
-    if cgroup[0] != str(16 * 1024**3) or cgroup[2] != "400000 100000":
-        raise RuntimeError("Guest cgroup does not enforce requested resource limits")
-    if limits["Memory"] != 16 * 1024**3 or limits["NanoCpus"] != 4_000_000_000:
-        raise RuntimeError("Unexpected effective guest CPU/RAM limits")
+    verify_guest_resource_limits(described["InstanceType"], limits, cgroup)
     if any(m["Destination"] == "/var/run/docker.sock" for m in guest_container.get("Mounts", [])):
         raise RuntimeError("Guest must not receive an exterior Docker socket")
     central = (

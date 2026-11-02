@@ -272,3 +272,51 @@ def test_zip_manifest_rejects_absolute_traversal_and_windows_alias_paths(
     )
     with pytest.raises(ValueError, match="unsafe path"):
         ec2.source_archive()
+
+
+@pytest.mark.parametrize("architecture", ["x86_64", "arm64"])
+def test_first_launch_requests_an_instance_compatible_with_native_image(
+    tmp_path, monkeypatch, architecture
+):
+    from types import SimpleNamespace
+
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "id_ed25519").write_text("fixture-private")
+    (local / "id_ed25519.pub").write_text("fixture-public")
+    monkeypatch.setattr(ec2, "LOCAL", local)
+    monkeypatch.setattr(ec2, "doctor", lambda: None)
+    monkeypatch.setattr(ec2, "docker_architecture", lambda: architecture)
+    monkeypatch.setattr(ec2, "stage_guest_context", lambda: None)
+    monkeypatch.setattr(ec2, "run", lambda *a, **k: None)
+    monkeypatch.setattr(ec2, "engine", lambda *a, **k: None)
+    monkeypatch.setattr(ec2, "wait_for", lambda *a, **k: None)
+    requests = []
+    client = SimpleNamespace(
+        delete_key_pair=lambda **kw: None,
+        import_key_pair=lambda **kw: None,
+        run_instances=lambda **kw: (
+            requests.append(kw) or {"Instances": [{"InstanceId": "fixture"}]}
+        ),
+    )
+    monkeypatch.setattr(ec2, "ec2", lambda: client)
+    ec2.create()
+    assert (
+        requests[0]["InstanceType"] == {"arm64": "m6g.large", "x86_64": "t2.xlarge"}[architecture]
+    )
+    assert requests[0]["ImageId"] == "ami-agil-compose"
+
+
+@pytest.mark.parametrize("architecture", ["x86_64", "arm64"])
+def test_resource_verification_checks_the_requested_native_profile(architecture):
+    profile = ec2.GUEST_PROFILES[architecture]
+    memory = profile["memory_gib"] * 1024**3
+    limits = {"Memory": memory, "NanoCpus": profile["cpus"] * 1_000_000_000}
+    cgroup = [str(memory), "0", f"{profile['cpus'] * 100000} 100000"]
+    ec2.verify_guest_resource_limits(profile["instance_type"], limits, cgroup)
+    with pytest.raises(RuntimeError, match="cgroup"):
+        ec2.verify_guest_resource_limits(
+            profile["instance_type"], limits, [str(memory), "0", "max 100000"]
+        )
+    with pytest.raises(RuntimeError, match="CPU/RAM"):
+        ec2.verify_guest_resource_limits(profile["instance_type"], dict(limits, Memory=0), cgroup)
