@@ -16,6 +16,43 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 La prueba inicial de Docker con red interna detectó además una descarga implícita de tiktoken en el primer uso, oculta por la caché de desarrollo. La imagen de pruebas ahora precarga `o200k_base` durante el build; la ejecución aislada posterior aprobó las 245 pruebas. Esa descarga es un recurso público del tokenizer y no una inferencia.
 
+## Orientación tras autenticación y explicación de búsquedas
+
+La lectura de un turno real detectó que, tras tres mensajes de formato inválido,
+el agente recibió `auth_attempts_exhausted` pero volvió a buscar por el teléfono
+de origen y mostró al titular de ese teléfono, en lugar de orientar el reintento
+para la otra persona. No se había concedido autorización. La corrección de
+comportamiento se realizó exclusivamente en el system prompt: explicar el resultado,
+recordar el formato y ofrecer reintento o asesor sin llamadas en ese turno. El
+filtro estático, permisos, herramientas y bloqueo de central no se modificaron.
+
+Dos rondas sintéticas con Luna real comprobaron seis escenarios cada una:
+agotamiento, agotamiento con aviso de limpieza del contexto, reintento sin documento,
+reintento con documento, petición posterior de asesor y autenticación correcta.
+La primera cumplió las seis comprobaciones estructurales, pero la revisión manual
+rechazó la respuesta al aviso de limpieza porque lo confundió con una petición de
+cambiar permisos. Tras aclarar el prompt, la segunda cumplió las seis y explicó
+ambos agotamientos con cordialidad, sin herramientas; el reintento sin documento
+pidió ese dato, el documento aportado produjo la consulta canónica, el asesor
+produjo `handoff_human` y el éxito produjo `list_debts`. Costes estimados por ronda:
+USD 0,00379763 y USD 0,00383981; reservas liquidadas.
+
+Otro ajuste del mismo prompt exige explicar el origen real del resultado de
+`locate_customer`: teléfono o documento, seguido de Nombre y Documento y su
+confirmación. Cuatro casos sintéticos con Luna real comprobaron coincidencia y
+resultado vacío por ambos criterios. Los cuatro distinguieron el criterio utilizado,
+sin llamadas adicionales ni coincidencias inventadas. El caso de teléfono además
+incluyó presentación y contexto de cobranza. Coste estimado: USD 0,00484498,
+reservas liquidadas. En la respuesta por documento se observó una variación de
+espacios y cantidad de puntos del nombre enmascarado, pese a la instrucción de
+copia literal; el documento siguió correcto y no se reveló el nombre completo.
+La fidelidad visual exacta de la máscara continúa siendo una limitación observada.
+
+Estos diagnósticos no ejecutaron herramientas ni escribieron en Chatwoot o central;
+los resultados de búsqueda fueron ficticios. Falta repetir los nuevos comportamientos
+en WhatsApp. Ruff y la revisión de diferencias pasaron; la suite completa de 377
+pruebas corresponde a una revisión anterior a estos ajustes de prompt.
+
 ## Reinicio para el recorrido del evaluador
 
 El 2026-11-01 se restauró el entorno de desarrollo con los productores detenidos:
