@@ -745,6 +745,14 @@ El runner usa exclusivamente `-m 'not live'`. El estado de cada fila describe **
 
 ## Matriz AC-01–31
 
+La columna manual/live conserva anotaciones de distintas etapas del recorrido y
+todavía requiere reconciliación completa. Las revisiones fechadas al principio
+de este documento y el apartado de auditoría ampliada describen la evidencia
+posterior. Si una anotación antigua dice pendiente y una revisión posterior
+registra el mismo recorrido, usar esa revisión y su alcance; no interpretar esta
+matriz como un inventario actualizado de todos los pendientes ni como aprobación
+universal de los 31 criterios.
+
 Todas las referencias de esta tabla se ejecutaron correctamente en la suite Docker registrada. La columna final identifica lo que todavía no acredita esa ejecución.
 
 | AC | Evidencia automatizada ejecutada | Evidencia manual/live y pendientes |
@@ -836,6 +844,12 @@ Para cada recorrido del [README](../README.md), registrar fecha, versión del c�
 - Observabilidad: uso por modalidad, reservas inciertas, trazas correlacionadas y nueva captura privada completa con exclusión de secretos/PIN/capabilities. No publicar contenido personal o financiero de las trazas. El reset no borra el ledger ni el historial del proveedor.
 
 ## Límites conocidos
+
+Este apartado conserva también observaciones históricas de coste y validación
+de medios. El estado más reciente del entorno y sus recorridos está en las
+revisiones fechadas al comienzo; los importes de smokes anteriores no representan
+el saldo disponible actual. Las limitaciones estructurales siguientes se mantienen
+mientras no exista evidencia posterior que las resuelva.
 
 Las dos bases no comparten transacción distribuida. El reset mantiene etapas y estado de mantenimiento para reanudar un fallo; no afirma completarse mientras una etapa esté pendiente. El cursor de eventos centrales serializa publicación hasta commit para evitar perder eventos por orden de confirmación.
 

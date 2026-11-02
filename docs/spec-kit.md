@@ -21,7 +21,8 @@ Fuente: [github/spec-kit](https://github.com/github/spec-kit).
 | `specs/001-cobranza-whatsapp/` | Resultado aplicado a esta entrega: especificación, diseño, contratos y tareas | Construcción y verificación de la funcionalidad |
 
 La CLI está instalada fuera del repositorio. `.agents/` contiene instrucciones
-para desarrollar; `apps/backend/.../agent/` contendrá después el agente de cobranza.
+para desarrollar; `apps/backend/src/backend/agent/` contiene el agente de cobranza
+que se ejecuta dentro del worker.
 
 ## Documentos de esta entrega
 
@@ -31,13 +32,18 @@ para desarrollar; `apps/backend/.../agent/` contendrá después el agente de cob
 4. [Plan](../specs/001-cobranza-whatsapp/plan.md): diseño técnico y estructura del código.
 5. [Datos](../specs/001-cobranza-whatsapp/data-model.md) y [contratos](../specs/001-cobranza-whatsapp/contracts/): estados e interfaces entre sistemas.
 6. [Guion](../specs/001-cobranza-whatsapp/quickstart.md): cómo se demostrará el resultado.
-7. [Tareas](../specs/001-cobranza-whatsapp/tasks.md): 56 trabajos pendientes en orden de construcción.
+7. [Tareas](../specs/001-cobranza-whatsapp/tasks.md): 58 trabajos, con su estado y evidencia; cinco siguen parcialmente pendientes.
+8. [Arquitectura consolidada](arquitectura.md): documento de entrega, secuencias e infraestructura propuesta AWS.
 
-La instalación y estos documentos están preparados. La aplicación, las pruebas
-reales y la infraestructura aún no están implementadas. El checklist de requisitos
-marcado revisa la calidad del documento; no certifica software funcionando.
-El diseño visual detallado de las dos webs se concreta al implementar sus vistas
-pequeñas, conservando los campos y acciones del contrato.
+La aplicación y las dos webs están implementadas y se han ejecutado dentro de
+la EC2 emulada, con recorridos reales de WhatsApp e inferencia. La última suite
+completa registrada aprobó 447 pruebas deterministas. La infraestructura AWS
+real sigue siendo una propuesta, no un despliegue realizado.
+
+El checklist de requisitos revisa la calidad de la especificación; por sí solo
+no certifica software funcionando. Cada tarea requiere evidencia acorde con su
+alcance. La [evaluación](evaluacion.md) distingue tests, recorridos reales,
+limitaciones y verificaciones pendientes, incluida la instalación en otro equipo.
 
 ## Retomar el trabajo
 
