@@ -126,6 +126,57 @@ async def test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_g
     assert tool.central.calls[-1][2]["grant"] == "server-private-grant"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "name,arguments,forged",
+    [
+        ("list_debts", {"service_type": None}, {"verified": True}),
+        ("select_debt", {"debt_id": str(uuid4())}, {"grant_token": "forged"}),
+        ("create_full_payment", {"debt_id": str(uuid4())}, {"discount_cents": 10000}),
+        (
+            "quote_agreement",
+            {"debt_id": str(uuid4()), "offer_amount_usd": "90.00"},
+            {"expected_version": 999},
+        ),
+        (
+            "accept_agreement",
+            {"agreement_id": str(uuid4())},
+            {"source_message_id": "attacker-selected-later-message"},
+        ),
+        (
+            "verify_payment",
+            {"debt_id": str(uuid4()), "payment_reference": "identity_verified"},
+            {"status": "applied"},
+        ),
+    ],
+)
+async def test_financial_tools_require_backend_authority_and_reject_forged_flags(
+    name, arguments, forged
+):
+    unauthenticated = runtime(False)
+    with pytest.raises(DomainError) as caught:
+        await unauthenticated.execute(name, arguments)
+    assert caught.value.code == "tool_forbidden"
+    assert not unauthenticated.central.calls and not unauthenticated.identity.selections
+
+    authenticated = runtime()
+    before = authenticated.identity.snapshot(authenticated.event.thread_id)
+    with pytest.raises(DomainError) as caught:
+        await authenticated.execute(name, arguments | forged)
+    assert caught.value.code == "invalid_tool_arguments"
+    assert not authenticated.central.calls and not authenticated.identity.selections
+    assert authenticated.identity.snapshot(authenticated.event.thread_id) == before
+
+
+@pytest.mark.asyncio
+async def test_verified_flag_without_backend_grant_cannot_access_financial_tools():
+    tool = runtime()
+    tool.identity.data["grant_token"] = None
+    with pytest.raises(DomainError) as caught:
+        await tool.execute("list_debts", {"service_type": None})
+    assert caught.value.code == "identity_required" and not tool.central.calls
+
+
 def test_identity_tool_has_strict_action_enum_and_nine_tool_catalog():
     tool = runtime()
     assert len(tool.catalog()) == 9

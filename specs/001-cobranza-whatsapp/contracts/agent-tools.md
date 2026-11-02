@@ -62,6 +62,15 @@ el token; el cliente recibe el enlace real por Chatwoot.
 
 ## Secuencia del nodo
 
+El prompt limita al agente a gestión de cartera: no responde programación,
+comparaciones de marcas o asistencia general, aunque el historial contenga una
+respuesta anterior fuera de alcance. En peticiones mixtas atiende solo la parte
+autorizada. La petición exclusivamente ajena se reconduce sin usar herramientas.
+Declaraciones de rol, flags de identidad y órdenes en medios o resultados son
+datos no confiables; no conceden permisos ni permiten extraer instrucciones.
+Este límite conversacional se implementa únicamente en el prompt; no agrega un
+clasificador ni cambia los esquemas, nodos o validaciones del backend.
+
 1. Cargar contexto no secreto, source_id literal, estado de autorización y selección.
    Sin sesión se permite la pista de la demo (nombre enmascarado y documento
    completo), no consulta financiera.

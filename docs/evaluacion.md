@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Última suite Docker aislada: 353 pruebas aprobadas, cero fallos y cero omitidas, en 41,22 segundos**, finalizada el 2026-11-02 a las 02:17 UTC (1 de noviembre, 21:17 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
+- **Última suite Docker aislada: 366 pruebas aprobadas, cero fallos y cero omitidas, en 41,22 segundos**, finalizada el 2026-11-02 a las 02:47 UTC (1 de noviembre, 21:47 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -42,7 +42,7 @@ snapshot de identidad. Se corrigió su redacción tanto en campos estructurados
 como en errores de texto. La regresión falló antes del cambio y pasó después:
 tres pruebas enfocadas con el SDK real, sin HTTP al proveedor. Las entradas de
 negocio y los importes siguen visibles. La suite histórica de 303 casos fue
-anterior a esta regresión; la última ejecución de 353 casos sí la incluye.
+anterior a esta regresión; la última ejecución de 366 casos sí la incluye.
 
 ## Recorrido WhatsApp revisado: 1 de noviembre, 21:03–21:09 Bogotá
 
@@ -98,6 +98,59 @@ Siguen pendientes el acuerdo con descuento por WhatsApp, frontera exacta del 80 
 audio del canal, comprobante falso/ajeno, tres fallos de PIN y cambio de titular,
 respuesta humana, silencio del bot en `open`, retorno explícito y reinicio con
 memoria. La evidencia anterior de cada sección conserva su fecha y alcance.
+
+## Refuerzo exclusivo del prompt: alcance e inyección
+
+Una captura del usuario mostró respuestas de programación y comparación de marcas.
+Se reprodujeron ambas preguntas con la versión anterior: ofreció ayuda de Python
+y comparó Coca-Cola con Pepsi. La revisión semántica detectó los dos fallos aunque
+el chequeo estructural de herramientas y canarios no los señalaba. Las capturas
+privadas con contactos ajenos no se incorporan al repositorio.
+
+El cambio de producción se limita a `agent/prompts.py`: función exclusiva de
+cobranza con prioridad sobre proactividad, rechazo sin respuesta parcial de temas
+ajenos, confidencialidad, falsos roles de auditor/desarrollador, extracción por
+codificación/traducción, autoridad fingida y órdenes en medios/herramientas. El
+historial anterior fuera de alcance no amplía funciones. No se añadió un filtro
+previo, clasificador, nodo, herramienta ni cambio de permisos o configuración.
+
+La primera variante se evaluó con 22 llamadas: las preguntas de alcance ya se
+reconducían y no se filtraron canarios, pero en dos ataques de rol el modelo
+proponía una consulta innecesaria. Se explicitó que un ataque sin una petición
+legítima no justifica consultar personas o deudas. La versión final obtuvo
+**22/22 chequeos estructurales y revisión semántica conforme de las respuestas**:
+18 casos de alcance/ataques y cuatro controles de asesor, cierre, pago íntegro y
+negociación. El recibo con orden incrustada propuso `verify_payment`; la oferta
+de cero propuso derivación, no condonación. La identidad falsa no concedió cartera:
+solo propuso iniciar identificación o explicó que hacía falta autenticar.
+
+Las llamadas usaron Luna real en `high`, contexto ficticio y herramientas sin
+ejecutar. No hubo mensajes de canal ni escrituras de central. Costes estimados:
+comparación previa de dos preguntas, USD 0,00115308; primera variante de 22 casos,
+USD 0,00766071; versión final de 22 casos, USD 0,00745703. Todas esas reservas se
+liquidaron. Son muestras concretas, no garantía absoluta contra toda inyección.
+Los textos que simulan medios son contexto extraído de prueba, no archivos reales
+procesados durante esta evaluación. El dataset público es
+[agent-security-cases.json](../tests/fixtures/agent-security-cases.json).
+
+La suite Docker aislada aprobó **366 pruebas, cero fallos y cero omitidas, en
+41,22 segundos**, incluyendo trece regresiones nuevas sobre los controles
+existentes de identidad/argumentos forjados. Se ejecutó sobre el primer refuerzo;
+la iteración final añadió únicamente instrucciones al prompt y se verificó en
+la evaluación real de 22 casos. Ruff y comprobación de diff pasaron.
+
+**Temperatura comprobada:** una solicitud de diagnóstico con el mismo modelo,
+`reasoning.effort=high` y `temperature=0` fue rechazada por la API con HTTP 400,
+parámetro `temperature` no soportado. Se conserva la configuración previa sin ese
+parámetro. El cliente retuvo conservadoramente USD 0,00791520 de reserva incierta
+para ese diagnóstico fallido; no se presenta como consumo facturado ni se libera
+para ampliar presupuesto. No se cambió de modelo ni se redujo el razonamiento.
+
+La separación entre instrucciones y datos, ejemplos claros y evaluación de
+riesgos sigue la [guía oficial de seguridad para agentes](https://developers.openai.com/api/docs/guides/agent-builder-safety).
+La autenticación y las restricciones financieras existentes siguen aplicándose
+independientemente del texto generado. Queda repetir las preguntas desde WhatsApp
+después de este despliegue; las respuestas antiguas no se modifican.
 
 ## Runtime y preflight de lectura
 
