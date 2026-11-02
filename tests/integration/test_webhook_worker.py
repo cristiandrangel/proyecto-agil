@@ -1560,3 +1560,59 @@ async def test_return_to_bot_loads_human_exchange_into_state_and_inference(runti
         saved = await saver.aget_tuple(thread_config(source))
         for message in expected:
             assert message["content"] in str(saved.checkpoint)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('selected', [False, True])
+async def test_applied_handoff_return_supplies_current_bot_control_not_historical_case(runtime, webapp, selected):
+    from backend.agent.graph import build_graph
+    from backend.agent.tools import ToolRuntime
+    from backend.persistence.models import HumanCase, VerifiedContext
+
+    source = 'literal-confirmed-bot-return'
+    async with checkpointer(runtime.settings.memory_conninfo, setup=True):
+        pass
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(webapp), base_url='http://testserver') as client:
+        await post(client, runtime, payload(source, message=100))
+        job = runtime.queue.claim('return-control-worker')
+        await process_job(runtime, job)
+        with runtime.sessions.begin() as db:
+            identity = db.get(VerifiedContext, source)
+            identity.challenge_state = 'verified'
+            identity.central_grant = 'fictional-return-grant'
+            identity.customer_id = runtime.central.customer
+            identity.expires_at = utcnow() + timedelta(minutes=10)
+            identity.selected_debt_id = uuid4() if selected else None
+        async with checkpointer(runtime.settings.memory_conninfo) as saver:
+            tools = ToolRuntime(job.event, runtime.identity, runtime.central, runtime.handoff, runtime.observability)
+            graph = build_graph(saver, runtime=tools, inference=runtime.inference, text='')
+            await graph.aupdate_state(thread_config(source), {'phase': 'handoff_requested'})
+        await runtime.handoff.request(job.event, 'dispute', 'El saldo requiere aclaración')
+        # Each poll can release the next dependency in the durable handoff outbox.
+        for _ in range(3):
+            await send_outputs(runtime)
+        assert runtime.channel.status == 'open'
+        calls_before = len(runtime.inference.calls)
+        advisor = payload(source, message=101, content='La llamada era incorrecta; la deuda pendiente es hogar. Te devuelvo al asistente.')
+        advisor.update(message_type='outgoing', sender={'id': 5, 'type': 'user'})
+        advisor['conversation']['status'] = 'open'
+        await post(client, runtime, advisor)
+        assert len(runtime.inference.calls) == calls_before
+        # Text claiming a return does not return control or schedule an agent turn.
+        assert runtime.handoff.blocked(source)
+        assert runtime.queue.claim('return-control-worker') is None
+        runtime.channel.status = 'pending'
+        resumed = payload(source, message=102, content='Entonces, ¿cuánto debo?')
+        resumed['conversation']['status'] = 'pending'
+        await post(client, runtime, resumed)
+        await process_job(runtime, runtime.queue.claim('return-control-worker'))
+    request = runtime.inference.calls[-1]
+    context = json.loads(request['instructions'].rsplit('Contexto actual del servidor: ', 1)[1])
+    assert context['channel_control'] == 'bot'
+    assert context['identity_verified'] is True
+    assert context['phase'] == ('discuss_payment' if selected else 'select_debt')
+    assert any('asesorhumano: La llamada era incorrecta' in item.get('content', '') for item in request['input'])
+    assert not runtime.handoff.blocked(source)
+    with runtime.sessions() as db:
+        case = db.scalar(select(HumanCase).where(HumanCase.thread_id == source))
+        assert case.status == 'returned' and case.open_observed

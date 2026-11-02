@@ -75,6 +75,12 @@ conversación y revisión de identidad, deduplicados y anteriores al mensaje act
 Los mensajes del asesor llevan el prefijo asesorhumano: en un mensaje normal de
 contexto. Se guardan en el próximo checkpoint y usan la misma ventana de historial;
 no se convierten en permisos ni resultados de herramientas.
+El worker añade channel_control=bot al contexto del servidor solo tras verificar
+pending y ausencia de bloqueo humano. No es un campo nuevo del estado ni se lee
+del texto del asesor. Una fase handoff_requested anterior vuelve a la fase de
+gestión correspondiente al registro y deuda actuales; el historial de transferencia
+no representa el control vigente. El prompt pide consultar cartera al retomar una
+pregunta de saldo y usar el diálogo humano como contexto.
 El diagrama siguiente representa los turnos fuera del brazo estático y los eventos
 neutros de salida de autenticación; no añade nodos al grafo conversacional.
 

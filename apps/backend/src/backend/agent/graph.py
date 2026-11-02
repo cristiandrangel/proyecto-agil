@@ -77,7 +77,7 @@ def _challenge_group(group):
     )
 
 
-def build_graph(checkpointer, *, runtime, inference, text, human_memory=None):
+def build_graph(checkpointer, *, runtime, inference, text, human_memory=None, channel_control=None):
     async def agent(state: AgentState):
         event = runtime.event
         snapshot = runtime.identity.snapshot(event.thread_id)
@@ -92,6 +92,11 @@ def build_graph(checkpointer, *, runtime, inference, text, human_memory=None):
         runtime.pending_agreement_id = state.get("pending_agreement_id") if same_identity else None
         runtime.active_order_id = state.get("active_order_id") if same_identity else None
         runtime.phase = state.get("phase", "identify") if same_identity else "identify"
+        if channel_control == "bot" and runtime.phase == "handoff_requested":
+            runtime.phase = (
+                "discuss_payment" if snapshot["verified"] and snapshot["selected_debt_id"]
+                else "select_debt" if snapshot["verified"] else "identify"
+            )
         bootstrap_identity = bool(
             snapshot["verified"]
             and (
@@ -132,6 +137,8 @@ def build_graph(checkpointer, *, runtime, inference, text, human_memory=None):
                 "pending_agreement_id": runtime.pending_agreement_id,
                 "active_order_id": runtime.active_order_id,
             }
+            if channel_control is not None:
+                context["channel_control"] = channel_control
             instructions = (
                 SYSTEM_PROMPT
                 + "\nContexto actual del servidor: "

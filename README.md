@@ -279,6 +279,13 @@ del bot. Las notas privadas y las salidas del propio bot no se añaden por este 
 2. La persona que atiende usa el control nativo de Chatwoot para dejar la conversación en **`pending`**, con el bot TEST correspondiente. No basta con cerrar la pestaña, cambiar el filtro o marcarla resuelta. La central no tiene un botón propio de «Devolver al bot».
 3. Envía **un nuevo mensaje desde WhatsApp**. El backend debe observar esa devolución explícita y retomar; si venció la identidad, pedirá validarla otra vez.
 
+El servidor comunica al modelo `channel_control=bot` solo después de comprobar
+`pending` y que ningún caso humano activo bloquee el chat. Así distingue una
+derivación histórica del control actual: una nota anterior que diga «transferido»
+no debe hacerle seguir enviándote al asesor. Si preguntas cuánto debes al retomar,
+debe consultar la cartera actual y continuar la gestión. Escribir «te dejo con el
+asistente» por sí solo no cambia el control del canal.
+
 Por ejemplo, escribe `Retomemos lo que hablamos con el asesor`. En la siguiente
 entrada al agente, el diálogo humano de la misma revisión de identidad se incorpora
 al estado como mensajes normales: `asesorhumano: Revisaré el caso mañana` y
@@ -518,9 +525,9 @@ La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticament
 
 ### Pruebas deterministas y límites de evidencia
 
-La última suite Docker completa registrada aprobó **373 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 03:17 UTC** —1 de noviembre, 22:17 en Bogotá—, en **43,26 segundos**. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
+La última suite Docker completa registrada aprobó **375 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 03:29 UTC** —1 de noviembre, 22:29 en Bogotá—, en **42,48 segundos**. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
 
-El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 373 casos ya verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
+El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 375 casos ya verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
 
 Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
 

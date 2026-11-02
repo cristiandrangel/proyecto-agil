@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Última suite Docker aislada: 373 pruebas aprobadas, cero fallos y cero omitidas, en 43,26 segundos**, finalizada el 2026-11-02 a las 03:17 UTC (1 de noviembre, 22:17 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
+- **Última suite Docker aislada: 375 pruebas aprobadas, cero fallos y cero omitidas, en 42,48 segundos**, finalizada el 2026-11-02 a las 03:29 UTC (1 de noviembre, 22:29 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -176,12 +176,35 @@ bot. En el próximo turno autorizado se incorporan mensajes con prefijos de acto
 al estado y checkpoint, sin duplicados, restringidos a conversación, revisión de
 identidad y último reset. Notas privadas y mensajes del bot quedan excluidos.
 No se importó el historial humano anterior al cambio. Los adjuntos durante la
-atención humana dejan un marcador y no se procesan automáticamente. Falta realizar
-este nuevo recorrido en Chatwoot con el usuario. Siete regresiones nuevas, dentro
+atención humana dejan un marcador y no se procesan automáticamente. Siete regresiones nuevas, dentro
 de la suite completa de 373 casos, comprobaron deduplicación, scope, revisión,
 reset, fase PIN, ausencia de jobs/inferencia al guardar y presencia del diálogo
 en la entrada del modelo y el checkpoint al retomar. Los tests de PostgreSQL y
 worker usan proveedores dobles y no envían mensajes reales.
+
+El usuario realizó después el retorno real: tres respuestas públicas del asesor
+se guardaron sin jobs y aparecieron completas, en orden, en el input del LLM y en
+el checkpoint del siguiente turno. Sin embargo, el agente respondió como si la
+transferencia histórica siguiera vigente y remitió otra vez al asesor, sin
+consultar el saldo. La memoria sí había llegado; faltaba comunicar explícitamente
+al modelo el control actual que el backend ya había verificado. La fase enviada
+era `select_debt`, así que ese fallo concreto no se explica por una fase de
+handoff atascada.
+
+Se añadió `channel_control=bot` al contexto del servidor después de las
+comprobaciones del worker, sin nuevos campos de estado ni autorización por texto.
+El prompt diferencia el control actual de un resultado histórico de handoff y
+pide una consulta vigente al retomar una pregunta de saldo. También se normaliza
+una fase histórica `handoff_requested` al retomar con una deuda seleccionada.
+Dos variantes ficticias con Luna real —retorno inicial y continuación tras una
+respuesta errónea como la observada— propusieron `list_debts` y respondieron hogar
+USD 100 y telefonía liquidada, sin nueva derivación. Fueron cuatro llamadas,
+USD 0,00160344 estimados, reservas liquidadas y cero efectos de canal o central;
+los resultados de herramientas eran ficticios. La suite completa de 375 pruebas
+incluye dos regresiones del retorno aplicado, con y sin deuda seleccionada:
+comprueba que una frase del asesor no reactive al bot y que solo el retorno real
+entregue el control actual y la fase correcta al modelo. Queda repetir el turno por
+WhatsApp después de esta corrección para acreditar la respuesta en el canal.
 
 ### Ajuste de guía al pago, negociación y cierre de sesión
 
