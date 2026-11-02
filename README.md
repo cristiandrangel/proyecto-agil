@@ -37,9 +37,23 @@ El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es d
 4. Pulsa **Ingresar a la central**. Este acceso usa la contraseña del operador; el PIN ficticio `2468` se utiliza después en WhatsApp.
 5. Comprueba que aparece **Cartera y contacto**. Si ya tenías una sesión válida, llegarás directamente a esta pantalla.
 
-Para abrir **Chatwoot**, usa `CHATWOOT_UI_URL` e inicia sesión con `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`. Para **Langfuse**, abre `LANGFUSE_PUBLIC_URL` y usa `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD`. Los dos pares de credenciales están en ese mismo bloque final del `.env`.
-
 **Debes ver:** la central con **Cartera y contacto**, filtros y tabla. En una instalación nueva hay **13 personas y 14 deudas**. Los contactos comienzan simulados. Si ves mantenimiento o un error de dependencia, resuélvelo con el administrador antes de lanzar la campaña; las comprobaciones técnicas están al final.
+
+### 1.2. Iniciar sesión en Chatwoot y abrir la bandeja de pruebas
+
+1. Al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Chatwoot**, localiza `CHATWOOT_UI_URL`, `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`.
+2. Abre en **otra pestaña** la dirección que figura como valor de `CHATWOOT_UI_URL`. Conserva abierta la central. Si el navegador ya tiene otra cuenta de Chatwoot iniciada, usa una ventana privada para entrar como evaluador.
+3. En el formulario de acceso, introduce el valor de `CHATWOOT_UI_EMAIL` como correo y el de `CHATWOOT_UI_PASSWORD` como contraseña. Copia solo los valores, sin el nombre de las variables, `=` ni las comillas delimitadoras. Inicia sesión.
+4. Comprueba que estás usando el usuario **Evaluador Cobranza** y que aparece el canal **Test Agenx WhatsApp** en el menú lateral.
+5. Abre ese canal y cambia el filtro **Abiertas** por **Pendientes**. Las conversaciones del bot se gestionan en `pending`.
+6. Antes de lanzar la campaña puede no haber ninguna conversación de tu prueba; es normal. Después del envío, abre la conversación que corresponde a tu WhatsApp y comprueba que aparece la plantilla enviada.
+7. Déjala bajo control de **Alex TEST**. No pulses **Tomar el control** durante el recorrido del bot: al pasar a `open`, la conversación queda para atención humana.
+
+Mantén esta pestaña abierta para ver los mensajes entrantes, las respuestas del agente y, más adelante, la transferencia humana. Si ya lanzaste la campaña desde la central, entra aquí para revisar esa conversación; no vuelvas a lanzarla para que aparezca.
+
+### 1.3. Iniciar sesión en Langfuse
+
+En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD`, que están al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Langfuse**. Selecciona el proyecto **Cobranza-Demo**. La sección 7 explica cómo revisar las trazas de cada mensaje.
 
 ## 2. Reconocer los datos de prueba
 
@@ -82,12 +96,13 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 ### 3.3. Preparar Chatwoot y lanzar una sola vez
 
-1. Abre Chatwoot, entra en **Conversaciones** y selecciona la bandeja TEST. Cambia el filtro **Abiertas** por **Pendientes** para encontrar las conversaciones del bot.
-2. Si ya existe tu conversación, debe estar en `pending` y bajo el bot de pruebas **Alex TEST**. No pulses **Tomar el control**. `open` significa atención humana. Si es nueva, la campaña preparará el destino.
-3. Vuelve a la central. Pon un nombre como `Evaluación · dos servicios`.
-4. Comprueba la plantilla fija que muestra la página: la entregada es `recordatorio_factura_demo`, idioma `es`, previamente aprobada. No tienes que crear una plantilla en Meta ni escribir su nombre.
-5. Pulsa **Guardar campaña**. Aún no hay envío. Después pulsa **Lanzar secuencia** una vez.
-6. Observa el progreso. El panel consulta cada tres segundos mientras está visible; **Actualizar** consulta inmediatamente.
+1. Abre en otra pestaña el valor de `CHATWOOT_UI_URL`, al final del `.env`. Inicia sesión con `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`, siguiendo la sección **1.2**. Mantén abierta la central.
+2. En Chatwoot, selecciona el canal **Test Agenx WhatsApp** y cambia el filtro **Abiertas** por **Pendientes** para encontrar las conversaciones del bot.
+3. Si ya existe tu conversación, debe estar en `pending` y bajo el bot de pruebas **Alex TEST**. No pulses **Tomar el control**. `open` significa atención humana. Si es nueva, la campaña preparará el destino.
+4. Vuelve a la central. Pon un nombre como `Evaluación · dos servicios`.
+5. Comprueba la plantilla fija que muestra la página: la entregada es `recordatorio_factura_demo`, idioma `es`, previamente aprobada. No tienes que crear una plantilla en Meta ni escribir su nombre.
+6. Pulsa **Guardar campaña**. Aún no hay envío. Después pulsa **Lanzar secuencia** una vez.
+7. Observa el progreso. El panel consulta cada tres segundos mientras está visible; **Actualizar** consulta inmediatamente.
 
 **Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Revisa que la plantilla llegue a tu WhatsApp y que aparezca en la conversación TEST.
 
