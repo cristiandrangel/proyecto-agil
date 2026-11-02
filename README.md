@@ -234,21 +234,19 @@ La captura muestra el filtro con **Abiertas** y **Pendientes** seleccionadas. Tr
 
 Mantén esta pestaña abierta para observar los mensajes de WhatsApp y las respuestas del agente. Continúa en esa misma conversación, tanto si empezó con la plantilla como si escribiste tú primero.
 
-### 3.5. Responder, autenticar y elegir hogar
+### 3.5. Conversar como Ana y consultar sus deudas
 
-**Antes de continuar:** ten abierta tu conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Puede haberse iniciado con la plantilla o con tu mensaje directo. Conserva también abierta la pestaña de campaña de la central.
+Ahora usarás tu **WhatsApp como si fueras Ana**, la cliente ficticia a la que asignaste tu celular. Envía los mensajes desde WhatsApp y usa Chatwoot para observar cómo aparecen allí la conversación y las respuestas del asistente.
 
-1. Desde tu **WhatsApp**, responde a la plantilla con `Hola, quiero revisar mi deuda`. Si muestra el botón **Explícame más**, puedes pulsarlo una vez en lugar de escribir. Si ya enviaste el saludo directamente porque la plantilla no llegó, pasa al siguiente paso y revisa la respuesta; no vuelvas a enviarlo.
-2. Espera la respuesta y comprueba en Chatwoot tanto tu mensaje entrante como la salida del bot. En este primer intercambio, verifica que el agente se presenta como Alex, explica el contexto de cobranza y la necesidad de autenticarte antes de dar detalles, y muestra una pista con el nombre enmascarado y el documento completo si encontró un registro. La redacción es generada por el modelo y puede variar. **Revisa esta apertura antes de continuar; todavía no envíes el PIN.**
-3. Si muestra una pista de identidad, confírmala solo si corresponde al registro de Ana. Puedes responder **sí** o **dale** cuando quede claro que aceptas esa pista; el agente debe interpretar la respuesta y avanzar a solicitar el PIN. Si tu respuesta es ambigua, debe pedir aclaración. Si pide documento o la búsqueda por teléfono no encuentra el registro, escribe `CC 10000001` y confirma la pista correcta.
-4. Tras confirmar el candidato, el sistema entra en la fase estática de autenticación y solicita el PIN con una respuesta fija. Escribe **2468**, en un mensaje de texto independiente. Durante esa fase cada mensaje se evalúa como intento de autenticación: no se envía al modelo.
-5. Tras validar, debe consultar la cartera de Ana y mostrar hogar y telefonía. Responde: `Quiero gestionar hogar`.
+1. **Inicia la conversación.** Escribe `Hola, quiero revisar mi deuda` o pulsa **Explícame más** en la plantilla. Si ya saludaste en el paso anterior, continúa con la respuesta que recibiste.
+2. **Identifica a la cliente de prueba.** El asistente se presentará y te ayudará a encontrar a Ana. Puede reconocerla por el teléfono que configuraste en la central; si te pide el documento, responde `CC 10000001`.
+3. **Confirma que vas a gestionar a Ana.** Cuando te muestre su nombre parcialmente oculto y el documento `CC 10000001`, responde `Sí, quiero revisar esa deuda`. Espera a que te pida el PIN.
+4. **Introduce el PIN de prueba.** Cuando lo solicite, envía un mensaje que contenga solo `2468`. Espera la confirmación y la consulta de las deudas.
+5. **Elige el servicio.** Verás hogar por **USD 100** y telefonía por **USD 60**. Escribe `Quiero gestionar hogar` y espera a que el asistente confirme el servicio elegido. Continúa con el pago en la sección 3.6.
 
-**Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. El nombre de la pista permanece enmascarado; el tipo y número de documento se muestran completos antes de autenticar, por decisión de esta demo. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN escrito se verifica fuera del modelo. Confirmar la pista solo habilita el desafío, sin autorizar cartera. Tras un PIN correcto, el agente recibe una validación neutra y consulta las deudas. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
+**Resultado esperado:** ya puedes consultar las deudas de Ana y has elegido hogar para pagarla. Antes de validar el PIN, el asistente no debe mostrar los importes de sus deudas.
 
-La pista debe verse como `Nombre: A•a` y `Documento: CC 10000001`, en líneas separadas. El agente explica si encontró el registro por teléfono o por documento, con trato cordial. Una coincidencia no confirma identidad; la cartera solo aparece después del PIN.
-
-Durante la solicitud de PIN, envía únicamente el código numérico: preguntas, audios o imágenes consumen un intento de formato. Tras tres fallos el sistema sale de esa fase sin autorizarte y el agente orienta cómo continuar. Reserva la prueba de bloqueo para el final del recorrido.
+Puedes hablar con tus propias palabras; los mensajes anteriores son ejemplos. En el paso del PIN sí debes enviar únicamente sus dígitos. Si haces una pausa de más de 30 minutos, puede pedirte que vuelvas a identificarte.
 
 ### 3.6. Pagar hogar sin descuento
 
