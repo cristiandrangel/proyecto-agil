@@ -122,7 +122,7 @@ def test_masked_identity_pin_lock_and_retry_deduplication(central):
     assert located.status_code == 200
     result = located.json()
     assert result["candidate_count"] == 1
-    assert result["masked_hint"] == "A•a · CC 10000001"
+    assert result["masked_hint"] == "Nombre: A•a\nDocumento: CC 10000001"
     assert all(
         secret not in located.text
         for secret in ["Ana Martínez López", "2468", "balance_cents", "pin_hash"]

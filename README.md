@@ -124,7 +124,22 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 **Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. El nombre de la pista permanece enmascarado; el tipo y número de documento se muestran completos antes de autenticar, por decisión de esta demo. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN escrito se verifica fuera del modelo. Confirmar la pista solo habilita el desafío, sin autorizar cartera. Tras un PIN correcto, el agente recibe una validación neutra y consulta las deudas. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
 
-**Formato de la pista en esta demo:** por ejemplo, para Ana: `A•a · CC 10000001`. El nombre conserva únicamente los extremos del primer nombre y oculta el resto con `•`; nombres de uno o dos caracteres se ocultan completos. El **tipo y número de documento se muestran completos, también antes del PIN**, para reconocer el registro que se va a gestionar. El agente copia literalmente la pista que entrega la herramienta, en texto plano, sin volver a ocultar el documento. Esto no autoriza cartera ni expone o valida el PIN. Las pistas antiguas ya enviadas conservan su formato anterior; la nueva consulta utiliza el formato actual. Puedes continuar con **sí** o **dale** si reconoces el registro y la intención es clara, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
+**Formato de la pista en esta demo:** identifica ambos campos en líneas separadas, por ejemplo para Ana:
+
+```text
+Nombre: A•a
+Documento: CC 10000001
+```
+
+El nombre conserva únicamente los extremos del primer nombre y oculta el resto con `•`; nombres de uno o dos caracteres se ocultan completos. El **tipo y número de documento se muestran completos, también antes del PIN**, para reconocer el registro que se va a gestionar. El agente copia literalmente la pista que entrega la herramienta, en texto plano, sin volver a ocultar el documento. Esto no autoriza cartera ni expone o valida el PIN. Las pistas antiguas ya enviadas conservan su formato anterior; la nueva consulta utiliza el formato actual. Puedes continuar con **sí** o **dale** si reconoces el registro y la intención es clara, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
+
+**Trato esperado:** el agente reconoce lo que quieres hacer y explica la validación
+con un lenguaje cordial. Por ejemplo, ante una solicitud de pago puede ofrecer ayuda,
+explicar que primero necesita confirmar los datos y preguntar si corresponden a
+la persona por la que consultas. Al cambiar de titular reconoce el cambio antes
+de mostrar los campos. Son ejemplos de tono; la redacción se genera según el diálogo.
+No debe hablarte como si fueras un registro de una base de datos. La cordialidad
+conserva la validación por PIN y las reglas de la gestión.
 
 **Conversación durante la identificación:** antes de confirmar la pista, puedes responder con naturalidad: **sí**, **dale**, **no**, preguntas, asesor o cambio de cliente llegan al agente con su system prompt y memoria. El modelo interpreta la intención y usa `manage_identity`; si es ambigua, debe aclararla. Para comprobarlo, responde `dale` ante una pregunta clara de confirmación: debe activar la fase de PIN y devolver la solicitud fija, sin otra llamada al modelo después de confirmar.
 
@@ -236,7 +251,7 @@ Comprueba este caso fuera del brazo estático del PIN y con la conversación en
 `pending`; si quedó bajo control humano, devuélvela explícitamente como indica 4.5.
 
 1. En la conversación de Ana, envía `Cambiar cliente`. El agente debe entender la intención, solicitar la transición con `manage_identity` y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de `awaiting_pin`; durante esa fase todos los mensajes se tratan como intentos de autenticación.
-2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN.
+2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente `No, quiero gestionar CC 10000002` para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.
 3. Selecciona hogar: debe mostrar USD 200. Las deudas de Ana no pasan a ser de Bruno ni siguen como selección activa.
 4. Para volver a Ana, repite **Cambiar cliente**, `CC 10000001`, confirmación y PIN. Cambiar titular siempre exige validación nueva.
 

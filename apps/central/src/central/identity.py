@@ -13,7 +13,7 @@ def masked_identity_hint(name, document_type, document_number):
         return value[0] + "•" * (len(value) - 2) + value[-1]
 
     first_name = name.split(maxsplit=1)[0] if name.split() else ""
-    return f"{edges(first_name)} · {document_type} {document_number}"
+    return f"Nombre: {edges(first_name)}\nDocumento: {document_type} {document_number}"
 
 
 def locate(request, db, body):

@@ -238,6 +238,28 @@ USD 0,00174844 estimados, todas liquidadas, usando resultados ficticios de tools
 sin ejecución de herramientas ni escrituras en central o canal. La verificación
 WhatsApp de esta nueva representación queda pendiente de una nueva devolución.
 
+### Etiquetas de identidad y tono cordial
+
+La pista actual presenta `Nombre:` y `Documento:` en líneas separadas. Conserva
+el nombre enmascarado y el documento completo; no cambia PIN, permisos ni saldos.
+Ocho tests existentes de contrato e integración pasaron en 1,66 segundos, incluidos
+los límites de ocultación y la validación de PIN con deduplicación. La suite completa
+de 377 casos corresponde a la revisión anterior a este cambio de presentación.
+
+El system prompt añade pautas generales de trato: reconocer la intención, explicar
+la validación, aceptar correcciones y preguntar por la correspondencia de los datos,
+sin términos burocráticos ni respuestas estáticas. La primera variante seguía usando
+frases frías y se afinó. En la segunda evaluación con Luna real, retomar un pago
+produjo una oferta de ayuda y explicación de privacidad; cambiar de persona reconoció
+la nueva gestión antes de mostrar las etiquetas; la consulta de programación se
+rechazó y pagar el total propuso `create_full_payment`. Fueron cuatro llamadas por
+USD 0,00388266 estimados, liquidadas, sin ejecutar tools ni escribir en el canal o
+central. La variante anterior consumió otras cuatro llamadas por USD 0,00388046.
+En una respuesta el modelo varió la cantidad de puntos del nombre enmascarado;
+la pauta exige copia literal y esa fidelidad visual debe comprobarse también en
+el canal. No se observó divulgación del nombre completo ni cambio del documento.
+Los ejemplos son ficticios; la captura del usuario con contactos ajenos no se publica.
+
 ### Ajuste de guía al pago, negociación y cierre de sesión
 
 Después del recorrido, se modificaron el system prompt y la descripción de
