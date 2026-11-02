@@ -1,9 +1,4 @@
-"""Deterministic identity/PIN boundary outside persistence of conversational content.
-
-Workers call locate/intercept while holding the literal source_id thread lock.
-Ingress uses protect_incoming with a persist callback so redaction, identity state and
-queue insertion remain under that same lock. Raw PIN exists only on this call stack.
-"""
+"""Phase-scoped PIN gate with encrypted ingress and deterministic worker verification."""
 
 from __future__ import annotations
 
@@ -21,36 +16,18 @@ from backend.integrations.central import CentralClient
 from backend.persistence.database import get_session_factory
 from backend.persistence.models import ChannelBinding, InboxEvent, Outbox, VerifiedContext, utcnow
 from backend.persistence.queue import thread_lock, validate_source_id
+from backend.services.auth_transport import seal_auth, unseal_auth
+from cryptography.fernet import InvalidToken
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 PREFIX = "agil.identity.v1."
 PIN = re.compile(r"[0-9]{4,8}\Z")
-PIN_MENTION = re.compile(
-    r"\bpin\b\s*(?:(?:es|es el|de acceso es)\s*)?[:=]?\s*[0-9]{4,8}\b", re.IGNORECASE
+AUTH_PROMPT = (
+    "Para autenticarte, escribe únicamente tu PIN de acceso en el siguiente mensaje. "
+    "No incluyas texto, audio ni imágenes."
 )
-YES = {
-    "si",
-    "sí",
-    "yes",
-    "confirmo",
-    "confirmar",
-    "correcto",
-    "es correcto",
-    "sí confirmo",
-    "si confirmo",
-    "es ese",
-    "ese registro",
-}
-NO = {"no", "no soy", "no es", "otro", "otra persona", "no es ese", "no corresponde"}
-CHANGE = {
-    "cambiar cliente",
-    "cambiar de cliente",
-    "cambiar titular",
-    "otro cliente",
-    "otra persona",
-    "cambiar registro",
-}
+PIN_INSTRUCTIONS = AUTH_PROMPT
 
 
 def _secret(value):
@@ -59,12 +36,17 @@ def _secret(value):
 
 def encode_protected(result, session_secret):
     """Only a backend-signed envelope can request deterministic identity handling."""
+    data = {
+        "handled": bool(result["handled"]),
+        "response": result.get("response"),
+        "agent_message": result.get("agent_message"),
+    }
+    if "sealed_auth" in result:
+        data["sealed_auth"] = result["sealed_auth"]
+    if "auth_result_revision" in result:
+        data["auth_result_revision"] = result["auth_result_revision"]
     payload = json.dumps(
-        {
-            "handled": bool(result["handled"]),
-            "response": result.get("response"),
-            "agent_message": result.get("agent_message"),
-        },
+        data,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -89,13 +71,33 @@ def decode_protected(content, session_secret):
         data = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
         if (
             not isinstance(data, dict)
-            or set(data) != {"handled", "response", "agent_message"}
+            or set(data)
+            not in (
+                {"handled", "response", "agent_message"},
+                {"handled", "response", "agent_message", "sealed_auth"},
+                {"handled", "response", "agent_message", "auth_result_revision"},
+            )
             or type(data["handled"]) is not bool
         ):
             return None
         if any(
             data[key] is not None and not isinstance(data[key], str)
             for key in ("response", "agent_message")
+        ):
+            return None
+        if "sealed_auth" in data and (
+            not isinstance(data["sealed_auth"], str)
+            or data["handled"]
+            or data["response"] is not None
+            or data["agent_message"] is not None
+        ):
+            return None
+        if "auth_result_revision" in data and (
+            type(data["auth_result_revision"]) is not int
+            or data["auth_result_revision"] < 0
+            or data["handled"]
+            or data["response"] is not None
+            or data["agent_message"] not in {"identity_verified", "auth_attempts_exhausted"}
         ):
             return None
         return data
@@ -149,6 +151,7 @@ class IdentityService:
         context.expires_at = None
         context.candidate_reference = None
         context.challenge_state = "none"
+        context.auth_failures = 0
         context.selected_debt_id = None
         # Sending may have crossed the external boundary; never convert it to a retry.
         session.execute(
@@ -173,6 +176,7 @@ class IdentityService:
                 "identity_revision": context.identity_revision,
                 "candidate_reference": context.candidate_reference,
                 "challenge_state": context.challenge_state,
+                "auth_failures": context.auth_failures,
                 "binding_ref": str(context.binding_ref),
                 "customer_id": str(context.customer_id) if context.customer_id else None,
                 "grant_token": context.central_grant,
@@ -268,44 +272,100 @@ class IdentityService:
             "requires_document": True,
         }
 
-    async def intercept(self, thread_id, content, has_attachments=False, message_id=""):
-        """Must run before logging, queue insertion, checkpointing or model input."""
-        content = content if isinstance(content, str) else ""
-        normalized = content.strip().casefold().rstrip(".!? ")
-        snapshot = self.snapshot(thread_id)
-        if normalized in CHANGE:
+    async def manage(self, thread_id, action):
+        """Apply an agent-selected identity transition; only PIN verification grants access."""
+        if action == "change_customer":
             await self.invalidate(thread_id)
-            return _result(
-                True,
-                "Gestionaremos otro registro. Indica tipo y número de documento para localizarlo.",
+            return {"challenge_state": "none", "requires_document": True, "verified": False}
+        if action not in {"confirm_candidate", "reject_candidate"}:
+            raise DomainError(
+                "invalid_identity_action", "Acción de identidad inválida.", status=422
             )
-        if snapshot["challenge_state"] == "awaiting_confirmation":
-            if has_attachments:
-                return _result(
-                    True, "Confirma por escrito: ¿quieres gestionar ese registro? Responde sí o no."
+        self.snapshot(thread_id)  # Expiration revokes authority durably before any transition.
+        with self.sessions.begin() as session:
+            context = self._context(session, thread_id)
+            if (
+                not context.candidate_reference
+                or context.challenge_state not in {"awaiting_confirmation", "awaiting_pin"}
+                or context.expires_at is None
+                or _datetime(context.expires_at) <= utcnow()
+            ):
+                raise DomainError(
+                    "candidate_unavailable",
+                    "Localiza un registro vigente antes de confirmarlo.",
+                    status=409,
                 )
-            if normalized in YES:
+            if action == "confirm_candidate":
+                if context.challenge_state != "awaiting_pin":
+                    context.auth_failures = 0
+                context.challenge_state = "awaiting_pin"
+                return {
+                    "challenge_state": "awaiting_pin",
+                    "requires_pin": True,
+                    "verified": False,
+                    "pin_instructions": PIN_INSTRUCTIONS,
+                    "response": AUTH_PROMPT,
+                }
+        await self.invalidate(thread_id)
+        return {"challenge_state": "none", "requires_document": True, "verified": False}
+
+    async def _clear_auth_history(self, thread_id, result):
+        if result.get("agent_message") == "auth_attempts_exhausted" and self.clear_context:
+            cleared = self.clear_context(thread_id)
+            if inspect.isawaitable(cleared):
+                await cleared
+
+    def _save_auth_result(self, session, context, event, result):
+        if event is not None:
+            stored = session.get(InboxEvent, event.id, with_for_update=True)
+            if stored is None:
+                raise DomainError("auth_event_missing", "Mensaje de validación no disponible.", 409)
+            # The counter and erased ciphertext commit atomically. Event routing
+            # and its original identity revision are immutable (backend_0002).
+            if result.get("agent_message") in {"identity_verified", "auth_attempts_exhausted"}:
+                result = {**result, "auth_result_revision": context.identity_revision}
+            stored.normalized_content = encode_protected(result, self.settings.session_secret)
+            stored.attachments = []
+            session.flush()
+            event.normalized_content = stored.normalized_content
+            event.attachments = []
+        return result
+
+    async def _authenticate(
+        self,
+        thread_id,
+        content,
+        has_attachments,
+        message_id,
+        *,
+        event=None,
+        expected_revision=None,
+        expected_candidate=None,
+    ):
+        snapshot = self.snapshot(thread_id)
+        if snapshot["challenge_state"] != "awaiting_pin" or (
+            expected_revision is not None
+            and (
+                snapshot["identity_revision"] != expected_revision
+                or snapshot["candidate_reference"] != expected_candidate
+            )
+        ):
+            result = _result(
+                True,
+                "La validación venció o cambió. Indica tipo y número de documento para comenzar de nuevo.",
+            )
+            if event is not None:
                 with self.sessions.begin() as session:
                     context = self._context(session, thread_id)
-                    context.challenge_state = "awaiting_pin"
-                return _result(
-                    True,
-                    "Registro confirmado. Escribe el PIN de acceso de ese registro; no envíes imágenes ni audio.",
-                )
-            if normalized in NO:
-                await self.invalidate(thread_id)
-                return _result(
-                    True, "Indica tipo y número de documento del registro que quieres gestionar."
-                )
-            return _result(
-                True,
-                "Antes de continuar, confirma si quieres gestionar ese registro. Responde sí o no.",
-            )
-        if snapshot["challenge_state"] == "awaiting_pin":
-            if has_attachments or not PIN.fullmatch(content.strip()):
-                return _result(
-                    True, "Escribe únicamente el PIN de acceso. No se valida por audio o imagen."
-                )
+                    self._save_auth_result(session, context, event, result)
+            return result
+        content = content if isinstance(content, str) else ""
+        numeric_pin = PIN.fullmatch(content.strip())
+        verified = None
+        unavailable = False
+        temporary_failure = False
+        locked = False
+        if not has_attachments and numeric_pin:
             try:
                 verified = await self.central.request(
                     "POST",
@@ -320,47 +380,125 @@ class IdentityService:
                     idempotency_key="verify-" + str(message_id),
                 )
             except DomainError as exc:
-                if exc.status == 423:
-                    return _result(
-                        True,
-                        "La validación está temporalmente bloqueada. Intenta de nuevo más tarde.",
-                    )
-                if exc.status in {404, 409, 410}:
-                    await self.invalidate(thread_id)
-                    return _result(
-                        True,
-                        "La validación venció. Indica tipo y número de documento para comenzar de nuevo.",
-                    )
-                if exc.status in {401, 403, 422}:
-                    return _result(
-                        True, "El PIN no es válido. Revisa el código e intenta de nuevo."
-                    )
-                return _result(
-                    True,
-                    "No se pudo validar el PIN en este momento. Intenta de nuevo en unos instantes.",
+                unavailable = exc.status in {404, 409, 410}
+                temporary_failure = exc.status not in {401, 403, 404, 409, 410, 422, 423}
+                locked = exc.status == 423
+        with self.sessions.begin() as session:
+            context = self._context(session, thread_id)
+            self._expire(session, context)
+            if (
+                context.identity_revision != snapshot["identity_revision"]
+                or context.challenge_state != "awaiting_pin"
+                or context.candidate_reference != snapshot["candidate_reference"]
+            ):
+                result = _result(
+                    True, "La validación cambió. Comienza de nuevo con el documento del registro."
                 )
-            with self.sessions.begin() as session:
-                context = self._context(session, thread_id)
-                if (
-                    context.identity_revision != snapshot["identity_revision"]
-                    or context.challenge_state != "awaiting_pin"
-                ):
-                    return _result(
-                        True,
-                        "La validación cambió. Comienza de nuevo con el documento del registro.",
-                    )
+            elif verified is not None:
                 context.customer_id = UUID(str(verified["customer_id"]))
                 context.central_grant = verified["grant_token"]
                 context.expires_at = _datetime(verified["expires_at"])
                 context.challenge_state = "verified"
                 context.candidate_reference = None
-            return _result(False, agent_message="identity_verified")
-        if PIN.fullmatch(content.strip()) or PIN_MENTION.search(content):
-            return _result(
-                True,
-                "Por seguridad, primero localicemos y confirmemos el registro. Indica tipo y número de documento.",
+                context.auth_failures = 0
+                result = _result(False, agent_message="identity_verified")
+            elif unavailable:
+                self._clear(session, context)
+                result = _result(
+                    True,
+                    "La validación venció. Indica tipo y número de documento para comenzar de nuevo.",
+                )
+            elif temporary_failure:
+                result = _result(
+                    True,
+                    "No se pudo validar el PIN en este momento. Intenta de nuevo en unos instantes.",
+                )
+            else:
+                context.auth_failures = min(context.auth_failures + 1, 3)
+                if context.auth_failures >= 3:
+                    self._clear(session, context)
+                    context.auth_failures = 3
+                    result = _result(False, agent_message="auth_attempts_exhausted")
+                else:
+                    reason = (
+                        "El mensaje no está en el formato esperado."
+                        if has_attachments or not numeric_pin
+                        else "El PIN no es válido."
+                    )
+                    if locked:
+                        reason = "La validación está temporalmente bloqueada. Intenta de nuevo más tarde."
+                    remaining = 3 - context.auth_failures
+                    opportunities = (
+                        "Te queda 1 oportunidad."
+                        if remaining == 1
+                        else f"Te quedan {remaining} oportunidades."
+                    )
+                    result = _result(True, f"{reason} {PIN_INSTRUCTIONS} {opportunities}")
+            result = self._save_auth_result(session, context, event, result)
+        await self._clear_auth_history(thread_id, result)
+        return result
+
+    async def intercept(self, thread_id, content, has_attachments=False, message_id=""):
+        """Worker/direct-call gate. Outside awaiting_pin every string is agent data.
+
+        Callers serialize the thread. Durable queue processing uses consume_auth so
+        replaying a source message cannot consume another authentication attempt.
+        """
+        content = content if isinstance(content, str) else ""
+        if self.snapshot(thread_id)["challenge_state"] != "awaiting_pin":
+            return _result(False, agent_message=content)
+        return await self._authenticate(thread_id, content, has_attachments, message_id)
+
+    async def consume_auth(self, event):
+        """Consume a signed ticket under the caller's thread lock, after HTTP ACK.
+
+        Reload the durable result before decoding: a detached event may still carry
+        a ticket from before a worker failure. Never return decrypted text to callers.
+        """
+        with self.sessions() as session:
+            stored = session.get(InboxEvent, event.id)
+            if stored is None:
+                raise DomainError("auth_event_missing", "Mensaje de validación no disponible.", 409)
+            content = stored.normalized_content
+            event.normalized_content = content
+            event.identity_revision = stored.identity_revision
+            event.attachments = list(stored.attachments)
+        protected = decode_protected(content, self.settings.session_secret)
+        if protected is None:
+            return None
+        if "sealed_auth" not in protected:
+            await self._clear_auth_history(event.thread_id, protected)
+            return protected
+        try:
+            payload = unseal_auth(protected["sealed_auth"], self.settings.session_secret)
+            if (
+                not isinstance(payload, dict)
+                or payload.get("thread_id") != event.thread_id
+                or payload.get("message_id") != str(event.message_id)
+                or payload.get("account_id") not in {None, str(event.account_id)}
+                or type(payload.get("identity_revision")) is not int
+                or not isinstance(payload.get("candidate_reference"), str)
+                or not isinstance(payload.get("content"), str)
+                or type(payload.get("has_attachments")) is not bool
+            ):
+                raise ValueError("invalid authentication binding")
+        except (InvalidToken, ValueError, UnicodeError, TypeError):
+            result = _result(
+                True, "La validación cambió. Comienza de nuevo con el documento del registro."
             )
-        return _result(False, agent_message=content)
+            with self.sessions.begin() as session:
+                context = self._context(session, event.thread_id)
+                self._save_auth_result(session, context, event, result)
+            return result
+        return await self._authenticate(
+            event.thread_id,
+            payload["content"],
+            payload["has_attachments"],
+            event.message_id,
+            event=event,
+            expected_revision=payload["identity_revision"],
+            expected_candidate=payload["candidate_reference"],
+        )
 
     async def select_debt(self, thread_id, debt_id):
         snapshot = self.snapshot(thread_id)
@@ -404,42 +542,54 @@ class IdentityService:
     async def protect_incoming(
         self, source_id, content, has_attachments=False, message_id="", *, persist, account_id=None
     ):
-        """persist(safe_content) must enqueue before this method releases the thread lock.
+        """Persist encrypted authentication input without central/provider requests.
 
-        It may be sync or async. Worker decodes signed content using
-        decode_protected(event.normalized_content, settings.session_secret), handles
-        response deterministically or passes ONLY agent_message to the graph.
-        Attachment content must also be discarded when handled=True.
+        The callback durably inserts the signed envelope before returning. Only the
+        worker may consume its encrypted payload, after ingress returns HTTP 200.
         """
         validate_source_id(source_id)
-        with self.sessions() as lock_session, thread_lock(lock_session, source_id):
-            query = select(InboxEvent).where(
-                InboxEvent.thread_id == source_id, InboxEvent.message_id == str(message_id)
+        query = select(InboxEvent).where(
+            InboxEvent.thread_id == source_id, InboxEvent.message_id == str(message_id)
+        )
+        if account_id is not None:
+            query = query.where(InboxEvent.account_id == str(account_id))
+        with self.sessions() as session:
+            existing = session.scalar(query.limit(1))
+            if existing is not None:
+                return {
+                    "duplicate": True,
+                    "event": existing,
+                    "result": decode_protected(
+                        existing.normalized_content, self.settings.session_secret
+                    ),
+                }
+        # Sender text, including forged envelope prefixes, remains untrusted data
+        # inside our signed envelope; only this outer signature is authoritative.
+        content = content if isinstance(content, str) else ""
+        snapshot = self.snapshot(source_id)
+        if snapshot["challenge_state"] == "awaiting_pin":
+            result = _result()
+            result["sealed_auth"] = seal_auth(
+                {
+                    "thread_id": source_id,
+                    "message_id": str(message_id),
+                    "account_id": str(account_id) if account_id is not None else None,
+                    "identity_revision": snapshot["identity_revision"],
+                    "candidate_reference": snapshot["candidate_reference"],
+                    "content": content,
+                    "has_attachments": bool(has_attachments),
+                },
+                self.settings.session_secret,
             )
-            if account_id is not None:
-                query = query.where(InboxEvent.account_id == str(account_id))
-            with self.sessions() as session:
-                existing = session.scalar(query.limit(1))
-                if existing is not None:
-                    return {
-                        "duplicate": True,
-                        "event": existing,
-                        "result": decode_protected(
-                            existing.normalized_content, self.settings.session_secret
-                        ),
-                    }
-            # Never trust an envelope supplied by a browser or channel sender.
-            if isinstance(content, str) and content.startswith(PREFIX):
-                result = _result(True, "Ese mensaje no es válido. Envía tu consulta por escrito.")
-            else:
-                result = await self.intercept(source_id, content, has_attachments, message_id)
-            safe_content = encode_protected(result, self.settings.session_secret)
-            event = persist(safe_content)
-            if inspect.isawaitable(event):
-                event = await event
-            return {
-                "duplicate": False,
-                "event": event,
-                "result": result,
-                "safe_content": safe_content,
-            }
+        else:
+            result = _result(False, agent_message=content)
+        safe_content = encode_protected(result, self.settings.session_secret)
+        event = persist(safe_content)
+        if inspect.isawaitable(event):
+            event = await event
+        return {
+            "duplicate": False,
+            "event": event,
+            "result": result,
+            "safe_content": safe_content,
+        }

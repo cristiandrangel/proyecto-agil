@@ -22,6 +22,7 @@ dependencies = [
   "mutagen>=1.47",
   "tiktoken>=0.9",
   "boto3>=1.43.123",
+  "cryptography>=46",
 ]
 
 [build-system]

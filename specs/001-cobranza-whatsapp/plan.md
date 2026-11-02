@@ -139,16 +139,30 @@ No quedan decisiones de diseño marcadas NEEDS CLARIFICATION.
 
 ### Responsabilidad y secuencia
 
-1. El webhook valida autenticidad, cuenta/inbox y tipo; persiste mensaje normalizado
-   sin PIN ni secretos y responde. Un PIN se procesa por la ruta determinista de
-   identidad antes de guardar texto conversacional o llamar al modelo.
-2. El worker toma trabajo durable y obtiene exclusión de thread. Comprueba
-   el estado real pending y la sesión; rechaza notas/salidas o mensajes repetidos.
-3. Descarga medios con límites, transcribe o extrae contexto no verificado. Reserva
-   gasto antes de cada llamada, incluso las de preprocesamiento.
+1. El webhook valida firma, cuenta/inbox y tipo de evento; prepara transporte y
+   persiste inbox/trabajo durable local antes del HTTP 200, sin consultas de negocio.
+   Durante awaiting_pin / waiting_auth cifra temporalmente el contenido con Fernet;
+   el PIN en claro y su sobre cifrado no entran a prompts, checkpoints ni Langfuse.
+2. El worker toma trabajo durable y obtiene exclusión de thread. Consulta pending,
+   control humano y revisión; evita repetir mensajes. En awaiting_pin, IdentityService.consume_auth
+   procesa TODOS los mensajes de forma estática: formato numérico de 4 a 8 dígitos
+   y verificación de PIN con central. Formato incorrecto, medio o PIN rechazado suma
+   un fallo local. Antes del tercero responde fijo; PIN correcto entrega
+   identity_verified; tercer fallo sale de auth sin autorización y entrega
+   auth_attempts_exhausted. Ambos eventos neutros pueden volver al agente. Tres
+   fallos locales no eluden el bloqueo de PIN de 15 minutos aplicado por central.
+3. Fuera de auth descarga medios con límites y transcribe o extrae contexto no
+   verificado. Reserva gasto antes de cada inferencia. Durante auth no procesa medios.
 4. El único nodo recupera contexto y ejecuta hasta cinco llamadas. Herramientas con
    esquemas estrictos, parallel_tool_calls=false y permisos derivados de la sesión;
    el modelo no suministra PIN, grant, cuenta, cliente ni claves de autorización.
+   Fuera de awaiting_pin, todos los mensajes admitidos llegan al nodo, incluidos
+   números aislados, sin regex global de PIN. El LLM decide confirmar, rechazar o
+   cambiar mediante manage_identity. confirm_candidate activa awaiting_pin con
+   contador cero y solicitud fija, sin inferencia posterior. Ninguna transición
+   concede cartera: solo la verificación de PIN. Tras agotamiento, el agente orienta
+   sin autorización y puede atender una petición de asesor, sin handoff automático.
+   El backend aplica siempre permisos fuera del LLM.
 5. El backend consulta central, crea orden/acuerdo allí y genera el enlace público.
    La web manda intención de aprobar/rechazar; no determina importe ni titularidad.
 6. La central aplica pago y condonación de manera atómica; el siguiente comprobante
@@ -297,15 +311,17 @@ generaciones de medios si existen, agente y encolado. Las llamadas `llm` y
 `tool.<nombre>` se intercalan dentro de `agent` según el ciclo real; no se añade
 una llamada ficticia para llenar el árbol. `audio` y `llm` son observaciones de
 tipo **generation**, con modelo, uso y coste; `agent` usa el tipo **agent**. El
-nombre de herramienta es uno de los ocho permitidos: `tool.locate_customer`,
-`tool.list_debts`, `tool.select_debt`, `tool.create_full_payment`,
+nombre de herramienta es uno de los nueve permitidos: `tool.locate_customer`,
+`tool.manage_identity`, `tool.list_debts`, `tool.select_debt`, `tool.create_full_payment`,
 `tool.quote_agreement`, `tool.accept_agreement`, `tool.verify_payment` o
 `tool.handoff_human`. Los nombres no se construyen con texto del usuario.
 
 La raíz abarca todo el procesamiento protegido, incluso un turno resuelto sin
-inferencias. El PIN escrito se intercepta antes del worker; `identity_gate` recibe
-solo el estado `handled` o `passed`, nunca el valor ni el texto original. Un turno
-interceptado no debe mostrar generaciones de agente que no ocurrieron.
+inferencias. Durante awaiting_pin, el ingreso prepara transporte Fernet temporal
+y el worker ejecuta el filtro estático después del acuse; `identity_gate` registra
+solo el resultado seguro, nunca el PIN en claro ni el sobre cifrado. Un turno
+estático no debe mostrar generaciones de agente que no ocurrieron. Fuera de auth
+no existe una intercepción global de números.
 
 | Correlación | Contrato |
 |---|---|
@@ -342,7 +358,7 @@ La estructura de observaciones y la autorización financiera no cambian.
 
 | Observación | Contenido con captura activada |
 |---|---|
-| `conversation` / `identity_gate` | Mensaje protegido y evolución del turno; el PIN interceptado solo produce estado resuelto `handled`/`passed`, sin valor. |
+| `conversation` / `identity_gate` | Mensaje protegido y evolución del turno; auth solo expone resultado seguro, sin PIN en claro ni sobre cifrado; fuera de auth no hay filtro global de números. |
 | `media_normalize`, `audio`, visión | Contexto, transcripción, extracción visual e inputs/outputs de procesamiento; audio e imagen completos usados como assets privados `LangfuseMedia`. |
 | `agent` | Prompt/contexto e historial usados, estado anterior y posterior, y respuesta generada. |
 | `llm` | Input completo realmente enviado al modelo y output disponible, sin razonamiento interno ni `encrypted_content`. |
@@ -358,9 +374,11 @@ herramientas siguen un catálogo fijo; no se construyen con texto del usuario.
 
 **Exclusiones en estructuras y texto:** se filtran los secretos conocidos de
 infraestructura, API keys, cabeceras `Authorization`, grants, capabilities y tokens
-de URL. Se conserva el resto del cuerpo de ejecución. El PIN **tecleado** se
-intercepta en ingreso antes de cola/modelo y solo deja el estado resuelto. No se
-captura razonamiento interno ni `encrypted_content`; los errores también se sanean.
+de URL. Se conserva el resto del cuerpo de ejecución. Durante awaiting_pin el
+contenido viaja a la cola cifrado temporalmente con Fernet y se procesa de forma
+estática en el worker. Ni el PIN en claro ni su sobre cifrado se capturan. Fuera
+de auth no hay protección automática de un código enviado espontáneamente. No
+se captura razonamiento interno ni `encrypted_content`; los errores se sanean.
 Los assets multimedia autorizados se almacenan completos en privado mediante
 `LangfuseMedia`. **No se hace OCR ni redacción automática previa del contenido
 visual o hablado del archivo**: la exclusión del PIN tecleado no garantiza eliminar

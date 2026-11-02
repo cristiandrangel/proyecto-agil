@@ -61,7 +61,7 @@ En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LA
 
 ## 2. Reconocer los datos de prueba
 
-**PIN ficticio: `2468` para todos los clientes.** Cuando se solicite documento, escribe el tipo y el número juntos, por ejemplo `CC 10000001`. No envíes solo los ocho dígitos: un código numérico aislado puede tratarse como PIN.
+**PIN ficticio: `2468` para todos los clientes.** Cuando se solicite documento, recomendamos escribir el tipo y el número juntos, por ejemplo `CC 10000001`, para mayor claridad. Fuera de la fase de PIN, un número aislado también llega al agente y puede interpretarse como identificación; no existe un filtro global que lo trate como PIN.
 
 | Persona ficticia | Documento | Situación inicial |
 |---|---|---|
@@ -117,14 +117,18 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 **Antes de responder:** debes haber recibido la plantilla en WhatsApp y tener abierta su conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Conserva también abierta la pestaña de campaña de la central.
 
 1. Desde tu **WhatsApp**, responde a la plantilla con `Hola, quiero revisar mi deuda`. Si la plantilla muestra el botón **Explícame más**, puedes pulsarlo una vez en lugar de escribir ese mensaje; no necesitas hacer ambas cosas.
-2. Espera la respuesta y comprueba en Chatwoot tanto tu mensaje entrante como la salida del bot. En este primer intercambio, verifica que el agente se presenta como Alex, explica el contexto de cobranza y la necesidad de autenticarte antes de dar detalles, y muestra una pista de identidad enmascarada si encontró un registro. La redacción es generada por el modelo y puede variar. **Revisa esta apertura antes de continuar; todavía no envíes el PIN.**
-3. Si muestra una pista de identidad, responde **sí** solo si corresponde al registro de Ana. Si pide documento o la búsqueda por teléfono no encuentra el registro, escribe `CC 10000001` y confirma la pista correcta.
-4. Cuando solicite el PIN, escribe **2468**, en un mensaje de texto independiente.
+2. Espera la respuesta y comprueba en Chatwoot tanto tu mensaje entrante como la salida del bot. En este primer intercambio, verifica que el agente se presenta como Alex, explica el contexto de cobranza y la necesidad de autenticarte antes de dar detalles, y muestra una pista con el nombre enmascarado y el documento completo si encontró un registro. La redacción es generada por el modelo y puede variar. **Revisa esta apertura antes de continuar; todavía no envíes el PIN.**
+3. Si muestra una pista de identidad, confírmala solo si corresponde al registro de Ana. Puedes responder **sí** o **dale** cuando quede claro que aceptas esa pista; el agente debe interpretar la respuesta y avanzar a solicitar el PIN. Si tu respuesta es ambigua, debe pedir aclaración. Si pide documento o la búsqueda por teléfono no encuentra el registro, escribe `CC 10000001` y confirma la pista correcta.
+4. Tras confirmar el candidato, el sistema entra en la fase estática de autenticación y solicita el PIN con una respuesta fija. Escribe **2468**, en un mensaje de texto independiente. Durante esa fase cada mensaje se evalúa como intento de autenticación: no se envía al modelo.
 5. Tras validar, debe consultar la cartera de Ana y mostrar hogar y telefonía. Responde: `Quiero gestionar hogar`.
 
-**Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. La pista de identidad permanece enmascarada. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN se verifica fuera del modelo. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
+**Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. El nombre de la pista permanece enmascarado; el tipo y número de documento se muestran completos antes de autenticar, por decisión de esta demo. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN escrito se verifica fuera del modelo. Confirmar la pista solo habilita el desafío, sin autorizar cartera. Tras un PIN correcto, el agente recibe una validación neutra y consulta las deudas. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
 
-**Formato de la pista:** los caracteres ocultos se representan con `•`; por ejemplo, para Ana: `A•a · CC 1••••••1`. Se conservan únicamente los extremos del primer nombre y del documento; los valores de uno o dos caracteres se ocultan completos. El agente copia la pista de la consulta en texto plano. Así los caracteres de ocultación no se confunden con los asteriscos de formato de WhatsApp. Las pistas antiguas ya enviadas conservan su aspecto anterior; el cambio se aplica a las nuevas consultas. Puedes continuar con **sí** si reconoces el registro, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
+**Formato de la pista en esta demo:** por ejemplo, para Ana: `A•a · CC 10000001`. El nombre conserva únicamente los extremos del primer nombre y oculta el resto con `•`; nombres de uno o dos caracteres se ocultan completos. El **tipo y número de documento se muestran completos, también antes del PIN**, para reconocer el registro que se va a gestionar. El agente copia literalmente la pista que entrega la herramienta, en texto plano, sin volver a ocultar el documento. Esto no autoriza cartera ni expone o valida el PIN. Las pistas antiguas ya enviadas conservan su formato anterior; la nueva consulta utiliza el formato actual. Puedes continuar con **sí** o **dale** si reconoces el registro y la intención es clara, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
+
+**Conversación durante la identificación:** antes de confirmar la pista, puedes responder con naturalidad: **sí**, **dale**, **no**, preguntas, asesor o cambio de cliente llegan al agente con su system prompt y memoria. El modelo interpreta la intención y usa `manage_identity`; si es ambigua, debe aclararla. Para comprobarlo, responde `dale` ante una pregunta clara de confirmación: debe activar la fase de PIN y devolver la solicitud fija, sin otra llamada al modelo después de confirmar.
+
+**Mientras espera el PIN (`awaiting_pin` / `waiting_auth`):** todos los mensajes van al brazo estático. Se admite únicamente un texto numérico de 4 a 8 dígitos. Un formato incorrecto, un medio o un PIN rechazado cuenta como un intento fallido; antes del tercer fallo recibe una respuesta fija para reintentar. Un PIN correcto termina la fase y entrega al agente el evento neutro `identity_verified`, sin el código; el agente consulta las deudas. Al tercer fallo termina la fase **sin autorización** y llega al agente `auth_attempts_exhausted` para orientar la continuación. Esto no transfiere automáticamente a un asesor; después puedes pedirlo. El contador local de tres mensajes fallidos no elimina el bloqueo de PIN de 15 minutos aplicado por central. Estas son acciones y resultados esperados; su ejecución real se registra por separado.
 
 ### 3.5. Pagar hogar sin descuento
 
@@ -189,7 +193,7 @@ Puedes seguir usando la misma conversación de WhatsApp en `pending`. No necesit
 3. Revisa en Langfuse la generación `audio`, su transcripción y el archivo privado. Para una imagen, revisa la generación visual y su asset.
 4. Puedes reenviar las dos capturas de Ana con un texto que identifique cada servicio. Los medios se procesan en orden y cada verificación debe respetar la deuda seleccionada; si hay ambigüedad, el agente debe pedir aclaración, no mezclar saldos.
 
-Usa notas de voz de 5–10 segundos para una prueba breve. Los archivos admiten hasta 5 MiB; audio, hasta 60 segundos. Hay soporte PNG/JPEG/WebP y OGG/WAV/MP3. WebM requiere duración y audio válidos comprobables con `ffprobe`. Un archivo inválido o ilegible no debe producir datos inventados. No uses audio o imagen para dar el PIN: cuando se pide, debe escribirse; durante ese desafío no se procesan medios.
+Usa notas de voz de 5–10 segundos para una prueba breve. Los archivos admiten hasta 5 MiB; audio, hasta 60 segundos. Hay soporte PNG/JPEG/WebP y OGG/WAV/MP3. WebM requiere duración y audio válidos comprobables con `ffprobe`. Un archivo inválido o ilegible no debe producir datos inventados. No uses audio o imagen para dar el PIN: debe escribirse en un mensaje de texto independiente. Durante `awaiting_pin`, un medio se trata como formato no válido y consume un intento; no se transcribe ni se envía a visión o al agente. Fuera de esa fase, los medios siguen el procesamiento habitual. Un código hablado o visible en una imagen no autentica. La protección del PIN tecleado no garantiza detectar u ocultar secretos dentro de audios o imágenes, cuyos archivos pueden procesarse y almacenarse en la captura privada autorizada.
 
 ### 4.2. Rechazo, vencimiento y pago repetido
 
@@ -206,12 +210,12 @@ Para probar edición sin gasto de IA, pulsa **Deuda** y modifica mora o servicio
 
 ### 4.3. Aislamiento, identidad equivocada y cambio de titular
 
-1. En la conversación de Ana, envía `Cambiar cliente`. El sistema debe revocar la autorización anterior y pedir otra identificación.
+1. En la conversación de Ana, envía `Cambiar cliente`. El agente debe entender la intención, solicitar la transición con `manage_identity` y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de `awaiting_pin`; durante esa fase todos los mensajes se tratan como intentos de autenticación.
 2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN.
 3. Selecciona hogar: debe mostrar USD 200. Las deudas de Ana no pasan a ser de Bruno ni siguen como selección activa.
 4. Para volver a Ana, repite **Cambiar cliente**, `CC 10000001`, confirmación y PIN. Cambiar titular siempre exige validación nueva.
 
-Para comprobar un candidato equivocado, responde **no** a su pista antes del PIN y proporciona luego el documento correcto. Para un documento inexistente, usa un tipo/número ficticio que no esté en la tabla: no debe inventar una coincidencia ni revelar deudas. Un único PIN incorrecto debe impedir el acceso; deja la prueba de **tres errores** para el final.
+Para comprobar un candidato equivocado, responde **no** a su pista antes de confirmar el candidato y entrar en la fase PIN y proporciona luego el documento correcto. El agente debe interpretar el rechazo con su memoria y usar `manage_identity`; esa herramienta no valida un PIN ni concede acceso financiero. Para un documento inexistente, usa un tipo/número ficticio que no esté en la tabla: no debe inventar una coincidencia ni revelar deudas. Un único PIN incorrecto debe impedir el acceso; deja la prueba de **tres errores** para el final.
 
 No cambies el teléfono de Bruno para este ejercicio: se permite gestionar otro titular tras validar su PIN desde la misma conversación. La campaña del camino principal solo atribuye resultados reales a Ana; este cambio no convierte a Bruno en destinatario real de esa campaña.
 
@@ -316,6 +320,7 @@ conversation                 una ejecución de un mensaje
 │   └── llm [modality=vision] generation y asset de imagen, si se utilizó
 ├── agent                    tipo agent
 │   ├── llm                  una generation por llamada real
+│   ├── tool.manage_identity confirmación, rechazo o cambio; sin autorizar cartera
 │   ├── tool.list_debts       argumentos y resultado de esa operación
 │   ├── tool.select_debt      herramientas y llamadas en su orden real
 │   └── …
@@ -323,7 +328,7 @@ conversation                 una ejecución de un mensaje
     └── delivery             envío asíncrono, incluso tras reiniciar el worker
 ```
 
-Un turno puede resolverse sin LLM. Las observaciones comparten el `event_id` y una sesión técnica `opaque_id(source_id)`. LangGraph sigue usando el `source_id` literal como `thread_id`; el hash de sesión no anonimiza el contenido de los inputs, que puede incluir ese valor. Reintentar un trabajo puede producir otra ejecución del mismo evento.
+Durante `awaiting_pin`, el filtro estático procesa todos los mensajes sin LLM. La solicitud inicial de PIN tras `manage_identity(confirm_candidate)` también es fija y termina ese bucle del agente. Un PIN correcto entrega `identity_verified`; el tercer fallo entrega `auth_attempts_exhausted` sin autorización, y ambos eventos neutros permiten volver al agente. Fuera de esa fase, todos los mensajes admitidos llegan al nodo, incluidos números aislados. Los controles de canal, estado humano, duplicados y presupuesto siguen aplicándose. Las observaciones comparten el `event_id` y una sesión técnica `opaque_id(source_id)`. LangGraph conserva el `source_id` literal como `thread_id`; el hash de sesión no anonimiza los inputs. Reintentar un trabajo puede producir otra ejecución del mismo evento.
 
 Outbox guarda el contexto de traza del padre y lo restaura al enviar. En un handoff, `delivery` puede ser hijo de `tool.handoff_human`. Las filas antiguas sin ese contexto pueden mostrar otra raíz `delivery`, localizable por sesión/evento. **La duración de la raíz no incluye la espera del envío asíncrono.** `sent` es aceptación de la API; `failed`, `uncertain`, `cancelled` y `deferred` representan fallo, incertidumbre, cancelación o espera. Ninguno sustituye evidencia de entrega de WhatsApp.
 
@@ -333,7 +338,7 @@ La configuración entregada usa **`LANGFUSE_CAPTURE_CONTENT=true`** para depurac
 
 Con **`LANGFUSE_CAPTURE_CONTENT=false`** se exportan solo metadatos operativos, sin ese contenido. Esta opción reemplaza la política anterior de limitar toda la telemetría a metadatos. Las trazas históricas permanecen como se exportaron, **sin backfill**; un turno nuevo puede incluir el historial que realmente utiliza. Apagar la captura no borra contenido ya exportado.
 
-Se filtran los secretos conocidos en JSON/texto: claves de infraestructura, API keys, `Authorization`, grants, capabilities y tokens de enlaces. No se captura razonamiento interno ni `encrypted_content`. El **PIN tecleado** se intercepta antes de cola/modelo y solo deja el paso resuelto. Los archivos autorizados se almacenan completos, **sin OCR ni redacción automática previa de información escrita o hablada**: no se promete ocultar PIN u otros secretos dentro de imágenes o audios. Chatwoot externo conserva sus mensajes y puede registrar payloads al reintentar.
+Se filtran los secretos conocidos en JSON/texto: claves de infraestructura, API keys, `Authorization`, grants, capabilities y tokens de enlaces. No se captura razonamiento interno ni `encrypted_content`. Durante la fase de autenticación, el ingreso cifra temporalmente el contenido para transportarlo a la cola mediante Fernet. El worker lo procesa fuera del modelo; ni el PIN en claro ni su sobre cifrado se copian al historial del agente o a Langfuse. Fuera de esa fase no hay un filtro global de números ni protección automática de un código que el usuario envíe espontáneamente. Los archivos autorizados se almacenan completos, **sin OCR ni redacción automática previa de información escrita o hablada**: no se promete ocultar PIN u otros secretos dentro de imágenes o audios. Chatwoot externo conserva sus mensajes y puede registrar payloads al reintentar.
 
 La captura de texto tiene límites de **1 000 000 de caracteres por cadena**, **40 niveles de profundidad** y **20 000 elementos**. Al alcanzarlos aparecen marcadores explícitos, como `[TRUNCATED:original_chars=…]`, `[TRUNCATED:max_depth]` o `[TRUNCATED:max_items]`. Un objeto marcado no se presenta como completo; estos límites no sustituyen los archivos multimedia.
 
@@ -357,9 +362,11 @@ Para detener conservando datos:
 docker compose --env-file .env -f infra/compose.yaml stop
 ```
 
-### Prueba final opcional de bloqueo de PIN
+### Prueba final opcional de intentos y bloqueo de PIN
 
-Ejecuta esta prueba **al final**, con un fixture que ya no necesites para el resto del recorrido. Inicia su identificación, confirma la pista y envía tres PIN incorrectos en mensajes distintos. El cliente debe quedar bloqueado durante **15 minutos**, incluso si se intenta con otro binding. Un PIN correcto durante ese bloqueo no debe dar acceso. La sesión normal de identidad dura **30 minutos**. No pruebes tres errores con Ana antes del camino principal.
+Ejecuta esta prueba **al final**, con un fixture que ya no necesites. Confirma su pista y comprueba que la solicitud de PIN es fija. Cada mensaje fallido en `awaiting_pin`, incluso uno de formato no numérico o un medio, consume uno de los **tres intentos locales**. Tras el tercero debe salir de esa fase sin conceder acceso; el agente recibe `auth_attempts_exhausted` y puede orientar la continuación. Puedes entonces pedir un asesor.
+
+Para comprobar además el bloqueo de central, utiliza **tres PIN numéricos incorrectos**: central debe bloquear al cliente durante **15 minutos**, incluso desde otro binding. Un PIN correcto durante ese bloqueo no debe dar acceso. Los errores de formato cuentan localmente y no se presentan como verificaciones numéricas ejecutadas en central. Reiniciar la fase local no elude el bloqueo central. La sesión de identidad validada dura **30 minutos**. No hagas esta prueba con Ana antes del camino principal.
 
 ### Cierre de la evaluación
 
@@ -409,9 +416,9 @@ La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticament
 
 ### Pruebas deterministas y límites de evidencia
 
-La última suite Docker completa registrada aprobó **303 pruebas**, sin fallos ni omitidas, el **1 de noviembre de 2026 a las 18:14:58 UTC**, en **35,70 segundos**, con limpieza posterior y Ruff aprobado. Después pasaron tres regresiones dirigidas del filtrado de secretos —45 casos deseleccionados, 0,61 segundos— y Ruff volvió a pasar. Esa ejecución dirigida no se presenta como otra suite completa ni se suma al conteo de 303.
+La última suite Docker completa registrada aprobó **351 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 01:53 UTC** —1 de noviembre, 20:53 en Bogotá—, en **40,85 segundos**. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
 
-El cambio de asteriscos a `•` en la pista de identidad se validó después con **40 pruebas enfocadas aprobadas en 16,02 segundos**, sobre PostgreSQL 17 aislado y sin proveedores externos. Conserva la ocultación y las verificaciones de identidad y pago; la nueva apariencia en WhatsApp debe comprobarse con una consulta posterior al despliegue.
+El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 351 casos ya verifica el documento completo con nombre enmascarado. La presentación actual en WhatsApp sigue pendiente de comprobar con una consulta posterior al despliegue.
 
 Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
 
@@ -423,6 +430,134 @@ docker compose -p proyecto-agil-tests -f infra/compose.test.yaml down
 ```
 
 El runner falla ante pruebas omitidas, fallos o referencias de evidencia sin ejecutar. Su modo `--live` permanece bloqueado: no sustituye este recorrido guiado ni demuestra integraciones reales.
+
+### Flujo técnico: del webhook a la respuesta, como un AI Agent de n8n
+
+La caja **AI Agent** equivale al agente con modelo, instrucciones, memoria y herramientas que se reconoce en n8n. LangGraph mantiene un único nodo: `START → agent → END`; las llamadas a herramientas ocurren dentro de él. El brazo estático `awaiting_pin` / `waiting_auth` es control de autenticación fuera del agente. Este diagrama describe el recorrido acordado; su verificación y despliegue se registran por separado.
+
+```mermaid
+flowchart TD
+    WEB["Webhook: HMAC, scope y evento<br/>Sin red de negocio antes del acuse"]
+    STOP["Rechazar, ignorar o cancelar<br/>Sin invocar al agente"]
+    TRANSPORT["Preparar transporte local según fase<br/>Auth: Fernet temporal · resto: datos firmados"]
+    INBOX["Persistir inbox_event + trabajo durable<br/>Deduplicación por mensaje"]
+    ACK["HTTP 200: acuse del webhook<br/>No es la respuesta de WhatsApp"]
+    WORK["Worker: lock, deduplicación y revisión<br/>Consultar pending y control humano"]
+    AUTH{"¿awaiting_pin / waiting_auth?"}
+    STATIC["IdentityService.consume_auth: brazo estático<br/>Todos los mensajes · formato 4 a 8 dígitos<br/>PIN válido en formato: consultar central"]
+    RESULT{"Resultado de autenticación"}
+    OK["Salir de auth con autorización<br/>Evento neutro identity_verified"]
+    EXHAUST["Tercer fallo: salir sin autorización<br/>Evento neutro auth_attempts_exhausted"]
+    MEDIA["Fuera de auth: medios si existen<br/>Audio: transcripción · Imagen: visión LLM"]
+    LOAD["Recuperar checkpoint PostgreSQL<br/>thread_id = source_id literal"]
+    subgraph GRAPH["LangGraph conversacional"]
+        START(["START"])
+        AGENT["AI Agent · único nodo agent<br/>System prompt + contexto autorizado + historial<br/>LLM decide respuesta y herramientas"]
+        END(["END"])
+        START --> AGENT --> END
+    end
+    TOOLS["9 tools: llamadas dentro de agent<br/>Confirmar: awaiting_pin y contador cero"]
+    CENTRAL["Central + validaciones del backend<br/>PIN, bloqueo y permisos financieros"]
+    SAVE["Guardar checkpoint actualizado<br/>Mismo source_id literal"]
+    OUT["Persistir respuesta en outbox"]
+    DISPATCH["Dispatcher: revalidar pending y salida"]
+    CHAT["API Chatwoot → WhatsApp / Meta"]
+    LF["Langfuse: observación privada<br/>Sin PIN, grants ni sobre cifrado auth"]
+
+    WEB -->|admitido| TRANSPORT
+    WEB -->|firma, scope o evento no válido| STOP
+    TRANSPORT --> INBOX
+    INBOX --> ACK
+    INBOX --> WORK
+    WORK -->|control permite continuar| AUTH
+    WORK -->|humano, repetido o revisión invalidada| STOP
+    AUTH -->|sí| STATIC
+    STATIC -->|formato válido| CENTRAL
+    CENTRAL -->|resultado PIN| STATIC
+    STATIC --> RESULT
+    RESULT -->|PIN correcto| OK
+    RESULT -->|fallo menor que 3: respuesta fija| OUT
+    RESULT -->|tercer fallo| EXHAUST
+    OK --> LOAD
+    EXHAUST --> LOAD
+    AUTH -->|no: todo mensaje llega al agente| MEDIA
+    MEDIA --> LOAD --> START
+    AGENT -->|llamada interna| TOOLS
+    TOOLS -->|resultado validado: continúa el nodo| AGENT
+    TOOLS -->|confirm_candidate: solicitud PIN fija, sin otra inferencia| END
+    TOOLS -->|cartera autorizada| CENTRAL
+    CENTRAL -->|resultado financiero| TOOLS
+    END --> SAVE --> OUT
+    OUT --> DISPATCH --> CHAT
+    WORK -.-> LF
+    AGENT -.-> LF
+    DISPATCH -.-> LF
+```
+
+El webhook valida firma, scope y evento y realiza persistencia local durable antes de responder **HTTP 200**. Las consultas de negocio a Chatwoot y central se hacen después en el worker; el dispatcher revalida el control antes del envío. Una conversación en `open` no llega al modelo. Durante la fase de autenticación, Fernet protege temporalmente el transporte a la cola; el PIN en claro y ese sobre cifrado quedan fuera de prompts, checkpoints y Langfuse. Firmar un sobre da integridad; el cifrado Fernet es la protección adicional del contenido de autenticación.
+
+Fuera de `awaiting_pin`, todos los mensajes admitidos —incluidos números aislados, `sí`, `no`, `dale`, preguntas, asesor, cambio de cliente y medios— pasan al agente. No existe una expresión regular global para interceptar PIN fuera de esa fase. Un texto que imite `agil.identity.v1.` se envuelve como datos del remitente: no permite fabricar una validación ni una respuesta protegida.
+
+Las nueve herramientas son `locate_customer`, `manage_identity`, `list_debts`, `select_debt`, `create_full_payment`, `quote_agreement`, `accept_agreement`, `verify_payment` y `handoff_human`. El modelo elige; el backend valida argumentos y permisos. `manage_identity(confirm_candidate)` activa `awaiting_pin`, reinicia el contador local a cero y devuelve la solicitud fija de PIN **sin otra inferencia**. Confirmar, rechazar o cambiar nunca concede cartera.
+
+En `awaiting_pin`, `IdentityService.consume_auth` procesa **todos** los mensajes de forma estática. Formato incorrecto o PIN rechazado consume un intento. Antes del tercero devuelve una respuesta fija; un PIN correcto produce `identity_verified`; el tercero produce `auth_attempts_exhausted` **sin sesión financiera**. Ambos eventos neutros retornan al nodo; después del agotamiento puede orientar y atender una petición de asesor. Los tres intentos locales no anulan el bloqueo central de 15 minutos por PIN incorrecto. Audio y visión solo se preparan fuera de auth; un PIN hablado o incrustado en una imagen no autentica. Langfuse observa y no orquesta.
+
+### Dónde aprende el LLM a usar las herramientas
+
+Hay dos fuentes que se envían juntas en cada llamada del nodo a Responses:
+
+1. **Instrucciones de uso y reglas:** [prompts.py](apps/backend/src/backend/agent/prompts.py) define el system prompt: cuándo localizar, confirmar, consultar cartera, pagar, verificar un recibo o derivar. [graph.py](apps/backend/src/backend/agent/graph.py) añade el contexto actual autorizado del servidor y selecciona el historial de memoria.
+2. **Catálogo ejecutable:** en [tools.py](apps/backend/src/backend/agent/tools.py), `TOOL_SCHEMAS` es la lista de definiciones que recibe el modelo. Cada función declara `name`, `description` y `parameters` (tipos, `required`, `enum` y rechazo de campos extra). El modelo recibe **tres herramientas antes de autenticar** —`locate_customer`, `manage_identity`, `handoff_human`— y **nueve con sesión validada**. Durante `awaiting_pin` responde el brazo estático y no se llama al modelo.
+
+`TEXT = {"type": "string"}` define un valor de texto. `OPTIONAL = {"type": ["string", "null"]}` permite texto o `null`; el nombre no significa que pueda omitirse la clave. En el esquema estricto, `_schema` incluye todas las propiedades en `required`: cuando un campo anulable no aplica, se envía su clave con `null`.
+
+La ruta concreta de envío de `tools` es esta (líneas de esta versión del código):
+
+- [graph.py, línea 169](apps/backend/src/backend/agent/graph.py#L169): pasa `tools=catalog` a `await inference.response(...)`, junto con `instructions` e `input`.
+- [integrations/openai.py, línea 208](apps/backend/src/backend/integrations/openai.py#L208): incorpora `"tools": tools or []` al diccionario `request` enviado al SDK.
+- [integrations/openai.py, línea 234](apps/backend/src/backend/integrations/openai.py#L234): ejecuta `await self.sdk.responses.create(**request)`. Esta es la llamada que envía la petición a OpenAI; definir `TOOL_SCHEMAS` por sí solo no la envía.
+
+Este fragmento JSON resume el payload; muestra una sola definición para explicar su forma. La petición real incluye el catálogo permitido completo, contexto, historial y opciones del modelo. No añade argumentos a las herramientas:
+
+```json
+{
+  "instructions": "SYSTEM_PROMPT + contexto actual autorizado del servidor",
+  "input": [{"role": "user", "content": "dale"}],
+  "tools": [{
+    "type": "function",
+    "name": "manage_identity",
+    "description": "Confirma o rechaza el candidato, o cambia de titular; no autentica.",
+    "strict": true,
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["confirm_candidate", "reject_candidate", "change_customer"]
+        }
+      },
+      "required": ["action"],
+      "additionalProperties": false
+    }
+  }]
+}
+```
+
+Ante una confirmación clara, el modelo puede pedir `manage_identity` con `{"action":"confirm_candidate"}`; para rechazar, `{"action":"reject_candidate"}`; para cambiar, `{"action":"change_customer"}`. **El PIN nunca es un argumento de herramienta ni una entrada del LLM durante autenticación.** La ejecución Python valida catálogo, esquema, estado y permisos. Normalmente devuelve un `function_call_output` al modelo para continuar el mismo bucle; confirmar el candidato termina ese bucle con la solicitud estática de PIN, sin otra inferencia. Tras `identity_verified`, el nodo solicita la consulta inicial de deudas.
+
+| Herramienta | Para qué sirve | Argumentos del modelo |
+|---|---|---|
+| `locate_customer` | Buscar persona; devolver nombre enmascarado y documento completo de la demo | `phone_e164` o `document_type` + `document_number`; los campos no usados van en `null` |
+| `manage_identity` | Confirmar/rechazar candidato o cambiar de persona; sin autorizar cartera | `action`, con los tres valores del ejemplo |
+| `list_debts` | Consultar cartera de la persona autenticada | `service_type`, o `null` sin filtro |
+| `select_debt` | Elegir una deuda de esa cartera | `debt_id` |
+| `create_full_payment` | Crear enlace por el saldo vigente, sin descuento | `debt_id` |
+| `quote_agreement` | Cotizar oferta de al menos el 80 %, sin aceptarla | `debt_id`, `offer_amount_usd` |
+| `accept_agreement` | Aceptar propuesta previa en otro mensaje y obtener enlace | `agreement_id` |
+| `verify_payment` | Consultar pago y validar persona/deuda del comprobante | `debt_id`, `payment_reference` o `null` |
+| `handoff_human` | Registrar atención humana y suspender automatización | `reason`, `offer_amount_usd` o `null`, `summary` |
+
+Los campos anulables siguen presentes en el esquema estricto, con valor `null` cuando no aplican. `reason` admite `requested`, `dispute`, `below_minimum`, `payment_unverified` o `technical_failure`. Importes de oferta son cadenas decimales en USD. El modelo aporta filtros, referencias obtenidas y la intención de gestión; el backend incorpora identidad validada, grant, mensaje origen, versiones y claves idempotentes. Esos datos de autorización no los elige el modelo. Central vuelve a comprobar titularidad, vigencia y condiciones financieras antes de producir efectos.
 
 ### Arquitectura y planes futuros
 

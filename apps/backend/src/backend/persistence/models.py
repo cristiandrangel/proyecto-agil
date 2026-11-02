@@ -140,11 +140,15 @@ class VerifiedContext(Base):
     identity_revision: Mapped[int] = mapped_column(Integer, default=0)
     candidate_reference: Mapped[str | None] = mapped_column(Text)
     challenge_state: Mapped[str] = mapped_column(String(30), default="none")
+    auth_failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     binding_ref: Mapped[UUID] = mapped_column(Uuid, default=uuid4, unique=True)
     customer_id: Mapped[UUID | None] = mapped_column(Uuid)
     central_grant: Mapped[str | None] = mapped_column(Text)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     selected_debt_id: Mapped[UUID | None] = mapped_column(Uuid)
+    __table_args__ = (
+        CheckConstraint("auth_failures BETWEEN 0 AND 3", name="ck_verified_context_auth_failures"),
+    )
 
 
 class Outbox(Record, Base):

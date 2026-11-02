@@ -30,7 +30,9 @@ Notas privadas, salidas propias y otros inbox no entran al agente.
 Adjuntos: id, file_type, content_type, data_url y tamaño si existe. Descargar en el
 backend verificando destino y cada redirect; no copiar tokens a otro host. El tipo
 real y límites prevalecen sobre extensión y metadata. Guardar mensaje normalizado
-y trabajo antes de ACK; PIN se intercepta sin persistir el texto secreto.
+y trabajo durable local antes de ACK, sin consultas de negocio. Durante awaiting_pin
+el contenido viaja cifrado temporalmente con Fernet; el worker valida el PIN con
+central después del acuse, sin copiarlo en claro ni llevar su sobre a LLM/trazas.
 Eventos creados antes del epoch de reset no inician turnos del escenario nuevo.
 
 ## Llave de memoria y destino de respuesta

@@ -294,7 +294,7 @@ async def test_pin_to_new_customer_neutral_message_and_ownership_after_recovery(
     store, conninfo = journey_store
     identity, handoff, central, thread = setup_services(store)
     await identity.locate(thread, {"phone_e164": "+573000000002"}, "locate")
-    await identity.intercept(thread, "sí", False, "confirm")
+    await identity.manage(thread, "confirm_candidate")
     protected = await identity.intercept(thread, "246810", False, "pin")
     assert protected["agent_message"] == "identity_verified"
     row = event(store, thread, 1)

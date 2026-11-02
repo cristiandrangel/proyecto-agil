@@ -4,11 +4,11 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Suite Docker aislada: 303 pruebas aprobadas, cero fallos y cero omitidas, en 35,70 segundos**, el 2026-11-01 a las 18:14:58 UTC. Se ejecutó el comando Compose de esta guía, construyendo una imagen nueva y usando PostgreSQL 17 y red interna sin credenciales externas. El contenedor de pruebas terminó con código 0 y después se eliminaron sus contenedores y red.
+- **Última suite Docker aislada: 351 pruebas aprobadas, cero fallos y cero omitidas, en 40,85 segundos**, finalizada el 2026-11-02 a las 01:53 UTC (1 de noviembre, 20:53 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
-- La suite final incluye las migraciones operativas **0001→0004**, caché/precio v2, contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants. Las regresiones más recientes cubren la plantilla fija, su BODY aprobado, pistas de identidad enmascaradas y la detección del primer turno desde el checkpoint.
+- La suite incluye las migraciones operativas **0001→0005**, caché/precio v2, contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants. Las regresiones más recientes cubren confirmación elegida por el agente, fase estática de PIN, transporte cifrado, ACK sin proveedores y nombre enmascarado con documento completo.
 - Migración central verificada con PostgreSQL 17: upgrade, comparación sin diferencias frente a los modelos, downgrade y nuevo upgrade. El test está en `test_frozen_alembic_upgrade_downgrade_matches_models`.
 - El lanzador `start.sh` tiene nueve pruebas de perfiles, URL y lectura segura de configuración. Se verificó que una cadena de comando dentro del token de `.env` no se ejecuta y que el perfil público precede a `up` solo cuando corresponde.
 - Reset probado con dos esquemas reales y AsyncPostgresSaver: tras un fallo de central persiste mantenimiento; repetir la misma operación completa el reset una sola vez, elimina checkpoints de la llave literal y conserva el consumo registrado.
@@ -41,10 +41,37 @@ La revisión de captura completa también detectó el alias `central_grant` en e
 snapshot de identidad. Se corrigió su redacción tanto en campos estructurados
 como en errores de texto. La regresión falló antes del cambio y pasó después:
 tres pruebas enfocadas con el SDK real, sin HTTP al proveedor. Las entradas de
-negocio y los importes siguen visibles. La suite completa de 303 casos citada
-arriba corresponde a la revisión anterior a esta regresión adicional.
+negocio y los importes siguen visibles. La suite histórica de 303 casos fue
+anterior a esta regresión; la última ejecución de 351 casos sí la incluye.
 
 ## Runtime y preflight de lectura
+
+### Revisión de confirmación, PIN y acuse del webhook
+
+La suite de 351 casos verifica que una confirmación como «dale» llega al único
+nodo y solo activa autenticación mediante `manage_identity(confirm_candidate)`.
+Ese resultado termina el turno con la solicitud fija de PIN, sin segunda llamada
+al modelo. Durante `awaiting_pin`, formato incorrecto y PIN rechazado incrementan
+un contador durable; duplicados no lo incrementan de nuevo. Tras el tercer fallo
+se entrega `auth_attempts_exhausted`, sin autorización financiera. Un PIN correcto
+entrega `identity_verified`; los fallos de infraestructura no consumen intento.
+
+Las regresiones de webhook comprueban HTTP 200 sin lecturas de Chatwoot, sin
+verificación de PIN ni inferencia en el ingreso, incluso si el worker tiene el
+lock del thread. Se exige la escritura local durable previa. El transporte de
+auth usa Fernet; el worker sustituye el sobre cifrado por el resultado seguro,
+sin copiarlo a checkpoint, modelo ni observaciones. Fuera de esa fase no hay
+filtro global de números ni protección automática de códigos espontáneos.
+
+La migración `backend_0005` también se verificó por separado en PostgreSQL 17
+aislado: upgrade con fila anterior existente y valor inicial cero, comparación
+sin diferencias frente a modelos, downgrade conservando la fila y nuevo upgrade.
+Después se actualizaron central, backend y worker, todos saludables. La base de
+desarrollo informa `backend_0005`; salud/readiness local y pública devolvieron
+200 y una comprobación ficticia del helper desplegado devolvió nombre enmascarado
+con documento completo. No se reinició la demo ni se enviaron mensajes o llamadas
+de inferencia durante esta actualización. El recorrido WhatsApp posterior al
+cambio sigue pendiente; estos resultados no acreditan esa aceptación completa.
 
 En desarrollo, `/health` y `/ready` locales respondieron 200; `/central`, 303 hacia `/login`; `/login`, 200, con `Cache-Control: no-store`. El preflight de lectura pasó completo en desarrollo y después en la instalación limpia: backend, central, tres modelos del catálogo, bandeja/relay y salud/autenticación SDK de Langfuse. Ambos se ejecutaron sin inferencia ni envíos; el fallo anterior de lectura de bandeja quedó resuelto.
 
@@ -157,8 +184,10 @@ siguen como fueron exportadas, sin backfill; nuevos turnos sí pueden contener e
 historial que utilizan. Apagar la opción no borra contenido ya exportado.
 
 Se filtran secretos conocidos de infraestructura en JSON/texto, API keys,
-`Authorization`, grants, capabilities y tokens de enlaces. El PIN **tecleado** se
-intercepta en el ingreso antes de cola/modelo; solo se ve el paso resuelto. Los
+`Authorization`, grants, capabilities y tokens de enlaces. El PIN **tecleado durante
+`awaiting_pin`** viaja cifrado temporalmente por la cola y se verifica en el worker
+antes del modelo; el sobre se sustituye por un resultado seguro, que es lo único
+capturado por la traza. Los
 archivos autorizados se capturan completos, **sin OCR ni redacción automática
 previa de información escrita o hablada**: no se garantiza ocultar PIN o secretos
 que formen parte de una imagen o audio. No se captura razonamiento interno ni
@@ -176,7 +205,7 @@ Output** para argumentos/resultados, y los pasos de medios para su contexto. La
 respuesta se contrasta en `response_enqueue → delivery`, conservando el significado
 de `sent` como aceptación de la API, sin inferir entrega de WhatsApp.
 
-**Pruebas deterministas aprobadas:** la suite Docker final registrada arriba
+**Pruebas deterministas de esa revisión:** la suite Docker histórica de captura
 incluye **303 pruebas**, el 2026-11-01 a las **18:14:58 UTC**, sin fallos ni
 omitidas, en 35,70 segundos; limpieza completada y Ruff aprobado. La nueva
 cobertura verifica dos turnos del worker con checkpoint e inputs/outputs, captura

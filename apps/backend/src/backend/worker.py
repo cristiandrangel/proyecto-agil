@@ -82,7 +82,14 @@ async def _process_turn(runtime, job, *, trace=None):
             runtime.queue.complete(job.id, job.claim_token)
             return "cancelled"
         snapshot = runtime.identity.snapshot(event.thread_id)
-        if event.identity_revision != snapshot["identity_revision"]:
+        protected = decode_protected(event.normalized_content, runtime.settings.session_secret)
+        # Authentication may durably finish and clear its revision before a worker
+        # retry. Only a signed auth outcome may resume under that newer revision.
+        event_revision = (
+            protected.get("auth_result_revision", event.identity_revision)
+            if protected else event.identity_revision
+        )
+        if event_revision != snapshot["identity_revision"]:
             if trace is not None:
                 trace.update(output={"status": "cancelled", "reason": "identity_revision_changed"})
             runtime.queue.complete(job.id, job.claim_token)
@@ -95,8 +102,11 @@ async def _process_turn(runtime, job, *, trace=None):
                 runtime.queue.complete(job.id, job.claim_token)
                 return "completed"
         await runtime.events.record_incoming(event)
+        # The ingress already ACKed this encrypted ticket. Only the worker may
+        # decrypt it, verify the PIN and replace it with a safe durable outcome.
+        protected = await runtime.identity.consume_auth(event)
+        snapshot = runtime.identity.snapshot(event.thread_id)
         with runtime.observability.span("identity_gate", event_id=event.id) as gate:
-            protected = decode_protected(event.normalized_content, runtime.settings.session_secret)
             if protected is None:
                 raise DomainError("unsafe_message", "Mensaje interno sin protección válida.", 422)
             if gate is not None:

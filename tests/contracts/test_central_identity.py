@@ -17,12 +17,12 @@ def test_central_app_exports_contract_routes():
 
 
 @pytest.mark.parametrize("name,document,expected", [
-    ("Cristian Pérez", "10000001", "C••••••n · CC 1••••••1"),
-    ("Ana Martínez López", "10000001", "A•a · CC 1••••••1"),
-    ("  María Pérez", "12345678", "M•••a · CC 1••••••8"),
-    ("Li Torres", "12", "•• · CC ••"),
-    ("A López", "1", "• · CC •"),
-    ("", "", "• · CC •"),
+    ("Cristian Pérez", "10000001", "C••••••n · CC 10000001"),
+    ("Ana Martínez López", "10000001", "A•a · CC 10000001"),
+    ("  María Pérez", "12345678", "M•••a · CC 12345678"),
+    ("Li Torres", "12", "•• · CC 12"),
+    ("A López", "1", "• · CC 1"),
+    ("", "", "• · CC "),
 ])
-def test_identity_hint_shows_only_edges_and_never_full_short_values(name, document, expected):
+def test_identity_hint_masks_name_and_keeps_document_visible(name, document, expected):
     assert masked_identity_hint(name, "CC", document) == expected

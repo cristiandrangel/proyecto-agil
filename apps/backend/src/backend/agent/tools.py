@@ -29,6 +29,15 @@ TOOL_SCHEMAS = [
         {"phone_e164": OPTIONAL, "document_type": OPTIONAL, "document_number": OPTIONAL},
     ),
     _schema(
+        "manage_identity",
+        "Confirma o rechaza el candidato según la intención del cliente, o cambia de titular. "
+        "Confirmar activa el brazo estático del PIN con tres oportunidades; nunca autentica "
+        "ni autoriza la cartera. No recibe códigos.",
+        {"action": {"type": "string", "enum": [
+            "confirm_candidate", "reject_candidate", "change_customer",
+        ]}},
+    ),
+    _schema(
         "list_debts", "Consulta las deudas del registro autenticado.", {"service_type": OPTIONAL}
     ),
     _schema(
@@ -86,7 +95,8 @@ class ToolRuntime:
             return []
         verified = self.identity.snapshot(self.event.thread_id)["verified"]
         return [
-            s for s in TOOL_SCHEMAS if verified or s["name"] in {"locate_customer", "handoff_human"}
+            s for s in TOOL_SCHEMAS
+            if verified or s["name"] in {"locate_customer", "manage_identity", "handoff_human"}
         ]
 
     def key(self, name, args):
@@ -133,6 +143,11 @@ class ToolRuntime:
             self.pending_agreement_id = self.active_order_id = None
             self.phase = "identify"
             return await self.identity.locate(self.event.thread_id, args, self.event.message_id)
+        if name == "manage_identity":
+            result = await self.identity.manage(self.event.thread_id, args["action"])
+            self.pending_agreement_id = self.active_order_id = None
+            self.phase = "awaiting_pin" if result.get("requires_pin") else "identify"
+            return result
         if name == "handoff_human":
             self.phase = "handoff_requested"
             return await self.handoff.request(self.event, **args)

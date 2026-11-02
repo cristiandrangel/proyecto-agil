@@ -68,7 +68,7 @@ def _challenge_group(group):
         "verify_payment",
     }
     calls = {item.get("name") for item in group["items"] if item.get("type") == "function_call"}
-    return "locate_customer" in calls or (
+    return bool(calls.intersection({"locate_customer", "manage_identity"})) or (
         not calls.intersection(financial)
         and any(
             item.get("role") == "user" and item.get("content") == "identity_verified"
@@ -112,11 +112,13 @@ def build_graph(checkpointer, *, runtime, inference, text):
                 current = _neutral_group(group_id)
                 groups = [current]
                 _clear_runtime(runtime)
+            snapshot = fresh
             context = {
                 "source_id": event.thread_id,
                 "identity_verified": snapshot["verified"],
                 "conversation_start": not any(group.get("complete") for group in state.get("messages", [])),
-                "identity_confirmation_complete": snapshot["verified"],
+                "identity_confirmation_complete": snapshot["verified"]
+                or snapshot.get("challenge_state") == "awaiting_pin",
                 "pin_validation_complete": snapshot["verified"],
                 "phase": runtime.phase,
                 "identity_challenge": snapshot.get("challenge_state", "none"),
@@ -209,15 +211,26 @@ def build_graph(checkpointer, *, runtime, inference, text):
             fresh = runtime.identity.snapshot(event.thread_id)
             if fresh["identity_revision"] != snapshot["identity_revision"]:
                 snapshot = fresh
-                # Only a fresh masked lookup survives the identity boundary. Neither
+                # Only the current identity tool result survives the identity boundary. Neither
                 # original text, reasoning, old balances nor previous tool groups survive.
                 current = _neutral_group(group_id)
-                if call.name == "locate_customer" and "code" not in result:
+                if call.name in {"locate_customer", "manage_identity"} and "code" not in result:
                     current["items"].extend(
                         [call.model_dump(mode="json", exclude_none=True), tool_output]
                     )
                 groups = [current]
                 _clear_runtime(runtime)
+            if call.name == "manage_identity" and result.get("requires_pin"):
+                # The model chose authentication; the next instruction and PIN
+                # retries belong to the static branch, without another LLM call.
+                current["complete"] = True
+                current["reply"] = result.get("pin_instructions") or result.get("response") or (
+                    "Para autenticarte, escribe únicamente tu PIN de acceso en el siguiente mensaje. "
+                    "No incluyas texto, audio ni imágenes."
+                )
+                runtime.phase = "awaiting_pin"
+                completed = True
+                break
             if runtime.phase == "handoff_requested" or runtime.handoff.blocked(event.thread_id):
                 current["complete"] = True
                 current["reply"] = (

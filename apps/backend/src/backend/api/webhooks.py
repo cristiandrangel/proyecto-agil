@@ -26,7 +26,9 @@ async def enqueue_message(
             message_id=message_id,
             source_id=source_id,
             content=safe_content,
-            attachments=[] if protected and protected["handled"] else attachments,
+            attachments=[]
+            if protected and (protected["handled"] or "sealed_auth" in protected)
+            else attachments,
             identity_revision=runtime.identity.snapshot(source_id)["identity_revision"],
         )
         return event
@@ -138,8 +140,9 @@ async def webhook(request: Request):
             received_at=event_time,
         )
     )
-    current = await runtime.channel.conversation(conversation_id)
-    if current.get("status") != "pending":
+    # Signed event metadata is enough to acknowledge promptly. The worker rechecks
+    # authoritative channel control before any authentication, media or inference.
+    if conversation.get("status") is not None and conversation.get("status") != "pending":
         return {"accepted": False, "reason": "human_control"}
     try:
         result = await enqueue_message(

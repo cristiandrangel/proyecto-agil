@@ -18,6 +18,7 @@ class Identity:
             "selected_debt_id": str(uuid4()),
         }
         self.selections = []
+        self.management = []
 
     def snapshot(self, _):
         return self.data.copy()
@@ -26,6 +27,11 @@ class Identity:
         self.selections.append((thread, debt))
         self.data["selected_debt_id"] = debt
         return {"id": debt}
+
+    async def manage(self, thread, action):
+        self.management.append((thread, action))
+        self.data.update(verified=False, grant_token=None, selected_debt_id=None)
+        return {"challenge_state": "awaiting_pin" if action == "confirm_candidate" else "none"}
 
 
 class Central:
@@ -105,7 +111,9 @@ def test_merge_dedupes_event_group_preserving_history():
 @pytest.mark.asyncio
 async def test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_grant():
     tool = runtime(False)
-    assert {item["name"] for item in tool.catalog()} == {"locate_customer", "handoff_human"}
+    assert {item["name"] for item in tool.catalog()} == {
+        "locate_customer", "manage_identity", "handoff_human"
+    }
     with pytest.raises(DomainError) as caught:
         await tool.execute("list_debts", {"service_type": None})
     assert caught.value.code == "tool_forbidden" and not tool.central.calls
@@ -116,6 +124,68 @@ async def test_pre_pin_catalog_and_strict_tool_schema_never_accept_identity_or_g
         assert caught.value.code == "invalid_tool_arguments"
     await tool.execute("list_debts", {"service_type": None})
     assert tool.central.calls[-1][2]["grant"] == "server-private-grant"
+
+
+def test_identity_tool_has_strict_action_enum_and_nine_tool_catalog():
+    tool = runtime()
+    assert len(tool.catalog()) == 9
+    schema = next(item for item in tool.catalog() if item["name"] == "manage_identity")
+    assert schema["strict"]
+    assert schema["parameters"] == {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["confirm_candidate", "reject_candidate", "change_customer"],
+            }
+        },
+        "required": ["action"],
+        "additionalProperties": False,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {},
+        {"action": "verify"},
+        {"action": "confirm_candidate", "grant_token": "forged"},
+        {"action": "confirm_candidate", "customer_id": str(uuid4())},
+        {"action": "confirm_candidate", "pin": "246810"},
+        {"action": None},
+        {"action": 123},
+        {"action": ["confirm_candidate"]},
+    ],
+)
+async def test_manage_identity_rejects_invalid_actions_and_server_owned_arguments(arguments):
+    tool = runtime(False)
+    with pytest.raises(DomainError) as caught:
+        await tool.execute("manage_identity", arguments)
+    assert caught.value.code == "invalid_tool_arguments"
+    assert not tool.identity.management and not tool.central.calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["confirm_candidate", "reject_candidate", "change_customer"])
+async def test_manage_identity_calls_backend_without_grant_or_financial_access(action):
+    tool = runtime(False)
+    await tool.execute("manage_identity", {"action": action})
+    assert tool.identity.management == [(tool.event.thread_id, action)]
+    assert not tool.identity.snapshot(tool.event.thread_id)["verified"]
+    assert not tool.central.calls
+    with pytest.raises(DomainError) as caught:
+        await tool.execute("list_debts", {"service_type": None})
+    assert caught.value.code == "tool_forbidden" and not tool.central.calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["reject_candidate", "change_customer"])
+async def test_identity_change_clears_pending_runtime_financial_references(action):
+    tool = runtime()
+    tool.pending_agreement_id, tool.active_order_id = str(uuid4()), str(uuid4())
+    await tool.execute("manage_identity", {"action": action})
+    assert tool.pending_agreement_id is None and tool.active_order_id is None
 
 
 @pytest.mark.asyncio

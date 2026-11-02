@@ -257,9 +257,9 @@ operación, permisos y efectos externos.
 | campaign | id, filter_snapshot, template_snapshot, created_at, launched_at, closed_at, followup_until, status, launch_key | Draft/running/completed/closed; una campaña activa por persona; segmento conservado para métricas |
 | campaign_recipient | id, campaign_id, customer_id, selected_debt_ids, contact_version, position, delivery_mode, destination_binding, account_id, inbox_id, conversation_id, thread_id, send_status | Único (campaign_id, customer_id); posición estable; simulated/sent/failed/uncertain/skipped separados; un mensaje inicial; no usar binding de otra versión del teléfono |
 | channel_binding | customer_id, contact_version, account_id, inbox_id, contact_id, source_id, conversation_id | Source_id opaco del inbox correcto; editar contacto invalida vinculación; resolver antes de envío |
-| inbox_event | id, account_id, inbox_id, message_id, conversation_id, thread_id, normalized_content, attachments, received_at, status | Unique (account_id, message_id); thread_id igual a source_id literal del contacto; sin PIN ni credenciales; privados/salidas no generan turno |
+| inbox_event | id, account_id, inbox_id, message_id, conversation_id, thread_id, normalized_content, attachments, received_at, status | Unique (account_id, message_id); thread_id igual a source_id literal del contacto; sin PIN en claro ni credenciales; transporte auth temporal cifrado, fuera de historial/trazas; privados/salidas no generan turno |
 | conversation_job | id, event_id, thread_id, state, attempts, next_attempt_at, last_error | Un trabajo por evento; orden por received_at e id; exclusión por thread, aun con varios conversation_id |
-| verified_context | thread_id, identity_revision, candidate_reference opcional, challenge_state, binding_ref, customer_id opcional, central_grant opcional, expires_at opcional, selected_debt_id opcional | Una fila por thread; candidato pendiente no equivale a cliente autenticado; grant privado solo para adaptador central, fuera del modelo y trazas |
+| verified_context | thread_id, identity_revision, candidate_reference opcional, challenge_state, auth_failures, binding_ref, customer_id opcional, central_grant opcional, expires_at opcional, selected_debt_id opcional | Una fila por thread; fallos locales de auth entre 0 y 3; candidato pendiente no equivale a cliente autenticado; grant privado solo para adaptador central, fuera del modelo y trazas |
 | outbox | id, operation_key, source_event_id, thread_id, identity_revision, account_id, inbox_id, conversation_id, kind, payload_privado, state, channel_message_id, attempts | Destino copiado del evento o del binding validado de campaña; nunca una última conversación global; unique operation_key; queued/sent/uncertain/cancelled/failed; incierto sin reenvío ciego |
 | human_case | id, thread_id, account_id, inbox_id, conversation_id, source_event_id, customer_id opcional, debt_id opcional, reason, origin, offer_cents, verification_summary, status | Clave única por evento/origen; bloqueo del thread mientras esté bajo control humano; nota/status se envían a la conversación del caso |
 | business_event | id, source_key, event_type, campaign_id opcional, customer_id, debt_id opcional, thread_id, account_id, inbox_id, conversation_id, occurred_at | Unique source_key evita duplicar canal o central; atribuir al cliente efectivamente autorizado sin cambiar el destinatario original de campaña |
@@ -268,8 +268,13 @@ operación, permisos y efectos externos.
 | LangGraph checkpoints | thread_id, checkpoints y writes administrados por AsyncPostgresSaver | thread_id = source_id literal del contacto; no normalizar ni concatenar; no duplicar schema manualmente; setup explícito |
 
 Los grants y la outbox son datos privados operativos del servidor, nunca archivos
-versionados ni entradas del modelo. Los mensajes PIN se verifican antes de escribir
-texto del evento; se conserva resultado de identidad, no el PIN original.
+versionados ni entradas del modelo. En awaiting_pin, el ingreso persiste transporte
+temporal cifrado con Fernet y da acuse sin red de negocio; el worker verifica
+formato y PIN después. No se persiste el PIN en claro ni se copia el sobre cifrado
+a historial, checkpoints o Langfuse. El contexto operativo conserva el contador
+local de hasta tres mensajes fallidos; el tercero termina auth sin autorización.
+Ese límite no elude el bloqueo central de PIN de 15 minutos. Fuera de auth todos
+los mensajes admitidos llegan al agente, sin regex global de números.
 
 La central no guarda Business IDs de Meta. Los identificadores del canal son datos
 operativos del backend. Al cambiar de cliente se invalida la sesión previa y
@@ -280,10 +285,13 @@ para detectar un checkpoint que todavía contenga contexto del cliente previo.
 El contexto enviado al LLM incluye `conversation_start`, calculado a partir de
 si ya existe un turno completo en el checkpoint recuperado. El prompt usa ese dato
 para generar la presentación y el contexto de cobranza una vez al iniciar; no se
-concatena una respuesta estática desde el backend. La central construye la pista
-con el primer y último carácter del primer nombre y del documento, ocultando el
-resto antes de entregarla al modelo. Valores de menos de tres caracteres se ocultan
-por completo. Los permisos financieros y el PIN siguen bajo control del servidor.
+concatena una respuesta estática desde el backend. Para la pista de esta demo,
+central conserva el primer y último carácter del primer nombre y oculta el resto
+con •; nombres de menos de tres caracteres se ocultan completos. El tipo y número
+de documento se entregan completos al modelo y se muestran antes del PIN, por
+decisión explícita del producto para la demo. El agente copia la pista literalmente.
+Los permisos financieros y el PIN siguen bajo control del servidor; mostrar el
+documento no autentica al interlocutor ni habilita consulta de cartera.
 
 ### Destino de respuesta independiente de la memoria
 

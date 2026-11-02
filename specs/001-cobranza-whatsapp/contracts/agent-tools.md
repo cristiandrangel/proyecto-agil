@@ -8,13 +8,16 @@ son argumentos del modelo ni se escriben en prompts, checkpoints o trazas.
 
 ## Herramientas
 
-Ocho herramientas: localización previa al PIN y las siete operaciones de cartera
-y atención. Antes del PIN solo se habilitan locate_customer y handoff_human,
-con sus resultados limitados; el catálogo financiero exige sesión vigente.
+Nueve herramientas: localización, gestión del desafío de identidad y las siete
+operaciones de cartera y atención. Antes de entrar en la fase estática de PIN se habilitan locate_customer,
+manage_identity y handoff_human, con sus resultados limitados; el catálogo
+financiero exige sesión vigente. El backend comprueba estos permisos en cada
+ejecución, aunque el modelo solicite una herramienta no autorizada.
 
 | Nombre | Argumentos del modelo | Precondición y resultado |
 |---|---|---|
-| locate_customer | phone_e164 o document_type + document_number, excluyentes | Sin requerir PIN; localiza solo por celular o identificación. Devuelve candidate_reference y pista enmascarada, nunca saldos; registra candidato y confirmación pendiente. Buscar otro registro revoca el contexto anterior antes de continuar |
+| locate_customer | phone_e164 o document_type + document_number, excluyentes | Sin requerir PIN; localiza solo por celular o identificación. Devuelve candidate_reference y, en esta demo, pista con nombre enmascarado y tipo/número de documento completos antes del PIN, nunca saldos; registra candidato y confirmación pendiente. Buscar otro registro revoca el contexto anterior antes de continuar |
+| manage_identity | action: confirm_candidate, reject_candidate o change_customer | confirm_candidate activa awaiting_pin con contador local cero y solicitud fija de PIN, terminando el bucle sin otra inferencia; reject_candidate rechaza el candidato y change_customer revoca contexto. El backend valida el estado y aplica la transición; nunca concede sesión financiera ni valida un PIN |
 | list_debts | filtro de servicio opcional | Sesión vigente; devuelve solo servicios autorizados con saldo, mora y estado |
 | select_debt | debt_id | Debe pertenecer al cliente; registra una única selección activa por thread; permite gestionar deudas sucesivamente, sin agregarlas ni borrar órdenes previas |
 | create_full_payment | debt_id | Deuda seleccionada; consulta versión actual y crea orden por saldo sin descuento |
@@ -31,6 +34,12 @@ inferior al 80% ni acepta acuerdo dentro del mismo mensaje que generó la quote.
 No hay herramienta de actualización arbitraria de saldo ni de autenticación por
 mera afirmación del modelo. locate_customer puede iniciar la búsqueda de otro
 registro, pero no concede acceso ni permite reutilizar el grant anterior.
+manage_identity solo acepta el campo action con ese enum estricto; no acepta
+PIN, grant ni un cliente elegido libremente por el modelo. confirm_candidate
+actúa sobre el candidato pendiente del backend; su respuesta fija no se somete
+a otra inferencia del nodo. reject_candidate y
+change_customer limpian el desafío o revocan el contexto correspondiente; las
+referencias financieras anteriores no se reutilizan.
 
 El resultado de una orden entrega al modelo un marcador de enlace asociado a su
 order_id, sin la capability. El backend sustituye ese marcador por la URL firmada
@@ -40,7 +49,8 @@ el token; el cliente recibe el enlace real por Chatwoot.
 ## Secuencia del nodo
 
 1. Cargar contexto no secreto, source_id literal, estado de autorización y selección.
-   Sin sesión se permite localización enmascarada, no consulta financiera.
+   Sin sesión se permite la pista de la demo (nombre enmascarado y documento
+   completo), no consulta financiera.
 2. Reservar consumo; llamar Responses con herramientas permitidas,
    parallel_tool_calls=false, reasoning.effort=high para gpt-5.6-luna y límites
    del plan. Si la respuesta queda incomplete, no afirmar éxito ni ejecutar una
@@ -49,7 +59,8 @@ el token; el cliente recibe el enlace real por Chatwoot.
    correspondiente; registrar argumentos y resultado en Langfuse privado cuando
    la captura de contenido esté habilitada, excluyendo secretos y autorizaciones;
    devolver al modelo el resultado permitido por su sesión.
-4. Repetir hasta respuesta final o cinco llamadas. Error persistente o límite
+4. Repetir hasta respuesta final o cinco llamadas. Si confirm_candidate activa
+   awaiting_pin, terminar con la solicitud fija de PIN sin otra inferencia. Error persistente o límite
    produce explicación o handoff, sin afirmar una acción no ejecutada.
 5. Guardar respuesta pendiente en outbox; consultar pending antes del envío.
 
@@ -70,15 +81,35 @@ El prompt recibe source_id literal, sin source_type precalculado ni un nodo de
 clasificación anterior. El LLM interpreta el valor y decide llamar locate_customer
 por teléfono o pedir identificación ficticia. Un Business ID no se busca como
 celular. Si no hay coincidencia, hay ambigüedad o el interlocutor rechaza el
-candidato, se pide tipo y número de documento. Se confirma con pista enmascarada.
+candidato, se pide tipo y número de documento. En esta demo, la confirmación
+muestra el nombre enmascarado y el tipo y número de documento completos antes
+del PIN; el agente copia la pista sin ocultar dígitos por su cuenta. Esa visibilidad
+no concede cartera y no altera la protección ni la validación del PIN.
 
-El backend registra el candidato confirmado y que espera PIN; procesa la
-confirmación explícita y el PIN fuera del LLM. Una respuesta ambigua a la
-confirmación pide aclaración y nunca autentica. Mientras espera PIN, solo procesa
-el código escrito: audio/imagen provocan una petición de texto sin inferencia.
-El turno posterior recibe identity_verified o un fallo seguro, sin PIN ni grant.
-El acceso autorizado al registro permite consultar sus deudas, no identifica
-necesariamente al interlocutor como su titular.
+Fuera de awaiting_pin / waiting_auth, todo mensaje admitido pasa al único nodo
+agente con system prompt y memoria. Incluye números aislados: no hay filtro global
+de PIN. El LLM interpreta «sí», «no», «dale», preguntas, asesor y cambio de cliente
+y llama manage_identity cuando corresponde; si la intención es ambigua, aclara.
+El backend valida la transición, sin listas de palabras para decidir intenciones.
+
+confirm_candidate activa awaiting_pin con contador local cero y solicitud fija,
+sin inferencia posterior. Durante esa fase todos los mensajes se procesan por
+IdentityService.consume_auth de forma estática. Solo se acepta texto numérico de 4 a 8 dígitos;
+formato incorrecto, medio o PIN rechazado suma un fallo. Antes del tercero se
+responde de forma fija. Un PIN correcto sale con identity_verified; al tercer
+fallo se sale con auth_attempts_exhausted SIN autorización. Esos eventos neutros
+entran al agente sin PIN ni grant; solo con sesión validada puede llamar list_debts.
+Después del agotamiento puede orientar la continuación y atender una petición
+de asesor, sin handoff automático. El límite local de tres mensajes fallidos no
+elude el bloqueo de 15 minutos por errores de PIN aplicado por central.
+
+El ingreso valida firma/scope/evento y persiste durablemente en local antes del
+HTTP 200, sin red de negocio. Durante auth, el contenido usa transporte temporal
+cifrado Fernet; el worker verifica el PIN con central después del acuse. Ni el PIN
+en claro ni el sobre cifrado se entregan al LLM, checkpoints o Langfuse. Fuera de
+auth, un prefijo interno falsificado se firma como datos del remitente y no concede
+autoridad. El backend aplica cada permiso financiero fuera del modelo. El acceso
+autorizado al registro no prueba que el interlocutor sea su titular.
 
 Al elegir otro cliente se revoca el contexto anterior, aumenta identity_revision,
 se limpian historial financiero activo y referencias y se cancelan salidas de
@@ -86,10 +117,12 @@ la revisión anterior. Se mantiene thread_id y se exige el PIN del nuevo candida
 Si el cambio ocurre durante el bucle, se reconstruye la entrada al LLM antes de
 continuar. No se mezclan saldos, órdenes ni historial financiero de clientes.
 
-Audio se transcribe; imagen devuelve observaciones, texto visible y referencia de
-pago con procedencia marcada como no verificada. Se conserva el mensaje acompañante.
-El agente usa verify_payment para contrastar un comprobante aunque la imagen parezca
-exitosa. La referencia ajena produce respuesta segura, sin datos del otro cliente.
+Fuera de auth, audio se transcribe e imagen aporta observaciones, texto visible y
+referencia de pago no verificada, conservando el mensaje acompañante. Durante
+awaiting_pin, los medios son formato no válido y consumen un intento sin inferencia.
+No se autentica un PIN hablado o extraído de una imagen. Tampoco se promete ocultar
+secretos en medios procesados fuera de auth. El agente usa verify_payment para
+contrastar comprobantes; una referencia ajena no revela datos del otro cliente.
 
 thread_id = source_id del contacto exactamente como llega. Cuenta/inbox se validan
 por separado; conversation_id determina el destino y control humano de cada evento.
