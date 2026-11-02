@@ -78,6 +78,17 @@ La consulta posterior al acuerdo encontró la sesión vencida y pidió documento
 
 ## Apertura y guardrails del prompt
 
+Durante el recorrido guiado por WhatsApp, una captura del usuario mostró la
+presentación de Alex, contexto de cobranza, explicación de autenticación y pista
+enmascarada antes del PIN. También permitió detectar que los asteriscos de
+ocultación interferían con el formato de esa pista. Se cambiaron por `•` en la
+central y el prompt pide copiarla literalmente en texto plano. Las seis variantes
+del contrato fallaron antes del cambio y la validación posterior aprobó **40
+pruebas enfocadas en 16,02 segundos**, con PostgreSQL 17 aislado, sin claves de
+proveedores ni red externa. Se comprobó además Ruff. Esto valida el ajuste y la
+identidad/finanzas relacionadas; no sustituye la comprobación visual de una nueva
+pista por WhatsApp ni acredita todavía el recorrido completo de pagos.
+
 Se evaluó el prompt actualizado con cuatro llamadas reales a Luna, razonamiento
 alto y salida máxima de 1200 tokens, usando presupuesto y observabilidad del
 runtime. La apertura generó presentación de Alex, contexto de cobranza y motivo

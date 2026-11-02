@@ -124,6 +124,8 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 **Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. La pista de identidad permanece enmascarada. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN se verifica fuera del modelo. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
 
+**Formato de la pista:** los caracteres ocultos se representan con `•`; por ejemplo, para Ana: `A•a · CC 1••••••1`. Se conservan únicamente los extremos del primer nombre y del documento; los valores de uno o dos caracteres se ocultan completos. El agente copia la pista de la consulta en texto plano. Así los caracteres de ocultación no se confunden con los asteriscos de formato de WhatsApp. Las pistas antiguas ya enviadas conservan su aspecto anterior; el cambio se aplica a las nuevas consultas. Puedes continuar con **sí** si reconoces el registro, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
+
 ### 3.5. Pagar hogar sin descuento
 
 1. Escribe: `Quiero pagar los USD 100 completos de hogar. Dame el enlace`.
@@ -408,6 +410,8 @@ La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticament
 ### Pruebas deterministas y límites de evidencia
 
 La última suite Docker completa registrada aprobó **303 pruebas**, sin fallos ni omitidas, el **1 de noviembre de 2026 a las 18:14:58 UTC**, en **35,70 segundos**, con limpieza posterior y Ruff aprobado. Después pasaron tres regresiones dirigidas del filtrado de secretos —45 casos deseleccionados, 0,61 segundos— y Ruff volvió a pasar. Esa ejecución dirigida no se presenta como otra suite completa ni se suma al conteo de 303.
+
+El cambio de asteriscos a `•` en la pista de identidad se validó después con **40 pruebas enfocadas aprobadas en 16,02 segundos**, sobre PostgreSQL 17 aislado y sin proveedores externos. Conserva la ocultación y las verificaciones de identidad y pago; la nueva apariencia en WhatsApp debe comprobarse con una consulta posterior al despliegue.
 
 Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
 

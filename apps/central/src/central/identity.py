@@ -9,8 +9,8 @@ from central.models import Customer, IdentityAttempt, IdentityCandidate, Identit
 def masked_identity_hint(name, document_type, document_number):
     def edges(value):
         if len(value) < 3:
-            return "*" * max(1, len(value))
-        return value[0] + "*" * (len(value) - 2) + value[-1]
+            return "•" * max(1, len(value))
+        return value[0] + "•" * (len(value) - 2) + value[-1]
 
     first_name = name.split(maxsplit=1)[0] if name.split() else ""
     return f"{edges(first_name)} · {document_type} {edges(document_number)}"
