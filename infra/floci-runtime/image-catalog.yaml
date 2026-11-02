@@ -1,0 +1,13 @@
+defaultDockerImage: agil-ec2-guest:local
+images:
+  - imageId: ami-agil-compose
+    dockerImage: agil-ec2-guest:local
+    description: Isolated Linux Docker container guest for Compose demo
+    name: agil-compose-linux-container
+    architecture: x86_64
+    creationDate: '2026-11-02T00:00:00Z'
+    state: available
+    ownerId: '000000000000'
+    publicImage: false
+    rootDeviceType: instance-store
+    virtualizationType: hvm

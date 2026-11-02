@@ -137,6 +137,26 @@ WhatsApp completo. El registro detallado y sus límites están en
 
 ## Cambio de equipo
 
+### Transición al invitado EC2 emulado
+
+El perfil `./emulate-ec2.sh up` se verifica inicialmente por accesos locales y
+no inicia `cloudflared`. El dominio continúa sirviendo el entorno anterior hasta
+un corte explícito; levantar Floci por sí solo no cambia ninguna ruta pública.
+
+Para conservar `cobranza.agenx-dev-test.work` no hace falta cambiar su registro
+DNS si se reutiliza el mismo túnel administrado y su ruta de servicio. Se debe
+preparar en el invitado la configuración privada de entrega, comprobar que el
+origen de la ruta alcanza su backend y detener el conector anterior antes de
+iniciar el nuevo. Los enlaces y el webhook conservan el hostname. Si se crea
+otro túnel o se cambia el nombre interno del servicio, sí habrá que ajustar la
+ruta correspondiente en Cloudflare. Nunca deben quedar dos conectores hacia
+bases independientes del mismo sistema.
+
+El perfil limpio todavía tiene OpenAI y Chatwoot deshabilitados. La salud local
+no acredita ese corte ni las integraciones. Las credenciales, la continuidad del
+presupuesto de IA y las comprobaciones HTTPS se preparan por separado, sin
+transferir conversaciones de estudio a la instalación del evaluador.
+
 El hostname puede conservarse al pasar de PC a EC2. Primero se detienen el
 conector y la aplicación del equipo anterior; después se prepara el nuevo y se
 arranca allí el mismo túnel. Se mantiene **un solo equipo de aplicación activo**:

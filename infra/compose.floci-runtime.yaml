@@ -1,0 +1,24 @@
+# Isolated Docker host for Floci and its EC2 guests. Never mounts the host socket.
+name: agil-ec2-emulation
+services:
+  engine:
+    image: docker:29-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
+    privileged: true
+    cpus: 8
+    mem_limit: 24g
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command: ["dockerd", "--host=unix:///var/run/docker.sock", "--storage-driver=overlay2"]
+    ports:
+      - "127.0.0.1:4567:4566"
+      - "127.0.0.1:2244:2244"
+    volumes:
+      - engine_data:/var/lib/docker
+    healthcheck:
+      test: [CMD, docker, info]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+volumes:
+  engine_data:

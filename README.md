@@ -6,6 +6,16 @@ Demo de cobranza por WhatsApp con cartera editable y pagos simulados en USD. Est
 
 Necesitas Docker con Compose v2, Bash, conexión a Internet, tu WhatsApp autorizado para la prueba y el archivo privado de configuración entregado.
 
+**EC2 emulada:** ya existe un perfil ejecutable con Floci, separado del entorno
+WhatsApp descrito a continuación. En Linux, `./emulate-ec2.sh up` crea un invitado
+con Docker propio y arranca dentro la aplicación y Langfuse. Abre la central en
+`http://localhost:18080/central` y Langfuse en `http://localhost:13000`; sus accesos
+nuevos quedan al final de `.local/ec2-emulation/evaluator.env`. Este perfil
+empieza con datos ficticios limpios y las integraciones externas deshabilitadas;
+todavía no recibe WhatsApp ni publica el dominio. Consulta los requisitos,
+verificaciones y comandos de [EC2 emulada](docs/emulacion-ec2.md). No copies el
+`.env` ni las conversaciones de desarrollo para habilitarlo.
+
 1. Abre la carpeta del proyecto y coloca el archivo privado como `.env` junto a este README. Si preparas otra instalación, parte de `.env.example` y completa las integraciones con quien administra la demo. No publiques ni ejecutes ese archivo como un script.
 2. Para una instalación nueva, usa volúmenes nuevos del proyecto Compose `proyecto-agil`. No copies los datos ni el `.env` del desarrollador sin la configuración de entrega acordada. Si cambias de equipo, detén antes el conector público anterior: solo debe haber una aplicación activa para este dominio.
 3. Arranca:
@@ -947,6 +957,13 @@ Los campos anulables siguen presentes en el esquema estricto, con valor `null` c
 
 Una sola máquina ejecuta backend/worker, central y PostgreSQL separados para cartera y memoria, además de Langfuse. La central es el único escritor financiero. Chatwoot, Meta y OpenAI son externos. El túnel opcional de Compose mantiene el hostname con un único equipo activo; cambiar de equipo requiere trasladar los datos por separado.
 
-**No se ha desplegado en AWS.** La EC2, capacidad y backup/restauración siguen requiriendo validación. Floci es una emulación local de APIs AWS; el smoke tiene alcance limitado y no prueba aprovisionamiento ni paridad completa. IaC, separar componentes en más servicios y crear plantillas nuevas automáticamente son planes futuros.
+**No se ha desplegado en AWS.** Floci ya permite crear un invitado Linux por
+`RunInstances` y ejecutar dentro los once servicios del perfil limpio. Se
+comprobaron salud, límites efectivos de 4 CPU/16 GiB y persistencia PostgreSQL
+después de Stop/Start. Es un contenedor privilegiado con Docker propio y kernel
+compartido; no acredita una VM AWS, EBS, rendimiento ni backup/restauración real.
+El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp todavía
+usan el entorno anterior. IaC, separar componentes en más servicios y crear
+plantillas nuevas automáticamente son planes futuros.
 
 Referencias técnicas: [evaluación y límites](docs/evaluacion.md), [plan](specs/001-cobranza-whatsapp/plan.md), [modelo de datos](specs/001-cobranza-whatsapp/data-model.md), [contratos](specs/001-cobranza-whatsapp/contracts/), [dominio de demo](docs/dominio-demo.md), [despliegue EC2](docs/despliegue-ec2.md), [PRD](specs/prd.md) y [tareas](specs/001-cobranza-whatsapp/tasks.md).

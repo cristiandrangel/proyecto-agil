@@ -15,9 +15,14 @@ pagos pertenecen al sistema central; memoria y operación del backend usan otro
 PostgreSQL. La página de pago aplica efectos a través del backend y de la API central.
 
 Docker Compose ejecuta todo lo propio, incluido Langfuse completo, en local o en
-una sola EC2. Chatwoot existente y OpenAI son externos. Floci tiene un perfil de
-validación de APIs de infraestructura local; no se confunde con ejecutar la app.
-IaC y la separación en servicios especializados son planes futuros.
+una sola EC2. Chatwoot existente y OpenAI son externos. La entrega acordada el
+2 de noviembre incorpora ejecución del stack en una instancia EC2 emulada por
+Floci, además del perfil de smoke de APIs existente. Requiere Linux invitado con
+su propio motor Docker, arranque reproducible, fixtures limpios y comprobación
+de salud/persistencia; la evidencia distinguirá simulación de APIs y ejecución
+real de contenedores en el invitado. El ensayo se aislará de la demo actual.
+No aprovisiona AWS real. IaC y la separación en servicios especializados para
+optimizar el coste medido siguen siendo planes futuros.
 
 La entrada pública prevista es `cobranza.agenx-dev-test.work`, bajo el dominio de
 pruebas administrado en Cloudflare. Un conector opcional `cloudflared` en Compose

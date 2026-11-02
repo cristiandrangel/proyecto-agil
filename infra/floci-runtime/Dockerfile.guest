@@ -1,0 +1,10 @@
+# Linux container guest, not a hardware VM or an AWS AMI.
+FROM docker:29-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
+RUN apk add --no-cache openssh-server openssh-sftp-server bash curl python3 \
+    && ssh-keygen -A \
+    && printf '\nPermitRootLogin prohibit-password\nPasswordAuthentication no\n' >> /etc/ssh/sshd_config
+COPY sshd-forwarding.conf /etc/ssh/sshd_config.d/00-agil-forwarding.conf
+COPY guest-entrypoint.sh /usr/local/bin/agil-guest-entrypoint
+RUN chmod 755 /usr/local/bin/agil-guest-entrypoint
+ENTRYPOINT ["/usr/local/bin/agil-guest-entrypoint"]
+CMD ["tail", "-f", "/dev/null"]

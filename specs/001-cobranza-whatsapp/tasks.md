@@ -212,7 +212,7 @@ silencioso. IaC, recordatorios, pasarela real y servicios AWS especializados que
 | FR-17 | T024, T027, T039, T041, T044, T054 |
 | FR-18 | T010, T026, T042, T043, T044, T045, T046, T053, T054 |
 | FR-19 | T002, T004, T007, T012, T013, T014, T015, T025, T040, T047, T049, T054, T056 |
-| FR-20 | T001, T002, T003, T004, T012, T015, T019, T027, T030, T033, T050, T051, T052, T053, T054, T055, T056 |
+| FR-20 | T001, T002, T003, T004, T012, T015, T019, T027, T030, T033, T050, T051, T052, T053, T054, T055, T056, T057, T058 |
 | FR-21 | T019, T028, T029, T031 |
 | FR-22 | T007, T034, T043, T046, T047, T048 |
 
@@ -257,9 +257,32 @@ logging externo.
 | T054 | Recorridos WhatsApp de extremo a extremo, audio/visión, campaña entregada, comprobante y atención humana reales; registrar resultados y consumo sin secretos. La plantilla aprobada no acredita un envío. |
 | T055 | Ensayo del evaluador desde checkout/volúmenes nuevos, guion/diagramas finales y grabación de respaldo. |
 
+## Extensión de entrega: EC2 emulada ejecutable
+
+- [x] T057 Implementar y comprobar la entrega ejecutable en EC2 emulada de Floci:
+  instancia Linux creada por API, motor Docker del invitado y stack completo,
+  arranque reproducible, configuración privada separada, fixtures limpios, puertos
+  de prueba aislados y salud/persistencia tras reinicio. Conservar la demo actual
+  y sus trazas. Documentar evidencia, límites de EC2/EBS emulados y evolución
+  posterior; no crear AWS real ni dar por completada la tarea con el smoke de APIs
+  de T051 (FR-20; AC-01, AC-19, AC-28).
+
+  Evidencia: once servicios saludables en Docker del invitado; 4 CPU/16 GiB
+  efectivos; PostgreSQL conservado tras EC2 Stop/Start; reanudación después de
+  detener el engine exterior conservando instancia, entorno y datos; logins HTTP
+  de central y Langfuse autenticados. [Alcance](../../docs/emulacion-ec2.md).
+
+- [ ] T058 Habilitar el recorrido externo en el invitado emulado con un entorno
+  privado de entrega: claves acotadas, continuidad del presupuesto de IA,
+  OpenAI/relay/bandeja TEST y traslado secuencial del conector Cloudflare al mismo
+  hostname. Conservar fixtures limpios y trazas de estudio en el entorno anterior.
+  Verificar HTTPS, autenticación y lectura de proveedores antes de pedir al
+  evaluador iniciar la campaña; no confundir salud del fixture local con una
+  integración WhatsApp verificada (FR-20; AC-01, AC-24, AC-28).
+
 ## Resumen
 
-**49 tareas completas; 7 pendientes o parciales**, de 56. No se declara completada
+**50 tareas completas; 8 pendientes o parciales**, de 58. No se declara completada
 la aceptación AC-01–31: cada AC conserva sus límites de evidencia en la evaluación.
 No hay hooks de extensión configurados. El puntero de feature es local y la rama
 actual sigue siendo main.

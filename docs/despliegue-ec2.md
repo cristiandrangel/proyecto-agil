@@ -34,8 +34,10 @@ Las llamadas de IA y el canal se presupuestan por separado.
 
 La emulación local prevista utiliza recursos del equipo evaluador y no contrata
 una EC2 real. El objetivo discutido es ensayar el despliegue ejecutable del stack,
-además del smoke de APIs ya existente. Aún no se implementó ni verificó ese arranque
-dentro de una instancia emulada; no presentarlo como resultado ya conseguido.
+además del smoke de APIs ya existente. El [perfil ejecutable de EC2 emulada](emulacion-ec2.md)
+ya verificó el stack completo dentro de un invitado Linux creado por RunInstances,
+con datos ficticios e integraciones externas deshabilitadas. Es una emulación
+con contenedores anidados; no demuestra capacidad o despliegue en AWS real.
 
 ## Preparar el host y la persistencia
 
@@ -210,4 +212,6 @@ atribuir una restauración exitosa. No se comprueban VM, filesystem, conectivida
 real, IOPS, permisos AWS ni capacidad EC2. El perfil tampoco envía WhatsApp,
 infiere con OpenAI ni conecta Cloudflare. El procedimiento de
 [Docker Compose de Floci](https://floci.io/floci/configuration/docker-compose/)
-sirve como referencia para ampliar futuras pruebas; no sustituye el ensayo real.
+sirve como referencia. El [perfil de ejecución aislado](emulacion-ec2.md) amplía
+este smoke con un invitado real del emulador y Compose dentro de él; tampoco
+sustituye el ensayo de infraestructura AWS real.

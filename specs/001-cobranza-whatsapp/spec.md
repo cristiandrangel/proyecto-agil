@@ -250,7 +250,12 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   herramientas, resultados, errores, latencia y consumo sin secretos en los registros.
 - **FR-20**: La entrega DEBE guiar arranque, edición del teléfono del cliente por
   el del evaluador, recorridos y restauración, diferenciando componentes reales,
-  simulados y emulados.
+  simulados y emulados. La modalidad de entrega acordada el 2 de noviembre es
+  un despliegue ejecutable en EC2 emulada mediante Floci: debe crear una instancia
+  Linux y ejecutar allí el stack propio, comprobar salud y persistencia tras
+  reiniciar, y comenzar con datos ficticios limpios. No basta con simular la
+  respuesta de creación de la instancia ni con ejecutar el stack del host.
+  La prueba se aislará de la demo existente y no aprovisionará AWS real.
 - **FR-21**: Días de mora DEBE ser un entero no negativo editable por deuda;
   el filtro 30–59 incluye ambos extremos y excluye 29 y 60.
 - **FR-22**: La central DEBE mostrar envíos, personas únicas, contactabilidad,

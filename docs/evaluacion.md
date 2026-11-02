@@ -1,6 +1,31 @@
 # Evidencia de evaluación
 
-Registro actualizado el **1 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
+Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
+
+## Entorno EC2 emulado
+
+El perfil [EC2 emulada](emulacion-ec2.md) creó un invitado Linux mediante
+`RunInstances` de Floci 2.4.0 y ejecutó dentro once servicios con Docker propio.
+Se comprobaron salud del backend y Langfuse, separación de los motores Docker,
+límites efectivos de 4 CPU/16 GiB y persistencia de un marcador PostgreSQL tras
+EC2 Stop/Start. El marcador se eliminó al terminar. El fixture contiene 13
+personas, 14 deudas y cero campañas, mensajes, liquidaciones o inferencias.
+También se detuvo el motor Docker exterior y `./emulate-ec2.sh up` recuperó
+la misma instancia y conservó el entorno privado y los datos. Los forwards
+volvieron a responder por HTTP después de esa recuperación.
+
+Desde el equipo anfitrión se comprobaron por HTTP ambos accesos: login de central
+con CSRF y origen válido, redirección 303 y cartera autenticada 200; login de
+Langfuse con sesión autenticada. Estas pruebas no sustituyen un recorrido visual
+completo. El test de exclusión de secretos del archivo de fuentes pasó con
+`uv run python -m pytest -q tests/unit/test_ec2_emulation.py`.
+
+Es un laboratorio con contenedores privilegiados y kernel compartido, no una VM
+AWS ni una validación de EBS o capacidad de producción. OpenAI, Chatwoot y el
+túnel permanecen deshabilitados en ese fixture; el dominio público continúa en
+la demo anterior. La conexión de proveedores y el corte del túnel todavía deben
+verificarse en el nuevo entorno. No se copiaron datos de estudio ni el `.env`
+del desarrollador.
 
 ## Resultados comprobados
 

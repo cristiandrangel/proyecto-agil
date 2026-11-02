@@ -124,7 +124,13 @@ El estado pending de Chatwoot determina el control del bot. Al salir de pending 
 
 El evaluador podrá ejecutar los contenedores de aplicación, las bases y Langfuse en su equipo. La entrada prevista es `cobranza.agenx-dev-test.work` mediante Cloudflare Tunnel, con un solo equipo activo. El hostname permanece al cambiar de equipo; los datos requieren backup y restauración por separado. En AWS, los mismos componentes se alojarán en la única EC2. Véase [dominio y conexión pendiente](../docs/dominio-demo.md). Langfuse se consulta localmente y no se publica por esta ruta.
 
-Floci queda reservado al perfil de emulación de infraestructura local. Los scripts que ejerciten APIs compatibles apuntarán a su endpoint y usarán credenciales ficticias. Ejecutar los contenedores con Compose no demuestra por sí solo que se haya emulado el aprovisionamiento de EC2: las operaciones cubiertas y sus resultados se documentarán explícitamente. La inferencia sigue siendo real mediante OpenAI. [Integración local de Floci](https://floci.io/floci/getting-started/terraform/).
+La entrega acordada el 2 de noviembre incorpora un despliegue ejecutable en EC2
+emulada con Floci: el invitado Linux debe ejecutar el stack con su propio motor
+Docker y demostrar salud y persistencia. Se prepara en un entorno separado de la
+demo actual, con datos ficticios limpios. La validación y sus resultados se
+registrarán antes de presentarlo como conseguido; no es una EC2 real de AWS.
+
+Floci conserva también el perfil separado de comprobación de APIs de infraestructura local. Los scripts que ejerciten APIs compatibles apuntarán a su endpoint y usarán credenciales ficticias. Ejecutar los contenedores con Compose no demuestra por sí solo que se haya emulado el aprovisionamiento de EC2: las operaciones cubiertas y sus resultados se documentarán explícitamente. La inferencia sigue siendo real mediante OpenAI. [Integración local de Floci](https://floci.io/floci/getting-started/terraform/).
 
 En un despliegue sobre EC2 real, Floci no es necesario para ejecutar la aplicación. La decisión de una sola máquina no implica contratar o aprovisionar AWS en esta fase de documentación.
 
