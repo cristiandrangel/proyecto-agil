@@ -45,6 +45,22 @@ la siguiente sesión. La auditoría técnica anterior sí se completó. El READM
 incluye el orden para revisar el pago, el acuerdo, el retorno humano, audio y PIN.
 Los informes detallados, identificadores reales y datos de contacto permanecen privados.
 
+### Revisión guiada en interfaz — 2 de noviembre de 2026
+
+Cristian abrió Tracing y el último comprobante. Se contrastó el árbol visible con
+la instrumentación y los padres persistidos: autenticación, visión, tres llamadas
+al modelo dentro del agente, `verify_payment`, `list_debts`, preparación de respuesta
+y envío. Se explicó la diferencia entre operación y traza, las pruebas `preflight`,
+la outbox y el identificador del mensaje creado en Chatwoot. No se enviaron mensajes
+ni se modificaron datos financieros durante esta revisión.
+
+Se considera verificada la conexión y captura de Langfuse para la demo, con los
+límites de evidencia descritos. Es una base de observabilidad aplicable a sistemas
+empresariales; no certifica disponibilidad, capacidad bajo carga, alertas, retención,
+permisos operativos ni evaluación automática continua de una instalación productiva.
+El resto del guion visual está disponible para una revisión ampliada; no se declara
+que cada asset o variante haya sido inspeccionado visualmente.
+
 ### Negociación 95 % → 80 %, condonación y comprobante
 
 El único archivo de aplicación cambiado para esta política fue el system prompt.

@@ -449,6 +449,22 @@ Chatwoot y la central abiertos para comparar cada resultado con su traza.
 5. Para audio o imagen, abre sus generaciones y assets privados. Para el envío, expande **response_enqueue → delivery**.
 6. Contrasta estados, modelo, latencias, tokens y coste estimado. El coste vacío de una raíz span no significa consumo cero: el detalle está en sus generaciones hijas.
 
+### Criterio de cierre de la integración
+
+La integración de Langfuse está verificada para el alcance de la prueba: captura
+el contexto enviado y la respuesta del modelo, argumentos/resultados de herramientas,
+estados, medios, consumo estimado y entregas asíncronas correlacionadas. El recorrido
+visual del 2 de noviembre revisó el último comprobante y la secuencia visión → agente
+→ verificación → cartera → respuesta encolada → envío. Los fallos semánticos históricos
+siguen visibles aunque una ejecución termine sin error técnico.
+
+Esta instrumentación sigue prácticas útiles en sistemas empresariales y permite
+depuración real. No acredita por sí sola una operación enterprise de producción:
+no se han validado carga, alta disponibilidad, alertas operativas, políticas de
+retención/acceso y evaluaciones automáticas continuas. Los costes son estimaciones;
+`sent` no prueba entrega o lectura final del canal. La evidencia técnica y sus
+límites permanecen en [evaluación](docs/evaluacion.md).
+
 ### Diferencia entre preflight, conversation y delivery
 
 Estos nombres los asigna nuestra instrumentación. La tabla lista observaciones,
@@ -537,9 +553,10 @@ no se debe interpretar una observación por intento como un mensaje enviado adic
 
 ### Recorrido guiado de las trazas del test
 
-**Punto de reanudación:** el recorrido visual se pospuso para la siguiente sesión;
-la auditoría por API y base de datos ya se realizó. Empieza por el último comprobante
-verificado, después revisa el acuerdo, el retorno humano, el audio y la rama de PIN.
+**Recorrido visual:** el 2 de noviembre se revisó la estructura del último comprobante
+verificado, incluido el ciclo de herramientas y el envío. La auditoría por API y base
+de datos ya se realizó. Para ampliar la revisión, sigue con el acuerdo, el retorno
+humano, el audio y la rama de PIN.
 No restaures los datos ni borres las trazas antes de revisarlos.
 
 Para entender el último pago, sigue este orden dentro de su raíz `conversation`:
@@ -759,8 +776,8 @@ explícita de condonación y la instrucción de enviar el comprobante junto al e
 comprobar las variantes exactas del 90 % y 80 %, recibo falso/ajeno o repetido,
 caducidad, cierre explícito de sesión y continuidad tras un reinicio completo.
 Los tres fallos de formato observados no acreditan el bloqueo central por tres
-PIN numéricos incorrectos. Falta el recorrido visual guiado por Langfuse y la
-preparación final de entrega (instalación limpia, grabación y sustentación).
+PIN numéricos incorrectos. La revisión visual de Langfuse cubrió el último comprobante; el guion permite
+ampliarla a los demás casos. Falta la preparación final de entrega (instalación limpia, grabación y sustentación).
 La revisión de esta sesión fue de lectura y no envió mensajes ni alteró la demo.
 
 La inspección de Langfuse encontró la herramienta de identidad con nombre genérico
