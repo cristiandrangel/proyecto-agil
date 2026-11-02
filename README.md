@@ -50,7 +50,7 @@ El lanzador instala también las bases de datos y los servicios auxiliares. No n
 
 ## Cómo recorrer este repositorio
 
-1. **Preparación — secciones 1 y 2:** [instala y abre las tres interfaces](#1-instalar-y-abrir-las-interfaces).
+1. **Preparación — secciones 1 y 2:** [instala el entorno y abre la central](#1-instalar-y-abrir-las-interfaces).
 2. [Reconoce los datos ficticios](#2-reconocer-los-datos-de-prueba).
 3. **Aquí empieza la demo — sección 3:** [completa el camino principal](#3-camino-principal-campaña-pago-íntegro-y-acuerdo): campaña, hogar al 100 % y telefonía al 90 %.
 4. [Explora las variantes](#4-variantes-funcionales-sin-envíos-de-campaña-innecesarios): medios, otra identidad, excepciones y asesor.
@@ -111,7 +111,8 @@ interna de su instalación y no se utiliza como archivo de entrega.
    solo si la base está vacía. Para reanudar esta misma instalación usa
    `./emulate-ec2.sh up --public` (Windows: `.\emulate-ec2.cmd up --public`):
    conserva configuración, pagos y memoria.
-4. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
+4. Ten a mano los accesos a las tres interfaces. Comienza por la central; abrirás
+   Chatwoot después de enviar la campaña, en la sección 3.4:
 
    El entorno efectivo se exporta a **`.local/ec2-emulation/evaluator.env`**.
    Sus URL, usuarios y contraseñas están juntos **al final de ese archivo**, en el
@@ -149,23 +150,7 @@ El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es d
 
 **Debes ver:** la central con **Cartera y contacto**, filtros y tabla. En una instalación nueva hay **13 personas y 14 deudas**. Los contactos comienzan simulados. Si ves mantenimiento o un error de dependencia, resuélvelo con el administrador antes de lanzar la campaña; las comprobaciones técnicas están al final.
 
-### 1.2. Iniciar sesión en Chatwoot y abrir la bandeja de pruebas
-
-1. Al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Chatwoot**, localiza `CHATWOOT_UI_URL`, `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`.
-2. Abre en **otra pestaña** la dirección que figura como valor de `CHATWOOT_UI_URL`. Conserva abierta la central. Si el navegador ya tiene otra cuenta de Chatwoot iniciada, usa una ventana privada para entrar como evaluador.
-3. En el formulario de acceso, introduce el valor de `CHATWOOT_UI_EMAIL` como correo y el de `CHATWOOT_UI_PASSWORD` como contraseña. Copia solo los valores, sin el nombre de las variables, `=` ni las comillas delimitadoras. Inicia sesión.
-4. Comprueba que estás usando el usuario **Evaluador Cobranza** y que aparece el canal **Test Agenx WhatsApp** en el menú lateral.
-5. Abre ese canal y pulsa el icono de filtros junto al título **Conversaciones**. En **Estado → Igual a**, incluye **Pendientes** y pulsa **Aplicar filtros**. Puedes mantener también **Abiertas**, como en la captura, para ver tanto conversaciones del bot como las transferidas a humanos. Después selecciona la pestaña **Todos**, en lugar de **Mías**, para incluir las conversaciones que aún no tienes asignadas.
-6. Antes de lanzar la campaña puede no haber ninguna conversación de tu prueba; es normal. Después del envío, abre la conversación que corresponde a tu WhatsApp y comprueba que aparece la plantilla enviada.
-7. Déjala bajo control de **Alex TEST**. No pulses **Tomar el control** durante el recorrido del bot: al pasar a `open`, la conversación queda para atención humana.
-
-La captura muestra el filtro con **Abiertas** y **Pendientes** seleccionadas. Tras aplicarlo, recuerda pasar de **Mías** a **Todos**:
-
-![Chatwoot: filtro Estado igual a Abiertas y Pendientes, y botón Aplicar filtros](docs/imagenes/chatwoot-filtros-conversaciones.png)
-
-Mantén esta pestaña abierta para ver los mensajes entrantes, las respuestas del agente y, más adelante, la transferencia humana. Si ya lanzaste la campaña desde la central, entra aquí para revisar esa conversación; no vuelvas a lanzarla para que aparezca.
-
-### 1.3. Iniciar sesión en Langfuse
+### 1.2. Iniciar sesión en Langfuse
 
 En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD`, que están al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Langfuse**. Selecciona el proyecto **Cobranza-Demo**. La sección 7 explica cómo revisar las trazas de cada mensaje.
 
@@ -187,7 +172,7 @@ Comprueba que Ana aparece en dos filas: hogar y telefonía. Cada fila es una deu
 
 ## 3. Camino principal: campaña, pago íntegro y acuerdo
 
-> **Aquí comienza la demo.** Ya instalaste el sistema, abriste la central, Chatwoot y Langfuse, y conoces los datos de prueba. Ahora actuarás como operador para lanzar la campaña y como cliente desde tu WhatsApp. El primer paso es asociar tu número a Ana.
+> **Aquí comienza la demo.** Ya instalaste el sistema, entraste a la central y conoces los datos de prueba. Ahora actuarás como operador para lanzar la campaña y como cliente desde tu WhatsApp. El primer paso es asociar tu número a Ana.
 
 Haz este recorrido antes de los escenarios de bloqueo o derivación humana. Utiliza una única campaña real para Ana, con sus dos servicios, y destinos simulados para las demás personas. Mantén abierta la pestaña de campaña hasta revisar sus métricas y fijar el corte: actualmente, recargar la página no recupera el panel de una campaña existente.
 
@@ -212,21 +197,36 @@ Todavía no se ha enviado nada. Si el número del proveedor tiene una lista de d
 
 No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a **Previsualizar segmento**: un destinatario con contacto cambiado puede quedar omitido. No lances otra campaña para una persona que ya tiene una campaña activa; el sistema la excluye para evitar duplicar el contacto.
 
-### 3.3. Preparar Chatwoot y lanzar una sola vez
+### 3.3. Guardar y lanzar la campaña
 
-1. Abre en otra pestaña el valor de `CHATWOOT_UI_URL`, al final del `.env`. Inicia sesión con `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`, siguiendo la sección **1.2**. Mantén abierta la central.
-2. En Chatwoot, selecciona el canal **Test Agenx WhatsApp**, incluye **Pendientes** en el filtro de estado y pulsa **Aplicar filtros**, como en la captura de la sección **1.2**. Selecciona **Todos** para encontrar también conversaciones no asignadas a ti.
-3. Si ya existe tu conversación, debe estar en `pending` y bajo el bot de pruebas **Alex TEST**. No pulses **Tomar el control**. `open` significa atención humana. Si es nueva, la campaña preparará el destino.
-4. Vuelve a la central. Pon un nombre como `Evaluación · dos servicios`.
-5. Comprueba la plantilla fija que muestra la página: la entregada es `recordatorio_factura_demo`, idioma `es`, previamente aprobada. No tienes que crear una plantilla en Meta ni escribir su nombre.
-6. Pulsa **Guardar campaña**. Aún no hay envío. Después pulsa **Lanzar secuencia** una vez.
-7. Observa el progreso. El panel consulta cada tres segundos mientras está visible; **Actualizar** consulta inmediatamente.
+1. En la central, dentro de **Preparar una campaña**, pon un nombre como `Evaluación · dos servicios`.
+2. Comprueba la plantilla fija que muestra la página: la entregada es `recordatorio_factura_demo`, idioma `es`, previamente aprobada. No tienes que crear una plantilla en Meta ni escribir su nombre.
+3. Pulsa **Guardar campaña**. Aún no hay envío. Después pulsa **Lanzar secuencia** una vez.
+4. Observa el progreso. El panel consulta cada tres segundos mientras está visible; **Actualizar** consulta inmediatamente.
 
-**Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Revisa que la plantilla llegue a tu WhatsApp y que aparezca en la conversación TEST.
+**Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Comprueba que la plantilla llegue a tu WhatsApp. En el siguiente paso verás el envío desde Chatwoot.
 
 **Enviado al canal** significa aceptación de la API, no entrega o lectura de WhatsApp. **Procesamiento finalizado** tampoco significa que todos recibieron el mensaje. Un resultado **Sin confirmación** requiere revisión: no repitas la campaña para compensarlo. Las cuotas se explican en la sección 10; no hace falta volver a lanzar una plantilla para cada variante conversacional.
 
-### 3.4. Responder, autenticar y elegir hogar
+### 3.4. Ver el mensaje enviado en Chatwoot
+
+**Con la campaña enviada y el mensaje recibido en WhatsApp**, abre Chatwoot para observar el mismo envío desde la atención al cliente. Conserva abierta la pestaña de campaña de la central.
+
+1. Al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Chatwoot**, localiza `CHATWOOT_UI_URL`, `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`.
+2. Abre [Chatwoot](https://chatwoot.agenxai.co) en **otra pestaña**; su dirección también figura en `CHATWOOT_UI_URL`. Conserva abierta la central. Si el navegador ya tiene otra cuenta de Chatwoot iniciada, usa una ventana privada para entrar como evaluador.
+3. En el formulario de acceso, introduce el valor de `CHATWOOT_UI_EMAIL` como correo y el de `CHATWOOT_UI_PASSWORD` como contraseña. Copia solo los valores, sin el nombre de las variables, `=` ni las comillas delimitadoras. Inicia sesión.
+4. Comprueba que estás usando el usuario **Evaluador Cobranza** y que aparece el canal **Test Agenx WhatsApp** en el menú lateral.
+5. Abre ese canal y pulsa el icono de filtros junto al título **Conversaciones**. En **Estado → Igual a**, incluye **Pendientes** y pulsa **Aplicar filtros**. Puedes mantener también **Abiertas**, como en la captura, para ver tanto conversaciones del bot como las transferidas a humanos. Después selecciona la pestaña **Todos**, en lugar de **Mías**, para incluir las conversaciones que aún no tienes asignadas.
+6. Abre la conversación que corresponde a tu WhatsApp. Comprueba que aparece la misma plantilla que acabas de recibir en el teléfono.
+7. Déjala bajo control de **Alex TEST**. No pulses **Tomar el control** durante el recorrido del bot: al pasar a `open`, la conversación queda para atención humana.
+
+La captura muestra el filtro con **Abiertas** y **Pendientes** seleccionadas. Tras aplicarlo, recuerda pasar de **Mías** a **Todos**:
+
+![Chatwoot: filtro Estado igual a Abiertas y Pendientes, y botón Aplicar filtros](docs/imagenes/chatwoot-filtros-conversaciones.png)
+
+Mantén esta pestaña abierta: a continuación responderás desde WhatsApp y verás aquí tu mensaje y la respuesta del agente. La campaña ya fue enviada; continúa en esa misma conversación.
+
+### 3.5. Responder, autenticar y elegir hogar
 
 **Antes de responder:** debes haber recibido la plantilla en WhatsApp y tener abierta su conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Conserva también abierta la pestaña de campaña de la central.
 
@@ -242,7 +242,7 @@ La pista debe verse como `Nombre: A•a` y `Documento: CC 10000001`, en líneas 
 
 Durante la solicitud de PIN, envía únicamente el código numérico: preguntas, audios o imágenes consumen un intento de formato. Tras tres fallos el sistema sale de esa fase sin autorizarte y el agente orienta cómo continuar. Reserva la prueba de bloqueo para el final del recorrido.
 
-### 3.5. Pagar hogar sin descuento
+### 3.6. Pagar hogar sin descuento
 
 El orden es libre: también puedes empezar por telefonía, pagar sus USD 60 y
 continuar después con hogar. Elige por nombre o, si la lista es clara, con una
@@ -257,7 +257,7 @@ seleccionada y consultar de nuevo la cartera al preguntar por la obligación res
 
 El pago se aplica una sola vez. Recargar el recibo no crea otro cobro. Si una petición queda sin respuesta, reintenta el mismo intento desde la página; no generes múltiples órdenes para resolver una incertidumbre. Las órdenes duran 30 minutos; el recibo pagado se puede consultar durante 24 horas después del pago. Un enlace vencido requiere una orden vigente para pagar.
 
-### 3.6. Enviar la captura y verificar el pago
+### 3.7. Enviar la captura y verificar el pago
 
 1. Captura el comprobante en PNG/JPEG/WebP con su referencia visible, **sin la barra de direcciones**, que contiene un enlace privado. Envía la imagen, no el PDF que pueda generar la impresión.
 2. Envíalo como imagen por WhatsApp con un texto como `Ya pagué hogar. Verifica este comprobante`.
@@ -272,7 +272,7 @@ autenticada sin referencia antes de escalar. Si central confirma el pago,
 informa sus importes y saldo; no declara auténtica una captura cuya referencia
 no pudo corroborar. Nunca cambia de titular o servicio para hacerla coincidir.
 
-### 3.7. Cambiar a telefonía y pagar el 90 %
+### 3.8. Cambiar a telefonía y pagar el 90 %
 
 No restaures todavía ni lances otra campaña: telefonía ya pertenece a la misma cohorte y conserva USD 60.
 
@@ -284,7 +284,7 @@ No restaures todavía ni lances otra campaña: telefonía ya pertenece a la mism
 6. Guarda una captura del nuevo recibo y envíala al agente indicando que es de telefonía. Debe verificarla consultando central.
 7. En la central, las dos deudas de Ana deben estar liquidadas. El acuerdo aceptado solo liquidó al aprobarse el pago.
 
-### 3.8. Contrastar las métricas antes del corte
+### 3.9. Contrastar las métricas antes del corte
 
 Vuelve a la **pestaña que conserva el panel de esta campaña**, pulsa **Actualizar** y espera la conciliación de eventos si el pago acaba de aplicarse.
 
