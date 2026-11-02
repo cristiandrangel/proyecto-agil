@@ -149,7 +149,7 @@ al LLM tras un cambio de registro, sin arrastrar el prompt financiero anterior.
 El cierre explícito de sesión utiliza esa misma operación de cambio: revoca y
 limpia antes de volver a identify; el agente espera un nuevo documento en lugar
 de localizar automáticamente al titular anterior. La negociación de hasta dos
-contraofertas se orienta desde el prompt y el historial de la deuda seleccionada;
+contraofertas (95 % y después 80 % si la oferta sigue bajo el mínimo) se orienta desde el prompt y el historial de la deuda seleccionada;
 no añade campos de permiso, nodos ni altera el mínimo financiero del backend.
 
 ## Información que se conserva fuera del estado

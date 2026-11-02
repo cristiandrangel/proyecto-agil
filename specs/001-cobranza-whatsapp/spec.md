@@ -92,8 +92,10 @@ condonados. Un acuerdo sin pago conserva pendiente la deuda de 100.
    **Then** recibe orden por 90 y conoce que se condonarán 10 al pagar.
 2. **Given** oferta exactamente del 80%, **When** confirma y paga, **Then** se
    liquida con pago y descuento separados.
-3. **Given** oferta inferior al 80%, **When** pide el acuerdo, **Then** se deriva
-   a humano sin autorizar automáticamente ese descuento.
+3. **Given** oferta inferior al 80%, **When** rechaza las propuestas del 95% y
+   después del 80% manteniendo su oferta inferior, **Then** se deriva a humano
+   sin autorizar automáticamente ese descuento. Si acepta una propuesta, se cotiza
+   y requiere confirmación posterior antes del enlace.
 4. **Given** importe ambiguo, no positivo, superior al saldo o en otra moneda,
    **When** lo ofrece, **Then** se aclara o rechaza antes de emitir una orden.
 5. **Given** saldo cambiado desde la oferta, **When** intenta pagar o generar
@@ -130,7 +132,7 @@ deuda o mi situación excede lo que el agente puede resolver.
 **Why this priority**: La excepción es una salida funcional del producto.
 
 **Independent Test**: En conversación semilla pedir asesor, disputar y ofrecer
-menos del 80%; inspeccionar motivo y resumen privados. Cambiar el control durante
+menos del 80% tras rechazar la negociación del 95% y 80%; inspeccionar motivo y resumen privados. Cambiar el control durante
 una respuesta y comprobar que el bot se detiene.
 
 **Acceptance Scenarios**:
@@ -281,8 +283,8 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   siguiendo el README, sin instrucciones verbales adicionales.
 - **SC-02**: En los casos de aceptación financiera, USD 100 pagados íntegramente
   dejan cero condonado; pagar USD 90 bajo acuerdo deja USD 10 condonados y saldo cero.
-- **SC-03**: El 100% de ofertas inferiores al 80%, disputas y solicitudes de asesor
-  de la batería generan derivación; cero envíos automáticos iniciados cuando la
+- **SC-03**: El 100% de ofertas mantenidas inferiores al 80% tras rechazar la negociación
+  del 95% y 80%, disputas y solicitudes de asesor de la batería generan derivación; cero envíos automáticos iniciados cuando la
   comprobación de control indica que la conversación está fuera de pending.
 - **SC-04**: Cero liquidaciones basadas solo en una captura, revelaciones de cartera
   ajena o aplicaciones duplicadas en los casos de aceptación críticos.

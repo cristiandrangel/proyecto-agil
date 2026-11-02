@@ -153,7 +153,7 @@ referencia como `arranquemos con la segunda`. El agente debe conservar la deuda
 seleccionada y consultar de nuevo la cartera al preguntar por la obligación restante.
 
 1. Escribe: `Quiero pagar los USD 100 completos de hogar. Dame el enlace`.
-2. Abre el enlace del agente. Debe mostrar hogar, importe base USD 100, condonación USD 0 y pago simulado. No solicita datos bancarios.
+2. Comprueba que el mensaje del enlace pide enviarte por WhatsApp una imagen del comprobante al finalizar, con la referencia visible, para verificar el pago. Abre el enlace del agente: debe mostrar hogar, importe base USD 100, condonación USD 0 y pago simulado. No solicita datos bancarios.
 3. Pulsa **Simular aprobación** y espera el resultado. No edites el saldo desde la central para sustituir este paso.
 4. En el comprobante, revisa importe recibido, condonación, referencia y fecha. Puedes usar **Imprimir / guardar comprobante**; para el siguiente paso necesitas una **captura de imagen**.
 5. En otra pestaña de la central, filtra `CC 10000001` sin restringir estado: hogar debe estar **liquidada**, saldo cero; telefonía debe seguir en USD 60.
@@ -175,9 +175,9 @@ No restaures todavía ni lances otra campaña: telefonía ya pertenece a la mism
 
 1. Escribe `Ahora quiero gestionar telefonía`. Debe seleccionar esa deuda. Cambiar de servicio del mismo titular no exige otro PIN mientras su sesión siga vigente.
 2. Propón `Puedo pagar USD 54 por telefonía`.
-3. El agente debe intentar hasta dos contraofertas superiores, una por turno. Para probar el acuerdo del 90 %, recházalas manteniendo tu oferta de USD 54; si aceptas una contraoferta, el acuerdo será por ese importe. Después espera la cotización de USD 54 recibidos y USD 6 condonados. **Todavía no está pagada.**
+3. El agente debe proponer primero pagar el 95 %: USD 57, con USD 3 condonados al cumplir el acuerdo. Para probar el acuerdo del 90 %, rechaza esa propuesta y mantén tu oferta de USD 54. Debe conservar tu oferta superior al mínimo, sin rebajarla al 80 %. Espera la cotización de USD 54 a pagar y USD 6 que la empresa acepta condonar si cumples el acuerdo; ese pago liquidará la deuda completa. **Todavía no está pagada ni condonada.**
 4. En **otro mensaje**, responde `Sí, acepto esa propuesta de USD 54`. No juntes oferta y aceptación en el mismo mensaje.
-5. Abre el nuevo enlace. Revisa base USD 60, pago USD 54 y condonación USD 6. Pulsa **Simular aprobación**.
+5. El mensaje del nuevo enlace debe recordar que envíes la imagen del comprobante al finalizar. Abre el enlace, revisa base USD 60, pago USD 54 y condonación USD 6, y pulsa **Simular aprobación**.
 6. Guarda una captura del nuevo recibo y envíala al agente indicando que es de telefonía. Debe verificarla consultando central.
 7. En la central, las dos deudas de Ana deben estar liquidadas. El acuerdo aceptado solo liquidó al aprobarse el pago.
 
@@ -205,8 +205,8 @@ Estos valores suponen fixtures iniciales, una sola persona Live, recepción corr
 Puedes seguir usando la misma conversación de WhatsApp en `pending`. No necesitas otra plantilla para cada caso. Cada mensaje conversacional puede consumir IA y cuota de envío; realiza las derivaciones humanas al final porque cambian la conversación a `open`.
 
 **Orden recomendado para completar la revisión:** cierre de sesión y cambio de
-titular (4.3), acuerdo con descuento y hasta dos contraofertas (3.7), límite exacto
-del 80 % (4.4), nota de voz (4.1), recibo repetido y comprobante no verificable
+titular (4.3), acuerdo con descuento (3.7), límite exacto
+del 80 % (4.4), negociación 95 % → 80 % y derivación (4.5), nota de voz (4.1), recibo repetido y comprobante no verificable
 (4.2 y 4.6), y atención humana con silencio del bot y devolución explícita (4.5).
 Contrasta después las métricas (6), comprueba persistencia (8) y termina abriendo
 juntos los turnos en Langfuse (7). Usa deudas todavía pendientes para cada pago;
@@ -265,7 +265,7 @@ No cambies el teléfono de Bruno para este ejercicio: se permite gestionar otro 
 
 1. Cambia de cliente a `CC 10000002`, confirma, valida PIN y selecciona hogar.
 2. Propón `Puedo pagar USD 160`. Es exactamente el 80 % de USD 200.
-3. Si intenta contraofertas superiores, mantén USD 160 para comprobar el límite exacto; deben ser como máximo dos. Espera la propuesta de USD 160 recibidos y USD 40 condonados y acéptala en **otro mensaje**.
+3. Debe intentar primero el 95 %: USD 190. Rechaza esa propuesta y mantén USD 160 para comprobar el límite exacto. Espera la cotización de USD 160 a pagar y USD 40 que la empresa acepta condonar si pagas según el acuerdo; acéptala en **otro mensaje**.
 4. Abre el enlace, aprueba el pago simulado y envía el recibo como en el camino principal.
 
 **Debes ver:** acuerdo permitido, aplicado solo al pagar, saldo cero y USD 40 condonados. Si quieres compararlo con un caso de USD 100, tras restaurar puedes usar hogar de Ana: USD 80 recibidos y USD 20 condonados.
@@ -276,7 +276,7 @@ Para evitar bloquear el camino principal, ejecuta estos casos después de los pa
 
 | Caso | Preparación y ejemplo de mensaje | Qué debe ocurrir |
 |---|---|---|
-| Menos del 80 % | Diego, `CC 10000004`, PIN validado y hogar pendiente USD 85. Ofrece `Puedo pagar USD 67.99` —el mínimo automático sería USD 68—. | No crea una aprobación automática con ese descuento; deriva por oferta inferior al límite. Saldo USD 85 intacto. |
+| Menos del 80 % | Diego, `CC 10000004`, PIN validado y hogar pendiente USD 85. Ofrece `Puedo pagar USD 67.99` —el mínimo automático sería USD 68—. | Primero propone pagar el 95 % (USD 80,75), condonando USD 4,25 al pagar. Recházalo y mantén USD 67,99. Después debe proponer el 80 % (USD 68), condonando USD 17 al pagar. Si vuelves a rechazarlo y mantienes USD 67,99, deriva por oferta inferior al límite. Saldo USD 85 intacto. Si aceptas una propuesta, debe cotizarla y pedir confirmación posterior; no deriva por la oferta inicial. |
 | Disputa | Con una deuda pendiente seleccionada: `No reconozco esta deuda; quiero que una persona la revise`. | Deriva por disputa, sin marcarla pagada ni conceder descuento. |
 | Solicitud humana | `Quiero hablar con un asesor`. | Crea el caso y solicita atención humana; el bot queda pausado. |
 
@@ -440,6 +440,37 @@ Chatwoot y la central abiertos para comparar cada resultado con su traza.
 
 ### Recorrido guiado de las trazas del test
 
+**Punto de reanudación:** el recorrido visual se pospuso para la siguiente sesión;
+la auditoría por API y base de datos ya se realizó. Empieza por el último comprobante
+verificado, después revisa el acuerdo, el retorno humano, el audio y la rama de PIN.
+No restaures los datos ni borres las trazas antes de revisarlos.
+
+Para entender el último pago, sigue este orden dentro de su raíz `conversation`:
+
+1. Abre `media_normalize` y su generación de visión: comprueba el archivo recibido
+   y qué información se extrajo. El texto extraído todavía no confirma el pago.
+2. Abre `agent → llm → Input / Output`: revisa las instrucciones, el historial,
+   la petición actual y la llamada propuesta. Puede haber varias generaciones:
+   una para decidir una herramienta y otra después de conocer su resultado.
+3. Abre `tool.verify_payment`: compara sus argumentos con el comprobante y su
+   resultado con central. En el acuerdo del 85 % observado debe aparecer pago
+   aplicado: USD 170 recibidos, USD 30 condonados y saldo cero sobre USD 200.
+4. Revisa `tool.list_debts` y la última salida del modelo: debe consultar la cartera
+   vigente y explicar el resultado, sin volver a cobrar una deuda liquidada.
+5. Abre `response_enqueue → delivery`: contrasta el mensaje preparado y el intento
+   de envío. `sent` acredita que el adaptador aceptó el envío; por sí solo no prueba
+   que WhatsApp lo haya entregado o que el destinatario lo haya leído.
+6. Compara `agent` Input/Output (`state_before`/`state_after`) para entender el
+   cambio de estado. Langfuse guarda esos snapshots; el checkpoint persistente
+   de LangGraph está en PostgreSQL y no es una tabla de Langfuse.
+
+Un filtro `ERROR` localiza fallos técnicos registrados, pero no descubre por sí
+solo una respuesta equivocada: también hay que leer los argumentos, resultados
+y el mensaje final. Las trazas históricas conservan los errores y políticas de
+su momento; cambiar el prompt no las reescribe. Los mensajes pasivos del asesor
+se revisan dentro del historial de un turno posterior, no como ejecuciones LLM
+independientes. Los rechazos estáticos de PIN tampoco necesitan una generación.
+
 Localiza un turno por su horario y mensaje en la raíz. Usa su sesión técnica para
 agrupar el mismo chat y `event_id` para enlazar observaciones de ese mensaje.
 Abre estos turnos en orden, comprobando juntos entrada, decisión y efecto:
@@ -452,7 +483,7 @@ Abre estos turnos en orden, comprobando juntos entrada, decisión y efecto:
 | Selección contextual, como `la segunda` | Revisa cómo el historial da contexto a la frase y qué deuda recibe `tool.select_debt`. Contrástala con el servicio e importe respondidos. |
 | Solicitud de pagar el total | Abre `tool.create_full_payment`: deuda, orden e importe. Contrasta el marcador de pago del agente con el enlace entregado, cuyo token permanece oculto en la captura privada. |
 | Imagen del comprobante | Revisa `media_normalize`, generación visual y asset; después el contexto que llega al agente y `tool.verify_payment`. Debe confirmar según central, no solo por el texto de la imagen. |
-| Oferta inferior al mínimo | En `tool.handoff_human`, revisa motivo, oferta y caso; después compara nota privada, aviso y estado `open` en Chatwoot. Revisa las tres entregas y su relación con el turno. |
+| Oferta inferior al mínimo | En los primeros turnos, revisa las propuestas del 95 % y 80 % sin handoff inmediato. Si mantiene una oferta inferior tras rechazarlas, abre `tool.handoff_human`: motivo, oferta y resumen. Compara nota privada, aviso y `open` en Chatwoot, con las tres entregas vinculadas al turno. Las trazas antiguas conservan la política anterior. |
 | Acuerdo, audio, cambio de titular y cierre de sesión, cuando se hayan probado | Abre las tools y generaciones efectivamente utilizadas, compara sus resultados con central y revisa que una nueva identidad no reciba contexto financiero de la anterior. No marques estas variantes por aparecer solamente en la guía. |
 
 Para cada turno responde: **qué llegó, qué contexto recibió el modelo, qué decidió,
@@ -511,6 +542,20 @@ Para detener conservando datos:
 ```bash
 docker compose --env-file .env -f infra/compose.yaml stop
 ```
+
+### Apagar el equipo y retomar la revisión
+
+Conserva `.env` y los volúmenes de Docker. Puedes apagar el equipo después de
+terminar los turnos y pagos en curso; no uses `down -v` ni restaures la demo si
+quieres revisar esta misma conversación. Al encender, ejecuta `./start.sh` desde
+la carpeta del repositorio, espera las comprobaciones y vuelve a abrir las tres
+interfaces. Los contenedores usan reinicio automático, pero el script permite
+comprobar y completar el arranque. Un reinicio no rellena de nuevo una base existente.
+
+Retoma por la sección 7, con las trazas y el recibo del último acuerdo. Las claves
+y la evidencia privada permanecen fuera de Git. Si después continúas el chat, la
+sesión de identidad puede haber vencido; pedir otra autenticación tras su TTL no
+significa que se haya perdido el checkpoint o el historial.
 
 ### Prueba final opcional de intentos y bloqueo de PIN
 
@@ -602,12 +647,24 @@ USD 100 pendientes y un escalamiento automático. No hubo solicitud explícita d
 asesor. Otra campaña registró once envíos simulados y omitió el contacto real
 por campaña activa; esos simulados no entraron a sus KPI reales.
 
-**Pendiente del recorrido:** acuerdo con descuento y límite exacto del 80 %, nota
-de voz, captura falsa, tres fallos de autenticación, rechazo/cambio de titular,
-respuesta del asesor, comprobar silencio del bot en `open`, retorno explícito a
-`pending` y continuidad tras reiniciar. El pago rechazado no prueba por sí solo
-caducidad ni reintentos duplicados de un pago ya aplicado. Las variantes están
-en las secciones 4 y 8. La revisión no envió mensajes ni alteró los datos de la demo.
+**Ampliación de la revisión de esta sesión:** además del recorrido anterior,
+se verificó audio real, cambio de titular con documento en lenguaje natural,
+rechazos y agotamiento de autenticación, atención humana con memoria pasiva y
+su devolución explícita al bot. El retorno incorpora el diálogo del asesor y el
+evento de canal antes de la consulta nueva. Se cotizó un acuerdo de USD 170 sobre
+USD 200, se aceptó en otro turno, se pagó y se envió la imagen: central registra
+USD 170 recibidos, USD 30 condonados y saldo cero; el agente lo verificó con
+`verify_payment`. Son pagos simulados. Esto acredita un acuerdo del 85 %, no las
+variantes exactas del 90 % y 80 % del guion.
+
+**Pendiente:** repetir en WhatsApp la nueva negociación 95 % → 80 %, la explicación
+explícita de condonación y la instrucción de enviar el comprobante junto al enlace;
+comprobar las variantes exactas del 90 % y 80 %, recibo falso/ajeno o repetido,
+caducidad, cierre explícito de sesión y continuidad tras un reinicio completo.
+Los tres fallos de formato observados no acreditan el bloqueo central por tres
+PIN numéricos incorrectos. Falta el recorrido visual guiado por Langfuse y la
+preparación final de entrega (instalación limpia, grabación y sustentación).
+La revisión de esta sesión fue de lectura y no envió mensajes ni alteró la demo.
 
 La inspección de Langfuse encontró la herramienta de identidad con nombre genérico
 `tool` y los tres envíos de derivación en trazas separadas. La generación, las
@@ -615,16 +672,34 @@ herramientas financieras y la verificación de imagen sí tenían entradas/salid
 La corrección y su evidencia se registran en [evaluación](docs/evaluacion.md);
 las trazas históricas conservan su estructura original.
 
-**Ajuste posterior del prompt:** guía hacia el pago completo con un siguiente paso
-concreto, interpreta el cierre explícito de sesión y negocia mediante hasta dos
-contraofertas graduales por encima de la oferta del cliente. No hay una escalera
-fija de porcentajes: se adapta al saldo, capacidad e historial de esa deuda. Si
-acepta una contraoferta, se cotiza ese importe; si rechaza ambas y mantiene una
-oferta válida, se cotiza la suya. Se respetan límites explícitos insuperables y
-no se anuncia de entrada el descuento máximo. Una oferta inferior al 80 % sigue
-derivándose a humano. El mínimo, la aceptación del acuerdo en otro mensaje y la
-revocación siguen bajo control del backend. Este ajuste no formaba parte del
-recorrido anterior: su comprobación se distingue en [evaluación](docs/evaluacion.md).
+**Política de negociación actual:** guía hacia el pago completo e interpreta el
+cierre explícito de sesión. Si no puede cubrir el total, intenta el 95 % y luego
+el 80 % cuando la oferta siga bajo el mínimo, una propuesta por turno. Si mantiene
+una oferta válida mayor al 80 %, la conserva en vez de reducirla. Aceptar una
+propuesta permite cotizarla; la cotización requiere confirmación en otro mensaje.
+Solo deriva por oferta baja tras rechazar ambas y mantener menos del 80 %; una
+petición de asesor o disputa conserva la derivación sin negociación obligatoria.
+Explica la condonación condicionada y que el pago acordado liquidará esa deuda.
+Cada enlace recuerda enviar la imagen del comprobante para verificarlo. El mínimo,
+la aceptación posterior y la revocación siguen bajo control del backend. Las trazas
+históricas conservan el comportamiento anterior; la comprobación del nuevo prompt
+se distingue en [evaluación](docs/evaluacion.md).
+
+### Correcciones consolidadas del recorrido
+
+| Área | Comportamiento actual |
+|---|---|
+| Identificación | Interpreta tipo y número en lenguaje natural y separadores de agrupación; conserva los dígitos. Explica si encontró los datos por teléfono o documento, presenta Nombre/Documento y confirma antes del PIN. |
+| Autenticación | La confirmación natural pasa por el agente. El PIN se intercepta fuera del LLM; tras agotamiento, el agente explica y ofrece opciones sin buscar otro titular automáticamente. |
+| Conversación | El prompt exige cordialidad, alcance exclusivo de cobranza y resistencia a instrucciones ajenas; conduce hacia el pago y permite cerrar sesión mediante revocación del backend. |
+| Negociación | Propuestas 95 % → 80 % según la oferta vigente, condonación condicionada explícita, confirmación posterior y comprobante pedido junto al enlace. |
+| Atención humana | `open` suspende al bot; el diálogo público se guarda de forma pasiva. El retorno comprobado a `pending` incorpora un evento a la memoria antes de la nueva consulta. |
+| Observabilidad | Inputs/outputs, estados, generaciones, herramientas, medios y entregas correlacionadas; los secretos y PIN siguen excluidos. Los errores históricos permanecen visibles. |
+| Guía | Accesos de las tres interfaces, filtros de Chatwoot, configuración del evaluador, pasos de pago/variantes y recorrido de trazas en este README. |
+
+La evidencia y límites de cada corrección están en [evaluación](docs/evaluacion.md).
+La tabla describe el comportamiento implementado; los casos pendientes del recorrido
+no se consideran aprobados por aparecer aquí.
 
 ### Flujo técnico: del webhook a la respuesta, como un AI Agent de n8n
 

@@ -170,8 +170,8 @@ Los principios de exactitud y control se derivan de los requisitos confirmados; 
 
 1. Tras autenticar y seleccionar una deuda, indica que no puede pagar el total.
 2. El agente pide el importe concreto en USD y aclara el servicio si hace falta.
-3. La herramienta calcula el porcentaje sobre el saldo vigente seleccionado.
-4. Si la oferta está entre el 80% y el 100%, comunica el pago acordado y el valor que se condonará al cumplirlo.
+3. Negocia primero el 95% del saldo vigente y, si lo rechaza manteniendo una oferta inferior al mínimo, después el 80%, una propuesta por turno. Si mantiene una oferta superior al mínimo no la rebaja al 80%; si acepta una propuesta, la cotiza.
+4. La herramienta valida las condiciones. El agente explica que la empresa acepta condonar la diferencia si paga el importe acordado, con ambos valores en USD; el pago liquidará esa deuda completa.
 5. El cliente confirma la opción y recibe la orden por ese importe.
 6. El pago aprobado registra dinero recibido y condonación; la captura posterior conduce a verificarlo.
 
@@ -195,7 +195,7 @@ la llave del canal. La central almacena celulares y documentos, sin Business IDs
 
 ### 7.5. Excepción y atención humana
 
-1. El cliente ofrece menos del 80%, disputa la deuda, pide asesor o presenta una situación que no puede verificarse.
+1. El cliente mantiene una oferta inferior al 80% tras rechazar las propuestas del 95% y 80%, disputa la deuda, pide asesor o presenta una situación que no puede verificarse.
 2. Si afirma que ya pagó, el agente intenta consultar antes de concluir que hay discrepancia.
 3. El backend crea un caso y una nota privada con motivo, deuda seleccionada, oferta y verificaciones realizadas.
 4. Se informa al cliente y se cambia la conversación de pending a open para transferirla a atención humana.
@@ -364,9 +364,9 @@ Sea S el saldo pendiente vigente de la deuda seleccionada y O la oferta, ambos e
 | O es menor o igual a cero, o mayor que S | Rechazar la propuesta y pedir corrección |
 | O es igual a S | Orden de pago completo |
 | O es al menos 80% de S y menor que S | Acuerdo con pago O y condonación S menos O |
-| O es menor que 80% de S | Atención humana |
+| O es menor que 80% de S | Negociar 95% y después 80%; si mantiene menos del mínimo tras rechazarlos, atención humana |
 
-Comparar cantidades con precisión monetaria y sin redondeos que autoricen ofertas inferiores al umbral. Ejemplos ficticios con S = USD 100: O = 100, pago completo; O = 90, condonación 10; O = 80, condonación 20; O = 79,99, humano.
+Comparar cantidades con precisión monetaria y sin redondeos que autoricen ofertas inferiores al umbral. Ejemplos ficticios con S = USD 100: O = 100, pago completo; O = 90, condonación 10; O = 80, condonación 20; O = 79,99, negociar 95 y luego 80 antes de derivar si mantiene esa oferta.
 
 La deuda se liquida al aplicar el pago aprobado y la condonación autorizada. Aceptar un acuerdo, abrir un enlace o enviar un comprobante no cambia el saldo.
 
@@ -669,7 +669,7 @@ flowchart LR
     D --> E{"Recorrido"}
     E --> F["Pago completo"]
     E --> G["Oferta del 90%"]
-    E --> H["Oferta menor al 80% o disputa"]
+    E --> H["Menos del 80% tras negociar o disputa"]
     F --> I["Pagar y enviar captura"]
     G --> I
     I --> J["Agente consulta pago y confirma"]

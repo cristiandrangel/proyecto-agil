@@ -16,6 +16,66 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 La prueba inicial de Docker con red interna detectó además una descarga implícita de tiktoken en el primer uso, oculta por la caché de desarrollo. La imagen de pruebas ahora precarga `o200k_base` durante el build; la ejecución aislada posterior aprobó las 245 pruebas. Esa descarga es un recurso público del tokenizer y no una inferencia.
 
+## Auditoría ampliada y cierre de sesión de trabajo
+
+Se revisó de solo lectura la conversación TEST de esta sesión, contrastando entradas,
+trabajos, salidas, casos humanos y la API paginada de Langfuse. No se enviaron mensajes,
+reiniciaron escenarios ni modificaron identidades o saldos durante la auditoría.
+
+| Fuente | Evidencia observada |
+|---|---|
+| Backend | 62 entradas: 56 completadas y seis de memoria humana pasiva; 56 trabajos completados y 64 salidas `sent`, sin trabajos ni salidas pendientes/fallidos en ese alcance. |
+| Langfuse | 56 raíces `conversation`, 392 observaciones en 59 trazas. Tres entregas históricas siguen como raíces separadas, anteriores a la corrección de correlación. No hay padres no nulos ausentes ni observaciones `ERROR` en ese conjunto. |
+| Entradas/salidas | 75 generaciones LLM con instrucciones/entrada y respuesta pertinente completada; 35 observaciones de herramientas con argumentos y resultado; 47 ejecuciones del agente con estados anterior y posterior estructurados. No se detectaron marcadores de truncamiento en la captura revisada. |
+| Medios | Dos audios con transcripción no vacía y dos imágenes. Los cuatro assets tienen registro de carga y tamaño positivo en la API privada; no se descargaron ni reprodujeron sus bytes durante esta auditoría. |
+| Sin inferencia por diseño | Nueve turnos estáticos sin LLM. Las seis entradas humanas pasivas no crearon trabajos, salidas ni trazas de ejecución propias; su texto aparece en el contexto del turno posterior. |
+| Retorno humano | Dos devoluciones nuevas con referencia de evento persistida y secuencia asesor → evento de devolución → consulta actual en el input LLM. Ya se acredita el nuevo mecanismo en WhatsApp; los retornos históricos sin referencia no se reconstruyeron. |
+| Acuerdo y pago | Cotización del 85 %, aceptación en turno posterior, imagen del comprobante, `verify_payment` aplicado y consulta posterior de cartera. Lectura directa de central confirmó acuerdo cumplido, orden pagada, base USD 200, recibido USD 170, condonado USD 30 y deuda liquidada con saldo cero. |
+| Checkpoint PostgreSQL | El último checkpoint del chat contiene el evento final revisado, 12 grupos de mensajes, diez resultados de herramientas y un marcador de devolución humana. Fase `select_debt`, con la verificación del pago en el historial. La lectura usó conexión de solo lectura, sin ejecutar el grafo. |
+
+Esto acredita persistencia y contenido útil de las fuentes revisadas, no corrección
+semántica universal ni entrega/lectura final de WhatsApp. Los errores históricos de
+identificación coloquial, agotamiento de autenticación y primera devolución humana
+quedaron conservados, aunque sus trabajos terminaron sin error técnico. Un handoff
+mostró cuatro observaciones de entrega para tres salidas: una fue un intento aplazado
+y las otras tres fueron envíos efectivos; no fueron cuatro mensajes enviados.
+
+El recorrido visual guiado por Langfuse se pospuso por decisión de Cristian para
+la siguiente sesión. La auditoría técnica anterior sí se completó. El README
+incluye el orden para revisar el pago, el acuerdo, el retorno humano, audio y PIN.
+Los informes detallados, identificadores reales y datos de contacto permanecen privados.
+
+### Negociación 95 % → 80 %, condonación y comprobante
+
+El único archivo de aplicación cambiado para esta política fue el system prompt.
+Ante una oferta baja intenta primero el 95 % y luego el 80 %, una propuesta por
+turno; deriva por debajo del mínimo cuando ambas se rechazaron y mantiene su
+oferta inferior. Si mantiene una oferta válida superior al 80 %, la conserva en
+vez de conceder una rebaja innecesaria. La solicitud expresa de asesor, disputa
+o imposibilidad de verificación mantiene su derivación. Central conserva su mínimo
+duro y la aceptación del acuerdo en un mensaje posterior.
+
+La cotización debe explicar que la empresa acepta condonar la diferencia al cumplir
+el pago acordado, indicando base, pago y condonación en USD; ese pago liquidará la
+deuda, no dejará la parte condonada como saldo. Todo mensaje que entregue un enlace
+debe recordar que el pago es simulado y pedir una imagen del comprobante con la
+referencia visible al finalizar, para verificarlo con central.
+
+Once escenarios sintéticos con Luna real aprobaron sus comprobaciones estructurales
+y revisión manual de las respuestas: oferta inicial baja → 95 %, rechazo → 80 %,
+rechazo de ambas → humano, aceptación de cada propuesta → cotización, oferta del
+90 % → intento del 95 %, mantenimiento del 90 % → cotización del 90 %, solicitud
+expresa de asesor, explicación de la cotización y enlaces íntegro/con acuerdo que
+piden comprobante. Once llamadas, USD 0,00881725 estimados, reservas liquidadas.
+No se ejecutaron herramientas reales ni escrituras en canal o central.
+
+Ruff y revisión de diferencias aprobados. La suite completa de 377 pruebas es de
+una revisión anterior; no se repitió por estos cambios de prompt/documentación.
+La nueva política todavía requiere repetición en WhatsApp; el acuerdo real del
+85 % anterior no la acredita. Tampoco se acreditan todavía las variantes exactas
+del 90 % y 80 %, recibo falso/repetido, caducidad, cierre explícito de sesión,
+bloqueo por tres PIN numéricos erróneos o continuidad tras reinicio completo.
+
 ## Orientación tras autenticación y explicación de búsquedas
 
 La lectura de un turno real detectó que, tras tres mensajes de formato inválido,
@@ -273,7 +333,7 @@ Ambas variantes consultaron `list_debts`, reconocieron la aclaración del asesor
 respondieron hogar USD 100 y telefonía liquidada. Cuatro llamadas por
 USD 0,00174844 estimados, todas liquidadas, usando resultados ficticios de tools,
 sin ejecución de herramientas ni escrituras en central o canal. La verificación
-WhatsApp de esta nueva representación queda pendiente de una nueva devolución.
+WhatsApp de esta nueva representación estaba pendiente en ese momento; la auditoría ampliada al inicio de este documento acredita dos devoluciones posteriores.
 
 ### Etiquetas de identidad y tono cordial
 

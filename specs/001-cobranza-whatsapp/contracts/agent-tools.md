@@ -46,14 +46,19 @@ Tras el resultado no verificado, el agente confirma el cierre y espera otro
 documento; no vuelve a buscar al titular anterior automáticamente por source_id.
 La fase vuelve a identify y se requiere confirmación y PIN para el nuevo registro.
 
-El prompt orienta hacia pago íntegro y ofrece un siguiente paso concreto. Ante
-una oferta válida con descuento intenta hasta dos contraofertas conversacionales,
-graduales y superiores a la oferta, una por turno, sin anunciar inicialmente el
-descuento máximo. El historial de la deuda determina cuántas realizó. Si acepta
-una, cotiza ese importe; si rechaza ambas, puede cotizar la oferta válida mantenida.
-No hay una escalera fija de porcentajes ni un contador adicional de autorización.
-Quote y aceptación posterior siguen siendo pasos distintos. Los importes por
-debajo del 80 % siguen derivándose a humano y central valida los límites.
+El prompt orienta hacia pago íntegro. Si no puede cubrirlo, negocia primero el
+95 % y después el 80 % cuando su oferta siga por debajo del mínimo, una propuesta
+por turno y sin herramientas de acuerdo o derivación mientras espera respuesta.
+El historial de la deuda determina las propuestas ya hechas. Si acepta una,
+cotiza ese importe; una oferta mantenida superior al mínimo no se reduce al 80 %.
+Solo si mantiene menos del 80 % tras rechazar ambas deriva por below_minimum.
+La petición de asesor, disputa o imposibilidad de verificación conserva su derivación.
+No hay contador adicional de autorización. Central mantiene el mínimo duro del 80 %.
+Quote y aceptación posterior siguen siendo pasos distintos. La explicación distingue
+pago y condonación condicionada: la empresa acepta perdonar la diferencia al cumplir
+el acuerdo y ese pago liquidará la deuda seleccionada; no es un abono con saldo residual.
+Todo mensaje de enlace debe pedir una imagen del comprobante con referencia al finalizar
+el pago simulado, para contrastarlo con central.
 
 El resultado de una orden entrega al modelo un marcador de enlace asociado a su
 order_id, sin la capability. El backend sustituye ese marcador por la URL firmada
