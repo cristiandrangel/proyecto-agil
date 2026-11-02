@@ -17,6 +17,8 @@ Necesitas Docker con Compose v2, Bash, conexión a Internet, tu WhatsApp autoriz
 4. Espera a que termine. El primer arranque descarga imágenes, prepara bases, migraciones, checkpoints y Langfuse. El script conserva la configuración existente y completa los secretos internos ausentes; imprime la URL de la central. Los fixtures se cargan solo si la base está vacía: reiniciar no sobrescribe pagos ni contactos.
 5. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
 
+   Sus usuarios y contraseñas están juntos **al final del `.env`**, en el bloque **ACCESOS WEB DEL EVALUADOR**, separados por interfaz.
+
    | Interfaz | Dirección | Credenciales del `.env` privado |
    |---|---|---|
    | Central de cobranza | `PUBLIC_BASE_URL` + `/central` | `OPERATOR_USERNAME`, `OPERATOR_PASSWORD` |
@@ -26,6 +28,16 @@ Necesitas Docker con Compose v2, Bash, conexión a Internet, tu WhatsApp autoriz
 En la configuración pública, la central es [cobranza.agenx-dev-test.work/central](https://cobranza.agenx-dev-test.work/central). Usa siempre el origen que imprime el script y coincide con `PUBLIC_BASE_URL`. En modo local explícito puede ser `http://localhost:8080/central`; Langfuse suele estar en `http://localhost:3000`.
 
 El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es distinto del login de la central y de las claves de API. Puedes abrirlo en una ventana privada para conservar otra sesión. Este recorrido no requiere administrar Cloudflare, Meta o AWS, ni operar otras bandejas. Si falta ese acceso, la parte de atención humana debe realizarla una persona que lo tenga.
+
+### 1.1. Iniciar sesión en la central
+
+1. Abre el `.env` privado y busca al final el apartado **Central de cobranza**, dentro de **ACCESOS WEB DEL EVALUADOR**.
+2. Abre [la central](https://cobranza.agenx-dev-test.work/central), o `PUBLIC_BASE_URL` + `/central` si usas otra configuración. Si no tienes sesión, se abre `/login`, con el título **Central de operación**.
+3. En **Usuario**, copia el valor de `OPERATOR_USERNAME`. En **Contraseña**, copia el valor de `OPERATOR_PASSWORD`. Copia solo lo que está a la derecha de `=`, sin el nombre de la variable ni las comillas que puedan delimitar el valor.
+4. Pulsa **Ingresar a la central**. Este acceso usa la contraseña del operador; el PIN ficticio `2468` se utiliza después en WhatsApp.
+5. Comprueba que aparece **Cartera y contacto**. Si ya tenías una sesión válida, llegarás directamente a esta pantalla.
+
+Para abrir **Chatwoot**, usa `CHATWOOT_UI_URL` e inicia sesión con `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`. Para **Langfuse**, abre `LANGFUSE_PUBLIC_URL` y usa `LANGFUSE_INIT_USER_EMAIL` y `LANGFUSE_INIT_USER_PASSWORD`. Los dos pares de credenciales están en ese mismo bloque final del `.env`.
 
 **Debes ver:** la central con **Cartera y contacto**, filtros y tabla. En una instalación nueva hay **13 personas y 14 deudas**. Los contactos comienzan simulados. Si ves mantenimiento o un error de dependencia, resuélvelo con el administrador antes de lanzar la campaña; las comprobaciones técnicas están al final.
 
