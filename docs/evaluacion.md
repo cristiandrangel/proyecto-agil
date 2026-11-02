@@ -4,7 +4,7 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Última suite Docker aislada: 366 pruebas aprobadas, cero fallos y cero omitidas, en 41,22 segundos**, finalizada el 2026-11-02 a las 02:47 UTC (1 de noviembre, 21:47 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
+- **Última suite Docker aislada: 373 pruebas aprobadas, cero fallos y cero omitidas, en 43,26 segundos**, finalizada el 2026-11-02 a las 03:17 UTC (1 de noviembre, 22:17 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
@@ -42,7 +42,7 @@ snapshot de identidad. Se corrigió su redacción tanto en campos estructurados
 como en errores de texto. La regresión falló antes del cambio y pasó después:
 tres pruebas enfocadas con el SDK real, sin HTTP al proveedor. Las entradas de
 negocio y los importes siguen visibles. La suite histórica de 303 casos fue
-anterior a esta regresión; la última ejecución de 366 casos sí la incluye.
+anterior a esta regresión; las ejecuciones posteriores de 366 y 373 casos sí la incluyen.
 
 ## Recorrido WhatsApp revisado: 1 de noviembre, 21:03–21:09 Bogotá
 
@@ -156,6 +156,32 @@ de sus trazas ni la aprobación de todos los ataques. Las respuestas antiguas no
 se modifican.
 
 ## Runtime y preflight de lectura
+
+### Audio del canal y continuidad de atención humana
+
+En el último tramo revisado del 1 de noviembre, el agente rechazó una comparación
+de vehículos y una pregunta de aritmética sin resolverlas. Después localizó el
+registro, solicitó confirmación y PIN, rechazó un intento y aceptó el siguiente.
+Mostró hogar con USD 100 pendientes y telefonía liquidada. Una nota de voz real
+de WhatsApp, de **5,46 segundos**, pidió revisar telefonía porque al cliente le
+habían informado que debía ese servicio. Langfuse mostró transcripción, decisión
+`handoff_human(reason=dispute)` y las tres entregas de nota privada, aviso y
+`open`, dentro de la misma traza. El caso quedó transferido. Esto acredita audio
+del canal y el motivo de esa derivación; todavía no acredita la respuesta de un
+asesor ni su continuación con memoria humana.
+
+Se implementó posteriormente el almacenamiento pasivo del diálogo público del
+asesor y del cliente durante `open`, sin llamadas al LLM, jobs ni respuestas del
+bot. En el próximo turno autorizado se incorporan mensajes con prefijos de actor
+al estado y checkpoint, sin duplicados, restringidos a conversación, revisión de
+identidad y último reset. Notas privadas y mensajes del bot quedan excluidos.
+No se importó el historial humano anterior al cambio. Los adjuntos durante la
+atención humana dejan un marcador y no se procesan automáticamente. Falta realizar
+este nuevo recorrido en Chatwoot con el usuario. Siete regresiones nuevas, dentro
+de la suite completa de 373 casos, comprobaron deduplicación, scope, revisión,
+reset, fase PIN, ausencia de jobs/inferencia al guardar y presencia del diálogo
+en la entrada del modelo y el checkpoint al retomar. Los tests de PostgreSQL y
+worker usan proveedores dobles y no envían mensajes reales.
 
 ### Ajuste de guía al pago, negociación y cierre de sesión
 

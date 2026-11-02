@@ -27,6 +27,16 @@ Solo message_created entrante y público del inbox/cuenta esperado inicia turno.
 Actualizar entrega con eventos soportados sin tratar estados como nuevo mensaje.
 Notas privadas, salidas propias y otros inbox no entran al agente.
 
+Los `message_created` públicos salientes con `sender.type=user` se guardan
+pasivamente como contexto humano, sin job, inferencia ni outbox. También se guardan
+las entradas públicas del cliente durante `open`, si existe contexto previo de
+la demo para esa conversación. Se deduplican por cuenta/mensaje y mantienen scope,
+source_id literal y revisión de identidad. Al siguiente turno autorizado se cargan
+como mensajes de contexto con prefijo `asesorhumano:` o
+`cliente (durante atención humana):`; no son instrucciones privilegiadas. Notas
+privadas, bots y adjuntos no se interpretan por este mecanismo. Reset y revisión
+de identidad impiden importar contexto de una gestión anterior.
+
 Adjuntos: id, file_type, content_type, data_url y tamaño si existe. Descargar en el
 backend verificando destino y cada redirect; no copiar tokens a otro host. El tipo
 real y límites prevalecen sobre extensión y metadata. Guardar mensaje normalizado

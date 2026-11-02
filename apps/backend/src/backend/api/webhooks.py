@@ -7,6 +7,7 @@ from backend.integrations.chatwoot import verify_signature
 from backend.persistence.models import InboxEvent, ResetMetadata, utcnow
 from backend.services.delivery import DeliveryService
 from backend.services.events import EventService
+from backend.services.human_memory import HumanMemory
 from backend.services.identity import decode_protected
 from fastapi import APIRouter, Request
 from sqlalchemy import select
@@ -78,9 +79,14 @@ async def webhook(request: Request):
         return DeliveryService(runtime.sessions).record(
             {**body, "account": {"id": account}, "inbox": {"id": inbox}}
         )
+    sender = body.get("sender") or {}
+    human_outgoing = (
+        body.get("message_type") in ("outgoing", 1)
+        and isinstance(sender, dict) and sender.get("type") == "user"
+    )
     if (
         body.get("event") != "message_created"
-        or body.get("message_type") not in ("incoming", 0)
+        or (body.get("message_type") not in ("incoming", 0) and not human_outgoing)
         or body.get("private") not in (None, False)
     ):
         return {"accepted": False, "reason": "ignored_event"}
@@ -128,6 +134,14 @@ async def webhook(request: Request):
         or len(attachments) > 5
     ):
         raise DomainError("invalid_message", "Mensaje fuera de los límites de la demo.", 422)
+    passive_event = SimpleNamespace(
+        account_id=str(account), inbox_id=str(inbox), conversation_id=str(conversation_id),
+        message_id=str(message_id), thread_id=source, received_at=event_time,
+    )
+    if human_outgoing:
+        return HumanMemory(runtime.sessions).record(
+            passive_event, speaker="advisor", content=content, attachments=attachments
+        )
     # Contactability is independent of bot control. Persist only authenticated
     # channel metadata; human-owned conversations never enter the content queue.
     await EventService(session_factory=runtime.sessions).record_incoming(
@@ -143,6 +157,10 @@ async def webhook(request: Request):
     # Signed event metadata is enough to acknowledge promptly. The worker rechecks
     # authoritative channel control before any authentication, media or inference.
     if conversation.get("status") is not None and conversation.get("status") != "pending":
+        if conversation.get("status") == "open":
+            HumanMemory(runtime.sessions).record(
+                passive_event, speaker="customer", content=content, attachments=attachments
+            )
         return {"accepted": False, "reason": "human_control"}
     try:
         result = await enqueue_message(

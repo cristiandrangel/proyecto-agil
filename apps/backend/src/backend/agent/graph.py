@@ -77,12 +77,17 @@ def _challenge_group(group):
     )
 
 
-def build_graph(checkpointer, *, runtime, inference, text):
+def build_graph(checkpointer, *, runtime, inference, text, human_memory=None):
     async def agent(state: AgentState):
         event = runtime.event
         snapshot = runtime.identity.snapshot(event.thread_id)
         same_identity = state.get("identity_revision", -1) == snapshot["identity_revision"]
         groups = list(state.get("messages", [])) if same_identity else []
+        if human_memory is not None:
+            # Passive entries are ordinary context, never tool outputs or instructions.
+            history = human_memory.groups(event, snapshot["identity_revision"])
+            known = {group["id"] for group in groups}
+            groups.extend(group for group in history if group["id"] not in known)
         # References are hydrated once and subsequently assigned explicitly, including None.
         runtime.pending_agreement_id = state.get("pending_agreement_id") if same_identity else None
         runtime.active_order_id = state.get("active_order_id") if same_identity else None

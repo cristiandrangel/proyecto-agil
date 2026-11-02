@@ -68,6 +68,13 @@ El webhook da acuse tras validar firma/scope/evento y persistir trabajo durable
 local, sin esperar consultas de negocio. Durante auth el contenido se transporta
 cifrado temporalmente con Fernet y el worker valida el PIN después del acuse.
 Ni el PIN en claro ni su sobre cifrado entran a messages, checkpoints o Langfuse.
+Mientras el humano controla el chat, sus mensajes públicos y los del cliente se
+guardan directamente en inbox_event con status=human_context, sin invocar el nodo.
+En el siguiente turno admitido, el nodo añade al historial los mensajes de esa
+conversación y revisión de identidad, deduplicados y anteriores al mensaje actual.
+Los mensajes del asesor llevan el prefijo asesorhumano: en un mensaje normal de
+contexto. Se guardan en el próximo checkpoint y usan la misma ventana de historial;
+no se convierten en permisos ni resultados de herramientas.
 El diagrama siguiente representa los turnos fuera del brazo estático y los eventos
 neutros de salida de autenticación; no añade nodos al grafo conversacional.
 

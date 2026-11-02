@@ -267,6 +267,11 @@ operación, permisos y efectos externos.
 | central_cursor | consumer, last_sequence | Avanza al guardar eventos conciliados; no perder pago por respuesta HTTP perdida |
 | LangGraph checkpoints | thread_id, checkpoints y writes administrados por AsyncPostgresSaver | thread_id = source_id literal del contacto; no normalizar ni concatenar; no duplicar schema manualmente; setup explícito |
 
+Los mensajes públicos del asesor y del cliente durante atención humana reutilizan
+inbox_event con status=human_context y un contenido JSON etiquetado con speaker y
+texto. No crean conversation_job. La revisión de identidad, el scope exacto y la
+fecha del último reset limitan su recuperación; no requieren una tabla nueva.
+
 Los grants y la outbox son datos privados operativos del servidor, nunca archivos
 versionados ni entradas del modelo. En awaiting_pin, el ingreso persiste transporte
 temporal cifrado con Fernet y da acuse sin red de negocio; el worker verifica

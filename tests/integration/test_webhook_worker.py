@@ -1343,3 +1343,220 @@ async def test_full_content_turn_exports_messages_checkpoint_and_delivery_in_pri
     finally:
         observation.flush()
         provider.shutdown()
+
+
+def human_event(source="literal-human-memory", message="102", **changes):
+    return SimpleNamespace(
+        **{
+            "account_id": "9", "inbox_id": "7", "conversation_id": "11",
+            "message_id": message, "thread_id": source, "received_at": utcnow(),
+            **changes,
+        }
+    )
+
+
+def seed_human_context(runtime, source="literal-human-memory", revision=3):
+    from backend.persistence.models import VerifiedContext
+
+    with runtime.sessions.begin() as session:
+        session.add(VerifiedContext(thread_id=source, identity_revision=revision))
+        session.add(InboxEvent(
+            account_id="9", inbox_id="7", conversation_id="11", message_id="100",
+            thread_id=source, identity_revision=revision, status="completed",
+        ))
+
+
+def test_human_memory_is_durable_idempotent_and_never_creates_work(runtime):
+    from backend.services.human_memory import HumanMemory
+
+    seed_human_context(runtime)
+    memory = HumanMemory(runtime.sessions)
+    event = human_event()
+    assert memory.record(event, speaker="advisor", content="Acordamos revisar mañana")["accepted"]
+    assert memory.record(event, speaker="advisor", content="Contenido repetido")["duplicate"]
+    with runtime.sessions() as session:
+        rows = session.scalars(select(InboxEvent).where(InboxEvent.status == "human_context")).all()
+        assert len(rows) == 1 and rows[0].identity_revision == 3
+        assert "Acordamos revisar mañana" in rows[0].normalized_content
+        assert "Contenido repetido" not in rows[0].normalized_content
+        assert session.scalar(select(func.count()).select_from(ConversationJob)) == 0
+        assert session.scalar(select(func.count()).select_from(Outbox)) == 0
+    groups = memory.groups(human_event(message="103"), 3)
+    assert len(groups) == 1
+    assert groups[0]["id"] == "human:" + str(rows[0].id)
+    assert groups[0]["items"] == [
+        {"role": "user", "content": "asesorhumano: Acordamos revisar mañana"}
+    ]
+    assert groups[0]["complete"] is True
+    assert not runtime.inference.calls and not runtime.channel.sent
+
+
+def test_human_memory_requires_existing_bot_context_and_exact_channel_scope(runtime):
+    from backend.persistence.models import VerifiedContext
+    from backend.services.human_memory import HumanMemory
+
+    memory = HumanMemory(runtime.sessions)
+    assert not memory.record(human_event(), speaker="advisor", content="Sin contexto")["accepted"]
+    with runtime.sessions() as session:
+        assert session.scalar(select(func.count()).select_from(VerifiedContext)) == 0
+        assert session.scalar(select(func.count()).select_from(InboxEvent)) == 0
+    seed_human_context(runtime)
+    for index, change in enumerate((
+        {"account_id": "99"}, {"inbox_id": "99"}, {"conversation_id": "99"},
+        {"thread_id": "unrelated-human-contact"},
+    ), 200):
+        assert not memory.record(
+            human_event(message=str(index), **change), speaker="advisor", content="Ajeno"
+        )["accepted"]
+    with runtime.sessions() as session:
+        assert session.scalar(select(func.count()).select_from(InboxEvent)) == 1
+
+
+def test_human_memory_groups_filter_revision_scope_and_future_numeric_ids(runtime):
+    from backend.persistence.models import VerifiedContext
+    from backend.services.human_memory import HumanMemory
+
+    seed_human_context(runtime)
+    memory = HumanMemory(runtime.sessions)
+    earlier = human_event(message="102", received_at=utcnow() - timedelta(minutes=2))
+    later = human_event(message="103", received_at=utcnow() - timedelta(minutes=1))
+    # Insert in reverse order to prove retrieval follows message chronology.
+    memory.record(later, speaker="customer", content="Gracias por la ayuda")
+    memory.record(earlier, speaker="advisor", content="Revisaremos el caso")
+    memory.record(human_event(message="110"), speaker="advisor", content="Mensaje futuro")
+    groups = memory.groups(human_event(message="104"), 3)
+    assert [group["items"][0]["content"] for group in groups] == [
+        "asesorhumano: Revisaremos el caso",
+        "cliente (durante atención humana): Gracias por la ayuda",
+    ]
+    for change in ({"account_id": "99"}, {"inbox_id": "99"},
+                   {"conversation_id": "99"}, {"thread_id": "another-contact"}):
+        assert memory.groups(human_event(message="104", **change), 3) == []
+    assert memory.groups(human_event(message="104"), 4) == []
+    with runtime.sessions.begin() as session:
+        session.get(VerifiedContext, "literal-human-memory").identity_revision = 4
+    memory.record(human_event(message="120"), speaker="advisor", content="Nuevo cliente")
+    assert [group["items"][0]["content"] for group in memory.groups(human_event(message="121"), 4)] == [
+        "asesorhumano: Nuevo cliente"
+    ]
+
+
+def test_human_memory_reset_cutoff_prevents_old_revision_zero_history(runtime):
+    from backend.persistence.models import ResetMetadata
+    from backend.services.human_memory import HumanMemory
+
+    seed_human_context(runtime, revision=0)
+    memory = HumanMemory(runtime.sessions)
+    memory.record(human_event(message="102"), speaker="advisor", content="Contexto anterior al reset")
+    with runtime.sessions.begin() as session:
+        session.add(ResetMetadata(key="demo", epoch=1, reset_at=utcnow()))
+    assert memory.groups(human_event(message="200"), 0) == []
+    assert not memory.record(
+        human_event(message="201"), speaker="advisor", content="Sin conversación nueva"
+    )["accepted"]
+    with runtime.sessions.begin() as session:
+        session.add(InboxEvent(
+            account_id="9", inbox_id="7", conversation_id="11", message_id="202",
+            thread_id="literal-human-memory", identity_revision=0, status="completed",
+        ))
+    memory.record(human_event(message="203"), speaker="customer", content="10000002")
+    assert [group["items"][0]["content"] for group in memory.groups(human_event(message="204"), 0)] == [
+        "cliente (durante atención humana): 10000002"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_public_human_webhook_stores_context_without_llm_jobs_or_reply(runtime, webapp):
+    seed_human_context(runtime)
+    runtime.channel.status = "open"
+    body = payload("literal-human-memory", message=102, content="Le contactaré mañana")
+    body.update(message_type="outgoing", sender={"id": 5, "type": "user"})
+    body["conversation"]["status"] = "open"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(webapp), base_url="http://testserver"
+    ) as client:
+        first = await post(client, runtime, body)
+        assert first.status_code == 200 and first.json()["accepted"]
+        assert (await post(client, runtime, body)).json()["duplicate"]
+        for index, change in enumerate((
+            {"private": True}, {"sender": {"id": 5, "type": "agent_bot"}},
+        ), 103):
+            ignored = await post(client, runtime, {**body, "id": index, **change})
+            assert ignored.status_code == 200 and not ignored.json()["accepted"]
+    with runtime.sessions() as session:
+        rows = session.scalars(select(InboxEvent).where(InboxEvent.status == "human_context")).all()
+        assert len(rows) == 1
+        assert "Le contactaré mañana" in rows[0].normalized_content
+        assert session.scalar(select(func.count()).select_from(ConversationJob)) == 0
+        assert session.scalar(select(func.count()).select_from(Outbox)) == 0
+    assert not runtime.inference.calls and not runtime.channel.sent and not runtime.central.calls
+
+
+@pytest.mark.asyncio
+async def test_customer_human_turn_stored_but_active_pin_challenge_is_omitted(runtime, webapp):
+    seed_human_context(runtime)
+    runtime.channel.status = "open"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(webapp), base_url="http://testserver"
+    ) as client:
+        for index, content in enumerate(("Gracias, esperaré la llamada", "246810"), 102):
+            if index == 103:
+                from backend.persistence.models import VerifiedContext
+
+                with runtime.sessions.begin() as session:
+                    session.get(VerifiedContext, "literal-human-memory").challenge_state = "awaiting_pin"
+            body = payload("literal-human-memory", message=index, content=content)
+            body["conversation"]["status"] = "open"
+            assert (await post(client, runtime, body)).status_code == 200
+    with runtime.sessions() as session:
+        rows = session.scalars(select(InboxEvent).where(InboxEvent.status == "human_context")).all()
+        assert any("Gracias, esperaré la llamada" in row.normalized_content for row in rows)
+        assert "246810" not in json.dumps([row.normalized_content for row in rows])
+        assert session.scalar(select(func.count()).select_from(ConversationJob)) == 0
+        assert session.scalar(select(func.count()).select_from(Outbox)) == 0
+    assert not runtime.inference.calls and not runtime.channel.sent and not runtime.central.calls
+
+
+@pytest.mark.asyncio
+async def test_return_to_bot_loads_human_exchange_into_state_and_inference(runtime, webapp):
+    from backend.persistence.models import VerifiedContext
+
+    source = "literal-human-return"
+    async with checkpointer(runtime.settings.memory_conninfo, setup=True):
+        pass
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(webapp), base_url="http://testserver"
+    ) as client:
+        assert (await post(client, runtime, payload(source, message=100))).json()["accepted"]
+        await process_job(runtime, runtime.queue.claim("human-return-worker"))
+        calls_before = len(runtime.inference.calls)
+        # Human ownership starts after an existing bot turn; no worker processes
+        # either side of the exchange while the conversation is open.
+        advisor = payload(source, message=101, content="El asesor revisará el caso mañana")
+        advisor.update(message_type="outgoing", sender={"id": 5, "type": "user"})
+        advisor["conversation"]["status"] = "open"
+        customer = payload(source, message=102, content="Prefiero que me llamen en la tarde")
+        customer["conversation"]["status"] = "open"
+        assert (await post(client, runtime, advisor)).status_code == 200
+        assert (await post(client, runtime, customer)).status_code == 200
+        assert runtime.queue.claim("human-return-worker") is None
+        assert len(runtime.inference.calls) == calls_before
+        resumed = payload(source, message=103, content="¿Puedes retomar lo que hablamos?")
+        resumed["conversation"]["status"] = "pending"
+        assert (await post(client, runtime, resumed)).json()["accepted"]
+        await process_job(runtime, runtime.queue.claim("human-return-worker"))
+    expected = [
+        {"role": "user", "content": "asesorhumano: El asesor revisará el caso mañana"},
+        {"role": "user", "content": "cliente (durante atención humana): Prefiero que me llamen en la tarde"},
+    ]
+    assert len(runtime.inference.calls) == calls_before + 1
+    request_messages = runtime.inference.calls[-1]["input"]
+    for message in expected:
+        assert request_messages.count(message) == 1
+    assert request_messages.index(expected[0]) < request_messages.index(expected[1])
+    with runtime.sessions() as session:
+        assert session.get(VerifiedContext, source) is not None
+    async with checkpointer(runtime.settings.memory_conninfo) as saver:
+        saved = await saver.aget_tuple(thread_config(source))
+        for message in expected:
+            assert message["content"] in str(saved.checkpoint)

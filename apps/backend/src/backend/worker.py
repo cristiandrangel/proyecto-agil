@@ -18,6 +18,7 @@ from backend.persistence.models import InboxEvent, Outbox
 from backend.persistence.queue import thread_lock
 from backend.runtime import Runtime
 from backend.services.delivery import DeliveryService
+from backend.services.human_memory import HumanMemory
 from backend.services.identity import decode_protected
 
 logger = logging.getLogger("agil.worker")
@@ -137,7 +138,10 @@ async def _process_turn(runtime, job, *, trace=None):
                 event, runtime.identity, runtime.central, runtime.handoff, runtime.observability
             )
             async with checkpointer(runtime.settings.memory_conninfo) as saver:
-                graph = build_graph(saver, runtime=tools, inference=runtime.inference, text=text)
+                graph = build_graph(
+                    saver, runtime=tools, inference=runtime.inference, text=text,
+                    human_memory=HumanMemory(runtime.sessions),
+                )
                 with runtime.observability.span(
                     "agent", event_id=event.id, thread_id=event.thread_id,
                     input={"message": text, "identity": snapshot},
