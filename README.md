@@ -508,7 +508,12 @@ propios. En un handoff también hay salidas de nota privada, aviso público y ca
 a `open`, que pueden producir varios `delivery` en un mismo turno.
 
 Una fila `delivery` en la tabla no representa otro mensaje entrante: es una operación
-de salida. Se relaciona por traza/evento con la ejecución original; los registros
+de salida. La tabla puede listar observaciones por separado; eso no demuestra que
+pertenezcan a trazas distintas. Para leer un turno completo, abre la raíz
+`conversation` en **Tree**: el envío debe aparecer como hijo de `response_enqueue`.
+En el último comprobante auditado se verificó el mismo `trace_id` para las tres
+operaciones y la relación padre/hijo persistida, aunque el envío terminó después
+de cerrar el procesamiento principal. Se relaciona por traza/evento con la ejecución original; los registros
 históricos pueden conservar otra raíz. `deferred` significa intento aplazado,
 `cancelled` salida cancelada, `failed` fallo y `uncertain` resultado incierto;
 no se debe interpretar una observación por intento como un mensaje enviado adicional.
