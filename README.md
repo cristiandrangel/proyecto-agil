@@ -449,6 +449,22 @@ Chatwoot y la central abiertos para comparar cada resultado con su traza.
 5. Para audio o imagen, abre sus generaciones y assets privados. Para el envío, expande **response_enqueue → delivery**.
 6. Contrasta estados, modelo, latencias, tokens y coste estimado. El coste vacío de una raíz span no significa consumo cero: el detalle está en sus generaciones hijas.
 
+### Cómo leer el árbol y el detalle
+
+En **Tree**, lee de arriba hacia abajo; la sangría indica qué operación está dentro
+de otra. Al seleccionar una observación, **Preview** muestra sus datos: **Input**
+es lo que recibió esa operación y **Output** lo que produjo. En `llm` incluye
+contexto/instrucciones y respuesta o llamada propuesta; en una tool, argumentos y
+resultado del sistema. **Attributes** muestra metadatos; **Timeline** ayuda a comparar
+duración y orden. Varias observaciones `llm` pueden pertenecer al mismo nodo del
+agente: decide una tool, recibe el resultado y vuelve a llamar al modelo.
+
+En el último comprobante revisado, `identity_gate` muestra identidad `verified=true`
+y salida `handled=false`: la rama estática de PIN no atendió ese mensaje y permitió
+continuar. Después se interpreta la imagen, el agente verifica el pago, consulta
+la cartera, redacta su respuesta y la encola para enviar. La generación de visión
+bajo `media_normalize` es distinta de las generaciones del agente principal.
+
 ### Recorrido guiado de las trazas del test
 
 **Punto de reanudación:** el recorrido visual se pospuso para la siguiente sesión;
