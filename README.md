@@ -189,6 +189,16 @@ Estos valores suponen fixtures iniciales, una sola persona Live, recepción corr
 
 Puedes seguir usando la misma conversación de WhatsApp en `pending`. No necesitas otra plantilla para cada caso. Cada mensaje conversacional puede consumir IA y cuota de envío; realiza las derivaciones humanas al final porque cambian la conversación a `open`.
 
+**Orden recomendado para completar la revisión:** cierre de sesión y cambio de
+titular (4.3), acuerdo con descuento y hasta dos contraofertas (3.7), límite exacto
+del 80 % (4.4), nota de voz (4.1), recibo repetido y comprobante no verificable
+(4.2 y 4.6), y atención humana con silencio del bot y devolución explícita (4.5).
+Contrasta después las métricas (6), comprueba persistencia (8) y termina abriendo
+juntos los turnos en Langfuse (7). Usa deudas todavía pendientes para cada pago;
+si ya no quedan, restaura el escenario antes de repetirlo. Deja los tres fallos
+de PIN para el final, pues pueden bloquear temporalmente al cliente. Cada caso
+debe registrarse por lo observado; los tests automáticos no sustituyen el recorrido.
+
 ### 4.1. Audio y varias imágenes
 
 **Antes de empezar:** identidad validada y conversación en `pending`. Para comprobar importes, elige explícitamente el servicio que quieres revisar.

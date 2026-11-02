@@ -149,8 +149,11 @@ para ampliar presupuesto. No se cambió de modelo ni se redujo el razonamiento.
 La separación entre instrucciones y datos, ejemplos claros y evaluación de
 riesgos sigue la [guía oficial de seguridad para agentes](https://developers.openai.com/api/docs/guides/agent-builder-safety).
 La autenticación y las restricciones financieras existentes siguen aplicándose
-independientemente del texto generado. Queda repetir las preguntas desde WhatsApp
-después de este despliegue; las respuestas antiguas no se modifican.
+independientemente del texto generado. Después del despliegue, Cristian confirmó
+que repitió las dos pruebas de alcance desde WhatsApp y ambas funcionaron. Esta
+confirmación del usuario acredita esos dos casos; no supone una nueva inspección
+de sus trazas ni la aprobación de todos los ataques. Las respuestas antiguas no
+se modifican.
 
 ## Runtime y preflight de lectura
 
