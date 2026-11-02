@@ -1,35 +1,50 @@
 # Proyecto Ágil
 
-Prototipo de un asistente de cobranza por WhatsApp para consultar deudas, negociar
-acuerdos, verificar pagos y pasar la atención a una persona cuando corresponde.
-La central de cartera conserva la autoridad financiera; el agente conversa y
-solicita operaciones sujetas a sus permisos y reglas.
+**Un asistente de cobranza por WhatsApp que ayuda a consultar, negociar y pagar deudas, con atención humana cuando hace falta.**
 
-Este repositorio contiene el backend y worker conversacional, la central de
-cartera y pago, la interfaz de campañas, persistencia, observabilidad, pruebas,
-evals y scripts de entrega. El **[documento técnico de arquitectura](docs/arquitectura.md)**
-explica la infraestructura, los servicios, las secuencias y la propuesta AWS.
-El [PRD](specs/prd.md) describe el producto,
-[la arquitectura de servicios](#arquitectura-y-planes-futuros) muestra sus
-componentes y [la evaluación](docs/evaluacion.md) registra lo comprobado y lo pendiente.
+Gestionar una cartera grande exige contactar a muchas personas, entender su situación y dar seguimiento. Proyecto Ágil demuestra cómo un agente de IA puede asumir parte de esa conversación, mientras el equipo comercial conserva el control de las campañas y las excepciones. La central financiera valida cada operación: una respuesta del modelo no basta para conceder un descuento o declarar un pago.
 
-La demo usa personas y deudas ficticias en USD. **PIN ficticio: `2468` para todos
-los clientes**; se escribe en WhatsApp solo cuando se solicita, y es distinto de
-las contraseñas de las interfaces. El canal autorizado usa **WhatsApp/Chatwoot
-reales e inferencia de OpenAI**. Los demás destinos de campaña simulan el envío,
-los pagos siempre son simulados y el laboratorio EC2 local con Floci emula AWS.
-**No se mueve dinero real ni se ha desplegado una instancia AWS real.** Esta
-guía permite instalar y recorrer esa demo.
+Este repositorio es el prototipo funcional de la propuesta para Liberty Latin America. El recorrido empieza en una central web de deudores, continúa en tu propio WhatsApp y termina verificando pagos, resultados comerciales y trazas. Puedes vivirlo como cliente y observarlo como operador, asesor y evaluador técnico.
+
+## Qué podrás comprobar
+
+| Capacidad | Qué harás durante la demo |
+|---|---|
+| Campañas segmentadas | Filtrar por servicio, documento, mora y estado; contactar una sola vez a cada persona aunque tenga varias deudas. |
+| Conversación con un LLM real | Pedir ayuda con lenguaje natural, elegir un servicio y cambiar de intención; el agente decide qué herramientas utilizar. |
+| Identidad y varias obligaciones | Autenticarte con PIN, gestionar una deuda a la vez y cambiar de titular con nueva validación. |
+| Pago íntegro y negociación | Pagar el saldo completo o acordar un descuento dentro de las reglas de la central. |
+| Audio e imágenes | Enviar una nota de voz o un comprobante; el agente interpreta el medio y verifica el pago en el sistema financiero. |
+| Atención humana con continuidad | Pedir un asesor, responder desde Chatwoot y devolver el control al bot conservando el contexto autorizado. |
+| Resultados y observabilidad | Comparar recaudo, condonación y contactabilidad; abrir cada turno en Langfuse y ver modelos, tools, entradas y salidas. |
+| Persistencia | Reiniciar el entorno y comprobar que pagos y memoria siguen disponibles, respetando la caducidad de identidad. |
+
+**Qué es real:** WhatsApp/Meta, Chatwoot y las llamadas a OpenAI; el backend, las herramientas, las bases de datos y Langfuse ejecutan código funcional. **Qué es simulado:** clientes y deudas, PIN fijo, pasarela de pago y envíos a contactos ficticios. No se cobra dinero real.
+
+La entrega corre localmente en una **EC2 emulada con Floci**, que ejecuta el stack Docker en un contenedor Linux con Docker propio. No hay una instancia contratada en AWS. La infraestructura AWS propuesta, sus decisiones y los detalles internos están en el **[documento técnico de arquitectura](docs/arquitectura.md)**, que se puede leer de forma independiente.
+
+**PIN de demostración: `2468` para todos los clientes ficticios.** Es distinto de las contraseñas de las interfaces; escríbelo en WhatsApp únicamente cuando el agente lo solicite.
+
+## Cómo recorrer este repositorio
+
+1. [Instala y abre las tres interfaces](#1-instalar-y-abrir-las-interfaces).
+2. [Reconoce los datos ficticios](#2-reconocer-los-datos-de-prueba).
+3. [Completa el camino principal](#3-camino-principal-campaña-pago-íntegro-y-acuerdo): campaña, hogar al 100 % y telefonía al 90 %.
+4. [Explora las variantes](#4-variantes-funcionales-sin-envíos-de-campaña-innecesarios): medios, otra identidad, excepciones y asesor.
+5. [Contrasta los resultados comerciales](#5-leer-resultados-y-fijar-el-corte-de-campaña), comprueba la [persistencia](#6-comprobar-persistencia-y-dejar-la-demo-preparada) y termina con la [revisión guiada en Langfuse](#7-revisar-cada-turno-completo-en-langfuse).
+6. Consulta [la evidencia y sus límites](#9-qué-se-ha-validado) y la [ayuda de operación](#10-operación-y-solución-de-problemas) cuando lo necesites.
+
+El camino principal no necesita ejecutar todas las variantes ni restaurar datos. Las variantes son pruebas independientes: cada una indica su preparación. Las frases de ejemplo orientan la conversación; evalúa la acción y los datos, no una redacción exacta.
 
 ## 1. Instalar y abrir las interfaces
 
-La modalidad de entrega es **EC2 emulada con Floci**: la aplicación, las bases y
-Langfuse corren dentro de un invitado Linux con Docker propio. Chatwoot, Meta y
-OpenAI siguen siendo externos. El laboratorio usa contenedores con kernel
-compartido; no contrata una instancia AWS. El arranque admite Docker Desktop con
-Linux containers en Windows, macOS y Linux, además de Docker Engine Linux, en
-amd64 y arm64. Python y SSH se ejecutan en un contenedor auxiliar. Los requisitos
-de recursos y el alcance de la validación están en [EC2 emulada](docs/emulacion-ec2.md).
+El lanzador prepara la aplicación, sus bases y Langfuse dentro del entorno emulado. Chatwoot, Meta y OpenAI siguen siendo externos. Antes de empezar:
+
+- Docker debe estar iniciado, con Compose v2 y **Linux containers**. No se requiere instalar Python ni SSH en el equipo; se ejecutan desde el contenedor auxiliar.
+- Usa una carpeta local. Se recomienda disponer de al menos 4 CPU, 12 GiB de RAM para Docker y 15 GiB libres más el espacio de sus imágenes/volúmenes. Son recomendaciones de arranque, no un mínimo medido en todos los equipos.
+- Docker debe permitir contenedores privilegiados y acceso al socket desde el lanzador. Rootless y daemons remotos no están soportados.
+- La ejecución completa se comprobó en Linux x86_64. Hay lanzadores e imágenes para Windows/macOS/ARM, pero no se ha validado el recorrido nativamente en todos ellos.
+- Necesitas conexión a Internet, el archivo privado `.env.entrega` y un WhatsApp autorizado como destinatario del número de prueba de Meta. Solicita esa autorización al responsable de la entrega si falta; cambiar tu celular en la central no lo autoriza en Meta.
 
 Si vas a descargar el repositorio público por primera vez, clónalo y entra en
 su carpeta (los mismos comandos sirven en terminal de Linux/macOS, PowerShell o CMD):
@@ -175,7 +190,7 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 **Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Revisa que la plantilla llegue a tu WhatsApp y que aparezca en la conversación TEST.
 
-**Enviado al canal** significa aceptación de la API, no entrega o lectura de WhatsApp. **Procesamiento finalizado** tampoco significa que todos recibieron el mensaje. Un resultado **Sin confirmación** requiere revisión: no repitas la campaña para compensarlo. Las cuotas se explican al final; no hace falta volver a lanzar una plantilla para cada variante conversacional.
+**Enviado al canal** significa aceptación de la API, no entrega o lectura de WhatsApp. **Procesamiento finalizado** tampoco significa que todos recibieron el mensaje. Un resultado **Sin confirmación** requiere revisión: no repitas la campaña para compensarlo. Las cuotas se explican en la sección 10; no hace falta volver a lanzar una plantilla para cada variante conversacional.
 
 ### 3.4. Responder, autenticar y elegir hogar
 
@@ -189,26 +204,9 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 **Debes comprobar:** antes del PIN no revela saldos ni servicios del titular. El nombre de la pista permanece enmascarado; el tipo y número de documento se muestran completos antes de autenticar, por decisión de esta demo. Después, hogar tiene USD 100 y telefonía USD 60. Se gestiona **una deuda por vez**; validar a Ana no autoriza a consultar a Bruno. El PIN escrito se verifica fuera del modelo. Confirmar la pista solo habilita el desafío, sin autorizar cartera. Tras un PIN correcto, el agente recibe una validación neutra y consulta las deudas. La sesión vence a los 30 minutos; si caduca durante la evaluación, repite la identificación que solicite el agente.
 
-**Formato de la pista en esta demo:** identifica ambos campos en líneas separadas, por ejemplo para Ana:
+La pista debe verse como `Nombre: A•a` y `Documento: CC 10000001`, en líneas separadas. El agente explica si encontró el registro por teléfono o por documento, con trato cordial. Una coincidencia no confirma identidad; la cartera solo aparece después del PIN.
 
-```text
-Nombre: A•a
-Documento: CC 10000001
-```
-
-El nombre conserva únicamente los extremos del primer nombre y oculta el resto con `•`; nombres de uno o dos caracteres se ocultan completos. El **tipo y número de documento se muestran completos, también antes del PIN**, para reconocer el registro que se va a gestionar. El agente copia literalmente la pista que entrega la herramienta, en texto plano, sin volver a ocultar el documento. Esto no autoriza cartera ni expone o valida el PIN. Las pistas antiguas ya enviadas conservan su formato anterior; la nueva consulta utiliza el formato actual. Puedes continuar con **sí** o **dale** si reconoces el registro y la intención es clara, sin reiniciar ni volver a lanzar la campaña para corregir un mensaje antiguo.
-
-**Trato esperado:** el agente reconoce lo que quieres hacer y explica la validación
-con un lenguaje cordial. Por ejemplo, ante una solicitud de pago puede ofrecer ayuda,
-explicar que primero necesita confirmar los datos y preguntar si corresponden a
-la persona por la que consultas. Al cambiar de titular reconoce el cambio antes
-de mostrar los campos. Al entregar una coincidencia explica cómo la obtuvo: por ejemplo, «Al buscar con el teléfono desde el que nos escribes, encontré estos datos asociados», seguido de Nombre y Documento. Si buscó por documento, debe atribuir el resultado a ese documento; si no hubo coincidencia, debe explicarlo sin inventar datos. Son ejemplos de tono; la redacción se genera según el diálogo.
-No debe hablarte como si fueras un registro de una base de datos. La cordialidad
-conserva la validación por PIN y las reglas de la gestión.
-
-**Conversación durante la identificación:** antes de confirmar la pista, puedes responder con naturalidad: **sí**, **dale**, **no**, preguntas, asesor o cambio de cliente llegan al agente con su system prompt y memoria. El modelo interpreta la intención y usa `manage_identity`; si es ambigua, debe aclararla. Para comprobarlo, responde `dale` ante una pregunta clara de confirmación: debe activar la fase de PIN y devolver la solicitud fija, sin otra llamada al modelo después de confirmar.
-
-**Mientras espera el PIN (`awaiting_pin` / `waiting_auth`):** todos los mensajes van al brazo estático. Se admite únicamente un texto numérico de 4 a 8 dígitos. Un formato incorrecto, un medio o un PIN rechazado cuenta como un intento fallido; antes del tercer fallo recibe una respuesta fija para reintentar. Un PIN correcto termina la fase y entrega al agente el evento neutro `identity_verified`, sin el código; el agente consulta las deudas. Al tercer fallo termina la fase **sin autorización** y llega al agente `auth_attempts_exhausted` para orientar la continuación. Debe explicar cordialmente que no se completó la validación, recordar que el PIN se envía solo con números cuando se solicite y ofrecer reintentar o hablar con un asesor. En ese turno no debe llamar herramientas, reiniciar la validación, buscar por el teléfono ni cambiar de titular automáticamente. Si eliges reintentar y el documento ya se limpió del contexto, debe pedírtelo antes de preparar una nueva confirmación y PIN. Esto no transfiere automáticamente a un asesor; después puedes pedirlo. El contador local de tres mensajes fallidos no elimina el bloqueo de PIN de 15 minutos aplicado por central. Estas son acciones y resultados esperados; su ejecución real se registra por separado.
+Durante la solicitud de PIN, envía únicamente el código numérico: preguntas, audios o imágenes consumen un intento de formato. Tras tres fallos el sistema sale de esa fase sin autorizarte y el agente orienta cómo continuar. Reserva la prueba de bloqueo para el final del recorrido.
 
 ### 3.5. Pagar hogar sin descuento
 
@@ -269,21 +267,13 @@ Vuelve a la **pestaña que conserva el panel de esta campaña**, pulsa **Actuali
 
 Estos valores suponen fixtures iniciales, una sola persona Live, recepción correcta y ambos servicios incluidos al previsualizar. Los pagos de una persona simulada o de una deuda fuera del segmento **no se suman** a esta cohorte real. Los hitos pueden coincidir en una persona; no son categorías que deban sumar el total.
 
-**No pulses Fijar corte hasta terminar los resultados que quieras medir.** En la sección 6 se explica qué cambia al cerrarla.
+**No pulses Fijar corte hasta terminar los resultados que quieras medir.** En la sección 5 se explica qué cambia al cerrarla.
 
 ## 4. Variantes funcionales, sin envíos de campaña innecesarios
 
 Puedes seguir usando la misma conversación de WhatsApp en `pending`. No necesitas otra plantilla para cada caso. Cada mensaje conversacional puede consumir IA y cuota de envío; realiza las derivaciones humanas al final porque cambian la conversación a `open`.
 
-**Orden recomendado para completar la revisión:** cierre de sesión y cambio de
-titular (4.3), acuerdo con descuento (3.7), límite exacto
-del 80 % (4.4), negociación 95 % → 80 % y derivación (4.5), nota de voz (4.1), recibo repetido y comprobante no verificable
-(4.2 y 4.6), y atención humana con silencio del bot y devolución explícita (4.5).
-Contrasta después las métricas (6), comprueba persistencia (8) y termina abriendo
-juntos los turnos en Langfuse (7). Usa deudas todavía pendientes para cada pago;
-si ya no quedan, restaura el escenario antes de repetirlo. Deja los tres fallos
-de PIN para el final, pues pueden bloquear temporalmente al cliente. Cada caso
-debe registrarse por lo observado; los tests automáticos no sustituyen el recorrido.
+Empieza por medios y comprobantes de pagos ya realizados; después prueba el cambio a Bruno. Puedes recuperar un acuerdo pendiente **antes de pagarlo**. El caso del 80 % se prueba aparte, sobre una deuda pendiente sin condiciones que quieras conservar; restaura primero si hace falta. Deja las derivaciones humanas y los tres errores de PIN para el final. No todas las variantes se pueden ejecutar sobre una deuda ya liquidada: cuando necesites restaurar, sigue la sección 8 y acepta que reiniciarás la cartera de esa ejecución.
 
 ### 4.1. Audio y varias imágenes
 
@@ -346,7 +336,7 @@ retomarlo no aplica todavía la condonación; solo el pago aprobado en central
 liquida la deuda. Este resultado se verifica automáticamente en PostgreSQL; el
 recorrido WhatsApp de esta recuperación queda pendiente de ejecución del evaluador.
 
-Para comprobar un candidato equivocado, responde **no** a su pista antes de confirmar el candidato y entrar en la fase PIN y proporciona luego el documento correcto. El agente debe interpretar el rechazo con su memoria y usar `manage_identity`; esa herramienta no valida un PIN ni concede acceso financiero. Para un documento inexistente, usa un tipo/número ficticio que no esté en la tabla: no debe inventar una coincidencia ni revelar deudas. Un único PIN incorrecto debe impedir el acceso; deja la prueba de **tres errores** para el final.
+Para comprobar un candidato equivocado, responde **no** a su pista antes de entrar en la fase PIN y proporciona luego el documento correcto. El agente debe interpretar el rechazo con su memoria y usar `manage_identity`; esa herramienta no valida un PIN ni concede acceso financiero. Para un documento inexistente, usa un tipo/número ficticio que no esté en la tabla: no debe inventar una coincidencia ni revelar deudas. Un único PIN incorrecto debe impedir el acceso; deja la prueba de **tres errores** para el final.
 
 No cambies el teléfono de Bruno para este ejercicio: se permite gestionar otro titular tras validar su PIN desde la misma conversación. La campaña del camino principal solo atribuye resultados reales a Ana; este cambio no convierte a Bruno en destinatario real de esa campaña.
 
@@ -385,55 +375,15 @@ del bot. Las notas privadas y las salidas del propio bot no se añaden por este 
 2. La persona que atiende usa el control nativo de Chatwoot para dejar la conversación en **`pending`**, con el bot TEST correspondiente. No basta con cerrar la pestaña, cambiar el filtro o marcarla resuelta. La central no tiene un botón propio de «Devolver al bot».
 3. Envía **un nuevo mensaje desde WhatsApp**. El backend debe observar esa devolución explícita y retomar; si venció la identidad, pedirá validarla otra vez.
 
-Al procesar ese mensaje, el backend comprueba que la transferencia se aplicó,
-que antes se observó `open` y que ahora Chatwoot está en `pending`. Guarda `returned`
-y la referencia del mensaje que permitió verificarlo, en la misma transacción.
-Después recupera el estado e incorpora una sola vez el evento de devolución,
-entre el diálogo humano y la consulta nueva:
+**Comprobar que recuerda al asesor:** durante la pausa, el asesor puede escribir `La obligación que vamos a revisar es hogar. Te devuelvo al asistente`. El cliente responde `Entendido` mientras sigue en `open`: el bot debe permanecer en silencio. Devuelve la conversación a `pending` y envía `Entonces, ¿cuánto debo por hogar?`. Debe retomar esa aclaración y consultar el saldo vigente, sin enviarte otra vez al asesor por el caso ya finalizado.
 
-```text
-asesorhumano: La obligación pendiente es hogar. Te dejo con el asistente.
-evento_canal: La atención humana terminó y el backend confirmó la devolución del control al asistente.
-cliente: Entonces, ¿cuánto debo?
-```
-
-En Langfuse, comprueba ese orden en el input del LLM y el evento en `state_after`.
-El siguiente turno conserva el mismo evento sin duplicarlo. Si preguntas cuánto
-debes al retomar, debe consultar la cartera actual y continuar la gestión.
-Escribir «te dejo con el asistente» por sí solo no cambia el control del canal.
-El registro empieza con las nuevas devoluciones verificadas tras esta versión;
-no se inventa un evento para casos históricos que ya estaban devueltos.
-
-**Repetir el retorno con contexto de hogar:** usa la conversación existente en
-`pending`, sin restaurar datos ni lanzar otra campaña. Escribe `Quiero continuar
-con hogar`; si la sesión venció, confirma el registro y envía `2468` solo cuando
-se solicite el PIN. Después pide `Quiero hablar con un asesor` y espera `open`.
-Desde Chatwoot responde públicamente `Se aclaró la duda sobre telefonía. La
-obligación que vamos a gestionar es hogar. Te devuelvo al asistente`. Desde WhatsApp
-contesta `Entendido, sigamos con hogar` mientras aún esté en `open`: el bot debe
-permanecer en silencio. Devuelve explícitamente la conversación a `pending` y
-envía `Entonces, ¿cuánto debo por hogar?`. Debe consultar el saldo vigente de hogar
-y continuar, usando la aclaración anterior, sin remitirte otra vez al asesor por
-la transferencia ya finalizada. Si caduca la identidad durante el ejercicio,
-debe volver a autenticar; completa el intercambio dentro de la misma sesión para
-comprobar la continuidad de ese contexto.
-
-Por ejemplo, escribe `Retomemos lo que hablamos con el asesor`. En la siguiente
-entrada al agente, el diálogo humano de la misma revisión de identidad se incorpora
-al estado como mensajes normales: `asesorhumano: Revisaré el caso mañana` y
-`cliente (durante atención humana): Prefiero que sea en la tarde`. El prefijo aporta
-contexto y no concede permisos ni confirma pagos. Comprueba esa entrada en Langfuse
-al final. Cerrar sesión, cambiar de titular o caducar la identidad descarta el
-contexto de la revisión anterior. Los adjuntos enviados durante la atención humana
-solo dejan un marcador; el bot no los transcribe ni interpreta en esa pausa.
-Este registro empieza con la versión que lo implementa, sin importar mensajes
-humanos históricos de Chatwoot.
+Al revisar la traza, busca el diálogo con prefijo `asesorhumano:` y el evento de devolución antes de la consulta nueva. Decir «te devuelvo al asistente» no cambia por sí solo el control de Chatwoot. Si la identidad venció, es correcto que solicite nuevo PIN; el retorno no renueva la sesión. Los adjuntos enviados durante la pausa dejan un marcador, sin transcripción ni visión automática.
 
 También puedes probar **Tomar el control** manualmente durante una respuesta del bot. Mientras Chatwoot esté en `open`, debe detener respuestas nuevas; una petición ya cruzada al proveedor puede tener una carrera de red. No se promete anular un mensaje que el canal ya haya aceptado.
 
 ### 4.6. Captura falsa, pago no registrado e imagen ilegible
 
-**Preparación recomendada:** conserva una captura del pago anterior y restaura el escenario siguiendo la sección 5. Reconfigura el contacto, comprueba `pending`, valida de nuevo a Ana y selecciona hogar, ahora pendiente USD 100. No apruebes un pago nuevo.
+**Preparación recomendada:** conserva una captura del pago anterior y restaura el escenario siguiendo la sección 8. Reconfigura el contacto, comprueba `pending`, valida de nuevo a Ana y selecciona hogar, ahora pendiente USD 100. No apruebes un pago nuevo.
 
 1. Reenvía la captura anterior con `Ya pagué; verifica este comprobante`.
 2. La referencia de la ejecución anterior ya no acredita un pago en la cartera restaurada. El agente debe consultar central y **no confirmar liquidación** por lo que dice la imagen.
@@ -464,37 +414,15 @@ alcance no debe disparar herramientas ni iniciar una autenticación innecesaria.
 Una consulta mixta se atiende solo en su parte de cobranza. Las respuestas antiguas
 ajenas al dominio no amplían las funciones del agente.
 
-Este refuerzo cambia **solo el system prompt**, sin añadir filtros, nodos o
-permisos. La autenticación y las validaciones financieras existentes se conservan.
-Las instrucciones y pruebas reducen el riesgo, sin garantizar resistencia absoluta
-a toda inyección; [OpenAI documenta ese límite](https://developers.openai.com/api/docs/guides/agent-builder-safety).
-Se revisaron 22 casos con Luna real: las dos preguntas de la captura, ataques
-de rol/extracción y cuatro controles legítimos. En esa ejecución final no hubo
-canarios filtrados ni herramientas fuera de las permitidas; es evidencia de
-esas muestras y no una garantía universal. Las tools propuestas no se ejecutaron.
-Los casos sintéticos reproducibles están en
-[agent-security-cases.json](tests/fixtures/agent-security-cases.json), y las
-ejecuciones observadas se distinguen en [evaluación](docs/evaluacion.md).
+Estas pruebas comprueban restricciones de comportamiento; no demuestran inmunidad universal a la inyección. Los permisos y las reglas financieras también se validan fuera del modelo. La evidencia de las muestras ejecutadas se resume en la sección 9.
 
-## 5. Restaurar escenarios sin borrar el historial externo
+### 4.8. Intentos de PIN y bloqueo
 
-El reset deja **la cartera y el contexto de gestión** en su punto inicial. No equivale a borrar todo rastro del sistema.
+Hazlo al final, con un cliente que ya no necesites para otros casos. Confirma su pista y envía tres mensajes inválidos durante la solicitud de PIN. Tras el tercero debe salir de esa fase sin acceso a cartera y explicar cordialmente cómo reintentar o pedir un asesor; no debe reiniciar el desafío automáticamente.
 
-1. Espera a que termine el turno o envío en curso.
-2. En la central, abre **Restaurar escenario de demo**, escribe **REINICIAR DEMO** y pulsa **Restaurar demo**.
-3. Espera la confirmación. Deben volver las 14 deudas y los saldos iniciales; las campañas locales y la identidad/contexto conversacional activos quedan reiniciados.
-4. Vuelve a poner tu teléfono y modo **Live** en Ana: el reset restaura también los contactos ficticios.
-5. En Chatwoot, puedes conservar **la misma conversación**. Si quedó en `open`, la persona autorizada la devuelve a `pending`. Envía un mensaje nuevo y autentícate otra vez: los checkpoints locales anteriores ya se eliminaron.
+Para comprobar el bloqueo financiero, usa tres PIN **numéricos incorrectos**. Central bloquea al cliente durante 15 minutos, incluso desde otro vínculo de autenticación. Los errores de formato cuentan localmente, pero no equivalen a un PIN numérico comprobado por central. Reiniciar contenedores no debe eludir ese bloqueo.
 
-No hace falta borrar la conversación de Chatwoot en cada escenario. Su historial visible puede permanecer, pero el agente debe comenzar sin el contexto financiero anterior del checkpoint. Tampoco hace falta reenviar una campaña para seguir conversando desde una conversación autorizada en `pending`.
-
-**Sí necesitas una campaña nueva** si quieres medir los KPI de otra ejecución tras el reset. Repite contacto → filtros → previsualización → guardar → lanzar, sabiendo que implica otra plantilla real y consume cuota. Si solo verificas una variante conversacional, usa un nuevo mensaje entrante y evita ese envío.
-
-El reset **no borra** consumo de IA, trazas/assets de Langfuse, historial externo de Chatwoot ni cuotas del relay. Conserva referencias de auditoría de inbox/outbox y evita reenviar salidas inciertas. No hay limpieza externa automática de esos sistemas. Una instalación con volúmenes nuevos y un reset de una ya utilizada son situaciones distintas.
-
-Si aparece mantenimiento o trabajo activo, conserva la operación y reintenta la **misma** restauración cuando finalice. No uses `down -v` para resolverlo: destruiría datos persistentes y el ledger de consumo. La recuperación por terminal se encuentra en el apéndice.
-
-## 6. Leer resultados y fijar el corte de campaña
+## 5. Leer resultados y fijar el corte de campaña
 
 El panel de campaña distingue progreso operativo de resultados comerciales:
 
@@ -516,224 +444,7 @@ Cuando termines los resultados que quieras evaluar, pulsa **Fijar corte**. Cierr
 
 Conserva el panel abierto durante la evaluación: **Actualizar** y la actualización automática funcionan mientras se mantiene la selección en esa página. Las campañas se guardan en la base, pero actualmente no hay selector de historial ni recuperación del panel tras recargar la central.
 
-## 7. Revisar cada turno completo en Langfuse
-
-La ubicación del stack, la instrumentación en código y el recorrido de los
-datos se describen en [arquitectura, sección 7](docs/arquitectura.md#7-observabilidad-y-operación-comercial).
-
-**Qué significa cada término:** una *observación* es el registro de una operación
-instrumentada: llamada al modelo, herramienta, procesamiento de un medio o envío.
-Según la operación contiene entradas, salidas, duración, estado y, en las generaciones,
-modelo, tokens y coste estimado. Una *traza* agrupa observaciones relacionadas;
-en el flujo actual, la raíz `conversation` corresponde al procesamiento de un mensaje,
-no al historial completo del chat. Una *sesión* permite agrupar los turnos del mismo chat.
-Por eso puede haber varias observaciones por mensaje y varias trazas por conversación.
-En Home se ven totales del intervalo y proyecto, incluidos diagnósticos `preflight`;
-no equivalen al número de mensajes reales de WhatsApp. Para abrir ejecuciones usa
-**Tracing** en el menú lateral y después filtra las raíces `conversation`.
-
-Haz esta revisión **al terminar el recorrido funcional**, incluidas las variantes
-de la sección 4 y la persistencia de la sección 8 si las ejecutaste. Conserva
-Chatwoot y la central abiertos para comparar cada resultado con su traza.
-
-1. Entra con las credenciales indicadas en la sección 1. Selecciona el proyecto y el horario de la prueba. Si retomas otro día, amplía el intervalo para incluir la fecha de la ejecución; el filtro de hoy no mostrará las trazas de ayer. Comprueba también la zona horaria mostrada por la interfaz.
-2. Filtra observaciones raíz (`isRootObservation:true`) y nombre **`conversation`**. Si el refresco está en **Off**, espera la exportación y pulsa **Refresh**; puedes seleccionar actualización periódica. En el panel lateral de filtros, bajo **Name**, deja únicamente `conversation`: desmarca `preflight` y `delivery`. Si tienes abierto un detalle `preflight`, ciérralo con la X antes de elegir el turno real; esas filas corresponden a diagnósticos internos.
-3. Abre la fila del mensaje y expande **agent → llm → Input / Output**. Debes poder inspeccionar el contexto realmente enviado y la respuesta disponible del modelo.
-4. Abre **tool.<nombre> → Input / Output** para argumentos y resultados; por ejemplo `tool.verify_payment` en la verificación del recibo. Revisa también los estados anterior y posterior.
-5. Para audio o imagen, abre sus generaciones y assets privados. Para el envío, expande **response_enqueue → delivery**.
-6. Contrasta estados, modelo, latencias, tokens y coste estimado. El coste vacío de una raíz span no significa consumo cero: el detalle está en sus generaciones hijas.
-
-### Criterio de cierre de la integración
-
-La integración de Langfuse está verificada para el alcance de la prueba: captura
-el contexto enviado y la respuesta del modelo, argumentos/resultados de herramientas,
-estados, medios, consumo estimado y entregas asíncronas correlacionadas. El recorrido
-visual del 2 de noviembre revisó el último comprobante y la secuencia visión → agente
-→ verificación → cartera → respuesta encolada → envío. Los fallos semánticos históricos
-siguen visibles aunque una ejecución termine sin error técnico.
-
-Esta instrumentación sigue prácticas útiles en sistemas empresariales y permite
-depuración real. No acredita por sí sola una operación enterprise de producción:
-no se han validado carga, alta disponibilidad, alertas operativas, políticas de
-retención/acceso y evaluaciones automáticas continuas. Los costes son estimaciones;
-`sent` no prueba entrega o lectura final del canal. La evidencia técnica y sus
-límites permanecen en [evaluación](docs/evaluacion.md).
-
-### Diferencia entre preflight, conversation y delivery
-
-Estos nombres los asigna nuestra instrumentación. La tabla lista observaciones,
-no necesariamente una fila por traza: dos filas pueden tener el mismo `trace_id`
-y distinto identificador de observación porque registran operaciones diferentes.
-
-| Nombre | Qué registra en esta demo |
-|---|---|
-| `preflight` | Diagnóstico o prueba interna ejecutada durante el desarrollo. Puede llamar al modelo real con datos ficticios; no es un paso obligatorio de cada mensaje de WhatsApp. |
-| `conversation` | Procesamiento de un mensaje entrante: control de autenticación, medios, agente y preparación de respuesta. No representa todo el historial del chat. |
-| `delivery` | Intento de ejecutar una salida pendiente contra Chatwoot: enviar mensaje, nota privada o cambiar el estado de la conversación. |
-
-Compartir traza significa pertenecer a la misma ejecución relacionada; no significa
-ser la misma operación ni representar dos mensajes entrantes. Para la revisión del
-chat, filtra el nombre `conversation` y abre su árbol. Las pruebas internas pueden
-aparecer en el proyecto y sumar consumo aunque no hayan enviado mensajes a WhatsApp.
-
-### Cómo leer el árbol y el detalle
-
-En **Tree**, lee de arriba hacia abajo; la sangría indica qué operación está dentro
-de otra. Al seleccionar una observación, **Preview** muestra sus datos: **Input**
-es lo que recibió esa operación y **Output** lo que produjo. En `llm` incluye
-contexto/instrucciones y respuesta o llamada propuesta; en una tool, argumentos y
-resultado del sistema. **Attributes** muestra metadatos; **Timeline** ayuda a comparar
-duración y orden. Varias observaciones `llm` pueden pertenecer al mismo nodo del
-agente: decide una tool, recibe el resultado y vuelve a llamar al modelo.
-
-En el último comprobante revisado, `identity_gate` muestra identidad `verified=true`
-y salida `handled=false`: la rama estática de PIN no atendió ese mensaje y permitió
-continuar. Después se interpreta la imagen, el agente verifica el pago, consulta
-la cartera, redacta su respuesta y la encola para enviar. La generación de visión
-bajo `media_normalize` es distinta de las generaciones del agente principal.
-
-### Paso a paso: identity_gate
-
-`identity_gate` registra el resultado del control de autenticación del backend,
-antes de procesar medios o ejecutar el agente. El estado de identidad determina
-si el mensaje debe atenderse por la rama estática de PIN. Fuera de `awaiting_pin`,
-el mensaje continúa hacia el agente; sin autenticar solo dispone de operaciones
-permitidas antes del login. La puerta no autentica por una afirmación del LLM.
-
-- `challenge_state`: fase del desafío; `verified` indica validación completada.
-- `verified`: si la sesión financiera está validada y vigente en ese momento.
-- `auth_failures`: intentos fallidos acumulados del desafío actual.
-- `selected_debt_id`: referencia de la única deuda elegida, si ya existe.
-- `handled`: si la rama estática resolvió el turno. `false` permite continuar al
-  procesamiento de medios/agente; no implica que la identidad sea inválida.
-- `response`: respuesta fija cuando el turno queda atendido por esa rama.
-- `agent_message`: texto seguro que recibe el recorrido del agente; un PIN correcto
-  se sustituye por `identity_verified`, nunca por el código tecleado.
-
-En la captura del comprobante, `verified=true`, `challenge_state=verified`,
-`auth_failures=0`, `handled=false` y `response=null`: la identidad ya estaba validada
-y el mensaje con imagen pudo continuar a `media_normalize`. Los primeros fallos
-de PIN se resuelven sin LLM; el tercero devuelve `auth_attempts_exhausted` sin
-autorización y el agente orienta la continuación. Los permisos financieros se
-comprueban también al ejecutar herramientas, aunque esta rama deje pasar el mensaje.
-
-### Frecuencia del control y significado de delivery
-
-Los turnos que alcanzan el procesamiento normal del worker pasan por
-`identity_gate`, aunque la identidad ya esté validada. No exige introducir el PIN
-en cada mensaje ni consume inferencia. Eventos ignorados, duplicados, memoria humana
-pasiva o ejecuciones canceladas antes de ese punto pueden no tener esa observación.
-Sus campos describen el momento de aquella ejecución: una validación histórica no
-prueba que la sesión siga vigente hoy. Las tools vuelven a comprobar autorización.
-
-`response_enqueue` guarda una salida en la outbox persistente; `delivery` registra
-el intento posterior de ejecutarla contra Chatwoot, con el contenido, conversación
-destino y respuesta del canal. No llama al LLM. En el comprobante revisado figura
-`kind=message`, respuesta del canal con identificador y `status=sent`. Esto acredita
-aceptación del envío por la API; entrega y lectura WhatsApp requieren sus estados
-propios. En un handoff también hay salidas de nota privada, aviso público y cambio
-a `open`, que pueden producir varios `delivery` en un mismo turno.
-
-Una fila `delivery` en la tabla no representa otro mensaje entrante: es una operación
-de salida. La tabla puede listar observaciones por separado; eso no demuestra que
-pertenezcan a trazas distintas. Para leer un turno completo, abre la raíz
-`conversation` en **Tree**: el envío debe aparecer como hijo de `response_enqueue`.
-En el último comprobante auditado se verificó el mismo `trace_id` para las tres
-operaciones y la relación padre/hijo persistida, aunque el envío terminó después
-de cerrar el procesamiento principal. Se relaciona por traza/evento con la ejecución original; los registros
-históricos pueden conservar otra raíz. `deferred` significa intento aplazado,
-`cancelled` salida cancelada, `failed` fallo y `uncertain` resultado incierto;
-no se debe interpretar una observación por intento como un mensaje enviado adicional.
-
-### Recorrido guiado de las trazas del test
-
-**Recorrido visual:** el 2 de noviembre se revisó la estructura del último comprobante
-verificado, incluido el ciclo de herramientas y el envío. La auditoría por API y base
-de datos ya se realizó. Para ampliar la revisión, sigue con el acuerdo, el retorno
-humano, el audio y la rama de PIN.
-No restaures los datos ni borres las trazas antes de revisarlos.
-
-Para entender el último pago, sigue este orden dentro de su raíz `conversation`:
-
-1. Abre `media_normalize` y su generación de visión: comprueba el archivo recibido
-   y qué información se extrajo. El texto extraído todavía no confirma el pago.
-2. Abre `agent → llm → Input / Output`: revisa las instrucciones, el historial,
-   la petición actual y la llamada propuesta. Puede haber varias generaciones:
-   una para decidir una herramienta y otra después de conocer su resultado.
-3. Abre `tool.verify_payment`: compara sus argumentos con el comprobante y su
-   resultado con central. En el acuerdo del 85 % observado debe aparecer pago
-   aplicado: USD 170 recibidos, USD 30 condonados y saldo cero sobre USD 200.
-4. Revisa `tool.list_debts` y la última salida del modelo: debe consultar la cartera
-   vigente y explicar el resultado, sin volver a cobrar una deuda liquidada.
-5. Abre `response_enqueue → delivery`: contrasta el mensaje preparado y el intento
-   de envío. `sent` acredita que el adaptador aceptó el envío; por sí solo no prueba
-   que WhatsApp lo haya entregado o que el destinatario lo haya leído.
-6. Compara `agent` Input/Output (`state_before`/`state_after`) para entender el
-   cambio de estado. Langfuse guarda esos snapshots; el checkpoint persistente
-   de LangGraph está en PostgreSQL y no es una tabla de Langfuse.
-
-Un filtro `ERROR` localiza fallos técnicos registrados, pero no descubre por sí
-solo una respuesta equivocada: también hay que leer los argumentos, resultados
-y el mensaje final. Las trazas históricas conservan los errores y políticas de
-su momento; cambiar el prompt no las reescribe. Los mensajes pasivos del asesor
-se revisan dentro del historial de un turno posterior, no como ejecuciones LLM
-independientes. Los rechazos estáticos de PIN tampoco necesitan una generación.
-
-Localiza un turno por su horario y mensaje en la raíz. Usa su sesión técnica para
-agrupar el mismo chat y `event_id` para enlazar observaciones de ese mensaje.
-Abre estos turnos en orden, comprobando juntos entrada, decisión y efecto:
-
-| Turno | Qué abrir y contrastar |
-|---|---|
-| Confirmación natural, como `Podemos proceder` | En `llm`, revisa instrucciones, historial y llamada propuesta; en `tool.manage_identity`, acción y resultado. Debe terminar pidiendo PIN sin una segunda generación. |
-| PIN incorrecto | Revisa `identity_gate`, respuesta estática y envío. No debe haber `agent` ni generación para comprobar el código. El código original no debe aparecer en la traza. |
-| PIN correcto | Comprueba `identity_verified` sin el código, después `tool.list_debts`, sus resultados y la respuesta que muestra las deudas. |
-| Selección contextual, como `la segunda` | Revisa cómo el historial da contexto a la frase y qué deuda recibe `tool.select_debt`. Contrástala con el servicio e importe respondidos. |
-| Solicitud de pagar el total | Abre `tool.create_full_payment`: deuda, orden e importe. Contrasta el marcador de pago del agente con el enlace entregado, cuyo token permanece oculto en la captura privada. |
-| Imagen del comprobante | Revisa `media_normalize`, generación visual y asset; después el contexto que llega al agente y `tool.verify_payment`. Debe confirmar según central, no solo por el texto de la imagen. |
-| Oferta inferior al mínimo | En los primeros turnos, revisa las propuestas del 95 % y 80 % sin handoff inmediato. Si mantiene una oferta inferior tras rechazarlas, abre `tool.handoff_human`: motivo, oferta y resumen. Compara nota privada, aviso y `open` en Chatwoot, con las tres entregas vinculadas al turno. Las trazas antiguas conservan la política anterior. |
-| Acuerdo, audio, cambio de titular y cierre de sesión, cuando se hayan probado | Abre las tools y generaciones efectivamente utilizadas, compara sus resultados con central y revisa que una nueva identidad no reciba contexto financiero de la anterior. No marques estas variantes por aparecer solamente en la guía. |
-
-Para cada turno responde: **qué llegó, qué contexto recibió el modelo, qué decidió,
-qué validó el backend y qué terminó enviado**. Anota errores o huecos de evidencia.
-Una generación no implica una herramienta, y un turno de PIN incorrecto no necesita
-una generación. En las trazas anteriores a la corrección de observabilidad, la
-confirmación puede aparecer como `tool` y las entregas del handoff como raíces
-separadas: se localizan por sesión/evento y no se reconstruyen retroactivamente.
-
-```text
-conversation                 una ejecución de un mensaje
-├── identity_gate            estado handled / passed; PIN tecleado interceptado
-├── media_normalize          si hay adjuntos
-│   ├── audio                generation y asset de audio, si se utilizó
-│   └── llm [modality=vision] generation y asset de imagen, si se utilizó
-├── agent                    tipo agent
-│   ├── llm                  una generation por llamada real
-│   ├── tool.manage_identity confirmación, rechazo o cambio; sin autorizar cartera
-│   ├── tool.list_debts       argumentos y resultado de esa operación
-│   ├── tool.select_debt      herramientas y llamadas en su orden real
-│   └── …
-└── response_enqueue
-    └── delivery             envío asíncrono, incluso tras reiniciar el worker
-```
-
-Durante `awaiting_pin`, el filtro estático procesa todos los mensajes sin LLM. La solicitud inicial de PIN tras `manage_identity(confirm_candidate)` también es fija y termina ese bucle del agente. Un PIN correcto entrega `identity_verified`; el tercer fallo entrega `auth_attempts_exhausted` sin autorización, y ambos eventos neutros permiten volver al agente. Fuera de esa fase, todos los mensajes admitidos llegan al nodo, incluidos números aislados. Los controles de canal, estado humano, duplicados y presupuesto siguen aplicándose. Las observaciones comparten el `event_id` y una sesión técnica `opaque_id(source_id)`. LangGraph conserva el `source_id` literal como `thread_id`; el hash de sesión no anonimiza los inputs. Reintentar un trabajo puede producir otra ejecución del mismo evento.
-
-Outbox guarda el contexto de traza del padre y lo restaura al enviar. En un handoff, `delivery` puede ser hijo de `tool.handoff_human`. Las filas antiguas sin ese contexto pueden mostrar otra raíz `delivery`, localizable por sesión/evento. **La duración de la raíz no incluye la espera del envío asíncrono.** `sent` es aceptación de la API; `failed`, `uncertain`, `cancelled` y `deferred` representan fallo, incertidumbre, cancelación o espera. Ninguno sustituye evidencia de entrega de WhatsApp.
-
-### Captura privada y sus límites
-
-La configuración entregada usa **`LANGFUSE_CAPTURE_CONTENT=true`** para depuración: mensajes, prompt/contexto e historial utilizados, inputs/outputs, argumentos/resultados de herramientas, estados antes/después, respuesta preparada/enviada y contexto multimedia. Los archivos completos de audio e imagen usados se almacenan en privado como assets **`LangfuseMedia`**, además de transcripción y extracción visual. Los datos personales y financieros se muestran sin enmascarar por instrucción del usuario; no copies esas trazas al repositorio público.
-
-Con **`LANGFUSE_CAPTURE_CONTENT=false`** se exportan solo metadatos operativos, sin ese contenido. Esta opción reemplaza la política anterior de limitar toda la telemetría a metadatos. Las trazas históricas permanecen como se exportaron, **sin backfill**; un turno nuevo puede incluir el historial que realmente utiliza. Apagar la captura no borra contenido ya exportado.
-
-Se filtran los secretos conocidos en JSON/texto: claves de infraestructura, API keys, `Authorization`, grants, capabilities y tokens de enlaces. No se captura razonamiento interno ni `encrypted_content`. Durante la fase de autenticación, el ingreso cifra temporalmente el contenido para transportarlo a la cola mediante Fernet. El worker lo procesa fuera del modelo; ni el PIN en claro ni su sobre cifrado se copian al historial del agente o a Langfuse. Fuera de esa fase no hay un filtro global de números ni protección automática de un código que el usuario envíe espontáneamente. Los archivos autorizados se almacenan completos, **sin OCR ni redacción automática previa de información escrita o hablada**: no se promete ocultar PIN u otros secretos dentro de imágenes o audios. Chatwoot externo conserva sus mensajes y puede registrar payloads al reintentar.
-
-La captura de texto tiene límites de **1 000 000 de caracteres por cadena**, **40 niveles de profundidad** y **20 000 elementos**. Al alcanzarlos aparecen marcadores explícitos, como `[TRUNCATED:original_chars=…]`, `[TRUNCATED:max_depth]` o `[TRUNCATED:max_items]`. Un objeto marcado no se presenta como completo; estos límites no sustituyen los archivos multimedia.
-
-La jerarquía, captura y saneamiento tienen pruebas deterministas. La comprobación real del nuevo modo de captura y el recorrido completo por el canal se registran solo después de ejecutarlos en [evaluación](docs/evaluacion.md); esta guía no los da por aprobados.
-
-## 8. Comprobar persistencia y dejar la demo preparada
+## 6. Comprobar persistencia y dejar la demo preparada
 
 ### Reiniciar sin restaurar
 
@@ -761,451 +472,171 @@ la carpeta del repositorio, espera las comprobaciones y vuelve a abrir las tres
 interfaces. Los contenedores usan reinicio automático, pero el script permite
 comprobar y completar el arranque. Un reinicio no rellena de nuevo una base existente.
 
-Retoma por la sección 7, con las trazas y el recibo del último acuerdo. Las claves
+Retoma por la sección 7, con las trazas y el recibo de tu última prueba. Las claves
 y la evidencia privada permanecen fuera de Git. Si después continúas el chat, la
 sesión de identidad puede haber vencido; pedir otra autenticación tras su TTL no
 significa que se haya perdido el checkpoint o el historial.
-
-### Prueba final opcional de intentos y bloqueo de PIN
-
-Ejecuta esta prueba **al final**, con un fixture que ya no necesites. Confirma su pista y comprueba que la solicitud de PIN es fija. Cada mensaje fallido en `awaiting_pin`, incluso uno de formato no numérico o un medio, consume uno de los **tres intentos locales**. Tras el tercero debe salir de esa fase sin conceder acceso; el agente recibe `auth_attempts_exhausted` y debe explicar el resultado con cordialidad, recordar el formato y ofrecer reintentar o pedir un asesor. No debe buscar automáticamente por teléfono, mostrar otro titular ni pedir el PIN inmediatamente fuera de su fase. Elige la opción que prefieras; para reintentar puede necesitar de nuevo el documento y su confirmación.
-
-Para comprobar además el bloqueo de central, utiliza **tres PIN numéricos incorrectos**: central debe bloquear al cliente durante **15 minutos**, incluso desde otro binding. Un PIN correcto durante ese bloqueo no debe dar acceso. Los errores de formato cuentan localmente y no se presentan como verificaciones numéricas ejecutadas en central. Reiniciar la fase local no elude el bloqueo central. La sesión de identidad validada dura **30 minutos**. No hagas esta prueba con Ana antes del camino principal.
 
 ### Cierre de la evaluación
 
 Registra los resultados que realmente viste: campaña/recepción, identificación, pago total, recibo verificado, acuerdo 90 %, límite 80 %, humano, medios, métricas, trazas y persistencia. Si algo falla, anota el fallo y conserva evidencia privada revisada; no marques toda la aceptación como aprobada por haber completado una parte.
 
-Al terminar, puedes deshabilitar el contacto Live o restaurar la demo según la sección 5. El reset deja saldos y contexto de escenario iniciales, **no consumo ni sistemas externos a cero**. La limpieza externa de Langfuse o Chatwoot requiere una operación propia, autorizada y distinta; no es necesaria para cada variante de este guion.
+Al terminar, puedes deshabilitar el contacto Live o restaurar la demo según la sección 8. El reset deja saldos y contexto de escenario iniciales, **no consumo ni sistemas externos a cero**. La limpieza externa de Langfuse o Chatwoot requiere una operación propia, autorizada y distinta; no es necesaria para cada variante de este guion.
 
-## Apéndice: comprobaciones y operación técnica
+## 7. Revisar cada turno completo en Langfuse
 
-### Estado y preflight de lectura
+Hazlo al terminar las pruebas funcionales y de persistencia. Conserva abiertas la central y Chatwoot para comparar lo que ocurrió con lo registrado. Una **observación** es una operación instrumentada; una **traza** reúne las operaciones de una ejecución; una **sesión** agrupa los turnos del contacto. No esperes una única fila por toda la conversación.
 
-Si el arranque falla o falta una respuesta, revisa procesos y diagnósticos sin publicar la configuración privada:
+### 7.1. Encontrar tus mensajes
 
-```bash
-./emulate-ec2.sh status
-./emulate-ec2.sh verify --mode live
-```
+1. Abre `LANGFUSE_PUBLIC_URL` —en esta entrega, [localhost:13000](http://localhost:13000)— e inicia sesión con los accesos Langfuse del final de `.local/ec2-emulation/evaluator.env`.
+2. Selecciona **Cobranza-Demo** y abre **Tracing**. Ajusta las fechas y revisa la zona horaria: el filtro de hoy no muestra las pruebas de ayer.
+3. Filtra raíces (`isRootObservation:true`) y nombre **conversation**. Desmarca `preflight` y `delivery` para concentrarte en mensajes del cliente. Si el refresco está en **Off**, pulsa **Refresh** o activa actualización periódica.
+4. Abre el turno por su hora y mensaje. Expande el árbol y revisa **Input / Output** en cada operación. Usa la sesión para pasar a otros mensajes del mismo chat.
 
-El preflight comprueba salud, acceso a modelos, bandeja/relay y autenticación de Langfuse. **No genera inferencia ni envía mensajes**:
+`preflight` identifica diagnósticos; `conversation`, el procesamiento de un mensaje; `delivery`, un intento de salida a Chatwoot. La tabla puede mostrar dos observaciones con el mismo `trace_id`: son pasos distintos de una ejecución, no necesariamente dos mensajes. Las trazas históricas de entrega pueden aparecer separadas; se correlacionan por evento y sesión.
 
-```bash
-./emulate-ec2.sh preflight
-```
+### 7.2. Seguir un comprobante de principio a fin
 
-Un preflight correcto no acredita el recorrido de WhatsApp ni la lectura completa de una traza. En producción, usa HTTPS y el origen configurado; la entrada local de mensajes está deshabilitada. El webhook exige firma y scope de cuenta/bandeja. Las páginas privadas mantienen login, cookie y CSRF; la página de pago solo permite la orden del enlace, con importe determinado por central.
+1. **identity_gate:** revisa si había identidad válida o si el turno pertenecía al brazo de PIN. Este control no implica que el cliente tuviera que autenticarse de nuevo.
+2. **media_normalize → generación visual:** abre la imagen y el texto extraído. Eso es lo que pudo leer el modelo, todavía sin confirmar un pago.
+3. **agent → llm:** revisa las instrucciones, contexto e historial enviados y la herramienta propuesta por el modelo.
+4. **tool.verify_payment:** compara deuda y referencia consultadas con la respuesta financiera. Si la referencia se leyó mal, puede existir otra consulta de la misma deuda sin referencia.
+5. **Siguientes tools y llm:** verifica si consultó obligaciones restantes y cómo explicó el resultado. Puede haber varias llamadas al modelo en un mismo turno.
+6. **response_enqueue → delivery:** compara el mensaje preparado con la salida aceptada por Chatwoot. El envío es asíncrono y puede terminar después de la operación principal.
+7. **agent, state_before / state_after:** comprueba la selección, fase y contexto conservados. El código del PIN no debe aparecer.
 
-### Si el reset queda en mantenimiento
+Contrasta el importe con **tu ejecución**: en el camino principal, hogar paga USD 100 sin descuento; telefonía paga USD 54 y condona USD 6. No compares una traza histórica de otra prueba con esos resultados esperados.
 
-Desde la interfaz conserva la misma operación al reintentar. La opción habitual
-es reanudar desde la central. Para diagnóstico avanzado por terminal, entra al
-invitado con un cliente OpenSSH:
+### 7.3. Revisar las otras ramas
 
-```bash
-ssh -i .local/ec2-emulation/id_ed25519 -p 2244 -o UserKnownHostsFile=.local/ec2-emulation/known_hosts root@127.0.0.1
-cd /srv/proyecto-agil/app
-```
+| Turno que probaste | Evidencia que debes buscar |
+|---|---|
+| Confirmación natural: `dale` | `tool.manage_identity`, activación del PIN y solicitud estática. |
+| PIN incorrecto | `identity_gate` y respuesta estática, sin generación para validar el código. |
+| PIN correcto | Evento neutro `identity_verified`, consulta de deudas y respuesta; sin PIN en el input del LLM. |
+| Cambio de servicio | `tool.select_debt` con la deuda que pediste. |
+| Acuerdo | Cotización, aceptación en otro mensaje, orden e importes coherentes. |
+| Audio | Transcripción y contexto entregado al agente. |
+| Cambio de titular | Revocación, nueva validación y ausencia de datos financieros del titular anterior. |
+| Handoff | Motivo, nota privada, aviso público y cambio a `open`; no basta con que el modelo diga que transfirió. |
+| Retorno humano | Diálogo público del asesor y evento de devolución anteriores a la nueva pregunta. |
 
-Los siguientes comandos se ejecutan **dentro del invitado**, con su entorno
-privado, nunca contra el proyecto de desarrollo del anfitrión:
+Para cada turno responde: **qué llegó, qué supo el modelo, qué decidió, qué validó el sistema y qué terminó enviado**. La falta de errores técnicos no acredita una respuesta correcta. `sent` significa aceptación de la API, no lectura o entrega final de WhatsApp. El coste se consulta en las generaciones; una raíz sin coste no significa consumo cero.
 
-```bash
-docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --status
-docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --confirm RESET_DEMO --operation-key UUID_DE_LA_OPERACION
-```
+La captura privada permite ver entradas, salidas y medios, excluyendo secretos conocidos y el PIN procesado en su fase. Los audios e imágenes no se anonimizan automáticamente. No publiques trazas ni exportaciones sin revisarlas. Si faltan observaciones, amplía fechas, confirma proyecto y refresca; una página de salud HTTP 200 no prueba que la telemetría de un turno haya llegado.
 
-Para iniciar un reset por terminal se usa `python -m scripts.reset_demo --confirm RESET_DEMO` dentro del backend. No se cambia la llave literal de memoria ni se borra gasto para eludir límites. Las etapas se guardan porque las dos bases no tienen una transacción distribuida.
+El diseño de instrumentación, almacenamiento y correlación se desarrolla en el documento de arquitectura, sección 7.
 
-### Consumo, cuotas e integraciones externas
+## 8. Restaurar escenarios sin borrar el historial externo
 
-El presupuesto total de IA es **USD 5**, con corte local conservador en **USD 4,50**. Las reservas inciertas se conservan. El coste mostrado es estimado, no la factura del proveedor. Se comprobó `temperature=0` con `gpt-5.6-luna` y razonamiento `high`: la API lo rechazó como parámetro no soportado (HTTP 400). Se conserva `high` sin añadir ese parámetro; el refuerzo de alcance se hace en el prompt. Las simulaciones de campañas no consumen IA; las consultas conversacionales y los medios reales sí pueden hacerlo.
+El reset deja **la cartera y el contexto de gestión** en su punto inicial. No equivale a borrar todo rastro del sistema.
 
-El agente conserva la ventana de **20 mensajes visibles**, con grupos completos
-de llamadas y resultados de herramientas. El techo de entrada es **70.000 tokens
-por llamada** (`AI_MAX_INPUT_TOKENS`), incluyendo instrucciones, contexto,
-historial y catálogo; no se rellena hasta ese tamaño. La salida mantiene su
-límite de **4.096 tokens**. El historial persistido no se borra al seleccionar
-la ventana enviada al modelo.
+1. Espera a que termine el turno o envío en curso.
+2. En la central, abre **Restaurar escenario de demo**, escribe **REINICIAR DEMO** y pulsa **Restaurar demo**.
+3. Espera la confirmación. Deben volver las 14 deudas y los saldos iniciales; las campañas locales y la identidad/contexto conversacional activos quedan reiniciados.
+4. Vuelve a poner tu teléfono y modo **Live** en Ana: el reset restaura también los contactos ficticios.
+5. En Chatwoot, puedes conservar **la misma conversación**. Si quedó en `open`, la persona autorizada la devuelve a `pending`. Envía un mensaje nuevo y autentícate otra vez: los checkpoints locales anteriores ya se eliminaron.
 
-El relay tiene topes máximos de **60 peticiones/minuto**, **10 intentos de creación de contacto/día UTC** y **100 intentos de envío/día UTC**, persistentes; la configuración privada puede reducirlos. Plantillas y respuestas consumen envío; la nota privada y el aviso de una derivación también consumen intentos. Fallos o timeouts no reembolsan cuota. No repitas campañas inciertas ni hagas nuevos envíos solo para recuperar un panel cerrado. Un reset no reinicia esas cuotas.
+No hace falta borrar la conversación de Chatwoot en cada escenario. Su historial visible puede permanecer, pero el agente debe comenzar sin el contexto financiero anterior del checkpoint. Tampoco hace falta reenviar una campaña para seguir conversando desde una conversación autorizada en `pending`.
 
-`CHATWOOT_BASE_URL` y `CHATWOOT_CONTACTS_BASE_URL` usan el relay acotado de pruebas, con su clave limitada. Los tokens amplios de usuario y AgentBot quedan en el entorno privado del propietario. El relay restringe cuenta, bandeja y operaciones; el login web de Chatwoot tiene permisos propios, delegados por su administrador. No se entrega una cuenta administrativa para este guion.
+**Sí necesitas una campaña nueva** si quieres medir los KPI de otra ejecución tras el reset. Repite contacto → filtros → previsualización → guardar → lanzar, sabiendo que implica otra plantilla real y consume cuota. Si solo verificas una variante conversacional, usa un nuevo mensaje entrante y evita ese envío.
 
-La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticamente y esperar aprobación de Meta es una integración futura; el texto informativo de la página no representa esa función implementada.
+El reset **no borra** consumo de IA, trazas/assets de Langfuse, historial externo de Chatwoot ni cuotas del relay. Conserva referencias de auditoría de inbox/outbox y evita reenviar salidas inciertas. No hay limpieza externa automática de esos sistemas. Una instalación con volúmenes nuevos y un reset de una ya utilizada son situaciones distintas.
 
-### Evals del comportamiento del agente
+Si aparece mantenimiento o trabajo activo, conserva la operación y reintenta la **misma** restauración cuando finalice. No uses `down -v` para resolverlo: destruiría datos persistentes y el ledger de consumo. La recuperación por terminal se encuentra en la sección 10.
 
-El [catálogo de evals](evals/cases.json) contiene **50 escenarios ficticios** de
-seguridad, identidad, negociación, acuerdos, comprobantes y atención humana.
-Para validar el catálogo sin consumir IA, con la instalación ya arrancada:
+## 9. Qué se ha validado
 
-```bash
-./emulate-ec2.sh evals
-```
+| Evidencia disponible | Alcance real |
+|---|---|
+| 447 pruebas deterministas aprobadas, sin fallos ni omitidas | Última suite completa registrada el 2 de noviembre de 2026 sobre la revisión `45201b3`, en 51,93 segundos. Incluye PostgreSQL real, identidad, concurrencia, pagos, campañas, memoria, observabilidad y recuperación de acuerdos. Los proveedores externos usan dobles en esa batería. |
+| Recorridos por WhatsApp real | Se observaron campañas, autenticación, pagos simulados, acuerdos, audio, imágenes, atención humana y trazas. Son pruebas funcionales de escenarios concretos, no una prueba de carga. |
+| Emulación completa en Linux x86_64 | Stack de aplicación y Langfuse dentro del invitado, integraciones live y reinicio con persistencia. No acredita un despliegue real en AWS. |
+| Diagnósticos con LLM real | Se probaron muestras de alcance, negociación, identidad y comprobantes durante el desarrollo. No garantizan que toda respuesta futura sea correcta. |
+| Catálogo de 50 evals | Escenarios ficticios para comprobar decisiones. Su validación offline está disponible; el catálogo nuevo no tiene una corrida completa con LLM real acreditada. |
 
-En Windows: `.\emulate-ec2.cmd evals`. Ese comando comprueba los casos y los
-contratos; los resultados del modelo quedan como **no ejecutados**.
+**Pendiente de validación:** instalación completa en un segundo equipo; recorridos nativos Windows/macOS/ARM; recuperación del acuerdo tras reautenticar por WhatsApp con la última corrección. Esta última tiene pruebas automáticas y consulta desplegada comprobadas, pero aún necesita completar ese recorrido conversacional. No se han ensayado carga masiva, alta disponibilidad, restauración de desastre ni cumplimiento normativo de producción.
 
-Las ejecuciones con LLM real son explícitas y consumen el presupuesto existente.
-Evalúan una decisión por escenario con resultados de herramientas ficticios;
-no ejecutan herramientas ni envían mensajes. El reporte separa comprobaciones
-estructurales y revisión semántica humana. Los comandos, rúbricas y evidencia
-histórica están en [Evals reproducibles](docs/evals.md). La suite nueva no hereda
-como aprobados los resultados de los diagnósticos anteriores.
+La [bitácora de evaluación](docs/evaluacion.md) conserva evidencia fechada de las revisiones; los resultados antiguos corresponden al código de su momento. Este README describe cómo comprobar la versión actual.
 
-### Pruebas deterministas y límites de evidencia
+### Repetir las pruebas sin usar proveedores
 
-La última suite Docker completa registrada aprobó **447 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026**, en **51,93 segundos**. Incluye recuperación de acuerdos tras cerrar sesión, cambiar de titular y validar de nuevo, aislamiento, vencimientos, versiones, saldo, órdenes no reutilizables y consulta batch sin N+1. Incluye el catálogo y runner de evals, los contratos de portabilidad y los límites de contexto actualizados; no hace inferencia ni envía mensajes. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. El evento de devolución se comprueba en orden, una vez por caso y recuperable tras un reinicio; la migración `backend_0006` conserva los casos existentes y se verificó en downgrade/upgrade con paridad de modelos. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
-
-El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
-
-Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
-
-Para repetirla en el proyecto aislado, sin credenciales externas ni volúmenes del runtime:
+Con Docker disponible, desde la raíz del repo, usa un proyecto aislado:
 
 ```bash
 docker compose -p proyecto-agil-tests -f infra/compose.test.yaml up --build --abort-on-container-exit --exit-code-from tests
 docker compose -p proyecto-agil-tests -f infra/compose.test.yaml down
 ```
 
-El runner falla ante pruebas omitidas, fallos o referencias de evidencia sin ejecutar. Su modo `--live` permanece bloqueado: no sustituye este recorrido guiado ni demuestra integraciones reales.
+No utiliza las credenciales ni los volúmenes de la demo. Para validar el catálogo de evals, con la emulación arrancada:
 
-### Recorrido real revisado el 1 de noviembre de 2026
+```bash
+./emulate-ec2.sh evals
+```
 
-Se contrastaron mensajes de la bandeja TEST, registros de central, métricas y
-trazas privadas. Entre las **21:03 y 21:09 de Bogotá**, se comprobó este recorrido:
+En Windows: `.\emulate-ec2.cmd evals`. Ese comando no hace inferencia: los resultados del modelo quedan como no ejecutados. Las evaluaciones live son explícitas, consumen el presupuesto existente y evalúan una decisión sin ejecutar tools ni enviar mensajes; su procedimiento y rúbricas están en [Evals reproducibles](docs/evals.md).
 
-| Acción realizada | Resultado observado |
+## 10. Operación y solución de problemas
+
+Para consultar el estado y verificar las integraciones sin generar inferencias ni enviar mensajes:
+
+```bash
+./emulate-ec2.sh status
+./emulate-ec2.sh verify --mode live
+./emulate-ec2.sh preflight
+```
+
+En Windows, sustituye `./emulate-ec2.sh` por `.\emulate-ec2.cmd` con los mismos argumentos. Un preflight correcto no sustituye el recorrido por WhatsApp.
+
+| Síntoma | Qué comprobar antes de repetir acciones |
 |---|---|
-| Retomar la identificación y responder `Podemos proceder` | El agente interpretó la confirmación mediante `manage_identity` y activó la solicitud estática de PIN. La pista nueva mostró nombre oculto con `•` y documento completo. |
-| Dos PIN incorrectos y después el correcto | Dos rechazos con oportunidades restantes, sin inferencia en esos turnos; el correcto produjo `identity_verified` y consulta de las dos deudas. No se agotaron tres intentos. |
-| Preguntar por mora y elegir `la segunda` | Informó hogar con 45 días y telefonía con 75; seleccionó telefonía conservando el contexto. |
-| Solicitar pago total, simular rechazo y luego aprobar | La orden de telefonía por USD 60 registró un intento rechazado sin aplicar y uno aprobado; quedó una liquidación de USD 60 y cero condonados. |
-| Enviar la imagen del comprobante por WhatsApp | Se ejecutaron visión y `verify_payment`; central devolvió pago aplicado y el bot confirmó telefonía con saldo cero. |
-| Preguntar por otra obligación | Volvió a consultar y mostró hogar pendiente por USD 100, sin volver a cobrar telefonía. |
-| Ofrecer USD 75 por hogar | Identificó el 75 %, creó caso por oferta inferior al mínimo, envió nota privada y aviso público y cambió Chatwoot a `open`. No creó acuerdo ni redujo el saldo. |
+| La central no abre | Docker iniciado, `status`, conector público activo y un solo equipo usando el dominio. |
+| `origin_denied` al ingresar | Abre el origen HTTPS de `PUBLIC_BASE_URL`; no sustituyas el acceso por un puerto local. |
+| Credenciales rechazadas | Usa los valores del entorno **exportado de esta instalación**, al final de `.local/ec2-emulation/evaluator.env`; no el PIN ni credenciales de un Langfuse antiguo. |
+| No aparece el chat | Bandeja TEST, filtros **Pendientes + Abiertas** y pestaña **Todos**. |
+| La campaña terminó pero no llegó nada | Comprueba Live, autorización del destinatario en Meta y detalle de fallo/omisión/sin confirmación. Procesado no equivale a entregado. |
+| El bot no responde | Confirma `pending`, salud del worker, presupuesto, cuotas y que no esté esperando PIN. No relances una campaña para recuperar una respuesta. |
+| No se ven trazas | Abre Langfuse de esta instalación, proyecto y fecha correctos; refresca y busca el evento. La página puede funcionar aunque una exportación haya fallado. |
+| El enlace no permite pagar | Orden vencida, deuda modificada o pago ya aplicado. Consulta el estado; no edites saldo para simular una aprobación. |
+| Desapareció el panel de campaña al recargar | Los datos siguen en la base; la UI actual no tiene selector de historial. Conserva la pestaña durante el recorrido. |
+| Restauración en mantenimiento | Espera trabajos activos y reintenta la misma operación. No borres volúmenes. |
 
-Las métricas de esa campaña mostraron una persona contactada y una que responde
-(100 % de contactabilidad), un pago íntegro, USD 60 recibidos, cero condonados,
-USD 100 pendientes y un escalamiento automático. No hubo solicitud explícita de
-asesor. Otra campaña registró once envíos simulados y omitió el contacto real
-por campaña activa; esos simulados no entraron a sus KPI reales.
+### Presupuesto y cuotas
 
-**Ampliación de la revisión de esta sesión:** además del recorrido anterior,
-se verificó audio real, cambio de titular con documento en lenguaje natural,
-rechazos y agotamiento de autenticación, atención humana con memoria pasiva y
-su devolución explícita al bot. El retorno incorpora el diálogo del asesor y el
-evento de canal antes de la consulta nueva. Se cotizó un acuerdo de USD 170 sobre
-USD 200, se aceptó en otro turno, se pagó y se envió la imagen: central registra
-USD 170 recibidos, USD 30 condonados y saldo cero; el agente lo verificó con
-`verify_payment`. Son pagos simulados. Esto acredita un acuerdo del 85 %, no las
-variantes exactas del 90 % y 80 % del guion.
+La entrega reserva **USD 5 para IA**, con un corte local conservador de hasta **USD 4,50**; el archivo privado puede fijar un saldo disponible menor. Una reserva incierta sigue contando, porque un timeout no prueba que el proveedor no haya trabajado. El consumo del panel es una estimación, no la factura. Reiniciar o restaurar escenarios no repone presupuesto.
 
-**Pendiente:** repetir en WhatsApp la nueva negociación 95 % → 80 %, la explicación
-explícita de condonación y la instrucción de enviar el comprobante junto al enlace;
-comprobar las variantes exactas del 90 % y 80 %, recibo falso/ajeno o repetido,
-caducidad, cierre explícito de sesión y continuidad tras un reinicio completo.
-Los tres fallos de formato observados no acreditan el bloqueo central por tres
-PIN numéricos incorrectos. La revisión visual de Langfuse cubrió el último comprobante; el guion permite
-ampliarla a los demás casos. Falta la preparación final de entrega (instalación limpia, grabación y sustentación).
-La revisión de esta sesión fue de lectura y no envió mensajes ni alteró la demo.
+El relay de pruebas admite como máximos 60 peticiones/minuto, 10 intentos de creación de contacto/día UTC y 100 intentos de envío/día UTC; la configuración privada puede reducirlos. Plantillas, respuestas y efectos de handoff consumen intentos. Los fallos no devuelven cuota. Las simulaciones de campaña no llaman al canal ni consumen IA.
 
-La inspección de Langfuse encontró la herramienta de identidad con nombre genérico
-`tool` y los tres envíos de derivación en trazas separadas. La generación, las
-herramientas financieras y la verificación de imagen sí tenían entradas/salidas.
-La corrección y su evidencia se registran en [evaluación](docs/evaluacion.md);
-las trazas históricas conservan su estructura original.
+### Recuperación avanzada de un reset
 
-**Política de negociación actual:** guía hacia el pago completo e interpreta el
-cierre explícito de sesión. Si no puede cubrir el total, intenta el 95 % y luego
-el 80 % cuando la oferta siga bajo el mínimo, una propuesta por turno. Si mantiene
-una oferta válida mayor al 80 %, la conserva en vez de reducirla. Aceptar una
-propuesta permite cotizarla; la cotización requiere confirmación en otro mensaje.
-Solo deriva por oferta baja tras rechazar ambas y mantener menos del 80 %; una
-petición de asesor o disputa conserva la derivación sin negociación obligatoria.
-Explica la condonación condicionada y que el pago acordado liquidará esa deuda.
-Cada enlace recuerda enviar la imagen del comprobante para verificarlo. El mínimo,
-la aceptación posterior y la revocación siguen bajo control del backend. Las trazas
-históricas conservan el comportamiento anterior; la comprobación del nuevo prompt
-se distingue en [evaluación](docs/evaluacion.md).
+La opción habitual es reanudar la misma operación desde la central. Si necesitas inspeccionarla por terminal, entra al invitado con un cliente OpenSSH:
 
-### Correcciones consolidadas del recorrido
+```bash
+ssh -i .local/ec2-emulation/id_ed25519 -p 2244 -o UserKnownHostsFile=.local/ec2-emulation/known_hosts root@127.0.0.1
+cd /srv/proyecto-agil/app
+```
 
-| Área | Comportamiento actual |
+Dentro del invitado, consulta el estado y reanuda con la **misma** clave de operación:
+
+```bash
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --status
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --confirm RESET_DEMO --operation-key UUID_DE_LA_OPERACION
+```
+
+No ejecutes estos comandos contra el Compose de desarrollo del anfitrión. El reset tiene etapas persistentes porque las dos bases no comparten una transacción distribuida.
+
+## 11. Cómo está organizado el trabajo
+
+| Ubicación | Contenido |
 |---|---|
-| Identificación | Interpreta tipo y número en lenguaje natural y separadores de agrupación; conserva los dígitos. Explica si encontró los datos por teléfono o documento, presenta Nombre/Documento y confirma antes del PIN. |
-| Autenticación | La confirmación natural pasa por el agente. El PIN se intercepta fuera del LLM; tras agotamiento, el agente explica y ofrece opciones sin buscar otro titular automáticamente. |
-| Conversación | El prompt exige cordialidad, alcance exclusivo de cobranza y resistencia a instrucciones ajenas; conduce hacia el pago y permite cerrar sesión mediante revocación del backend. |
-| Negociación | Propuestas 95 % → 80 % según la oferta vigente, condonación condicionada explícita, confirmación posterior y comprobante pedido junto al enlace. |
-| Acuerdos al volver | Tras PIN nuevo, consulta condiciones vigentes en central y recupera referencias al seleccionar; reutiliza la orden aceptada válida sin crear otra ni extender plazos. Una propuesta sigue necesitando confirmación posterior. |
-| Comprobantes | Una referencia ilegible no se inventa. Tras una búsqueda por referencia fallida, consulta la misma deuda autenticada sin referencia antes de escalar; confirma únicamente el registro financiero del sistema. |
-| Atención humana | `open` suspende al bot; el diálogo público se guarda de forma pasiva. El retorno comprobado a `pending` incorpora un evento a la memoria antes de la nueva consulta. |
-| Observabilidad | Inputs/outputs, estados, generaciones, herramientas, medios y entregas correlacionadas; los secretos y PIN siguen excluidos. Los errores históricos permanecen visibles. |
-| Guía | Accesos de las tres interfaces, filtros de Chatwoot, configuración del evaluador, pasos de pago/variantes y recorrido de trazas en este README. |
+| `apps/backend` | Portales, webhook, worker, agente, herramientas e integraciones. |
+| `apps/central` | Contrato financiero, identidad, deudas, acuerdos y pago simulado. |
+| `infra` y lanzadores `emulate-ec2.*` | Composición de servicios y laboratorio de emulación. |
+| `tests` y `evals` | Pruebas deterministas y escenarios de decisiones del modelo. |
+| `specs` y `.specify` | Requisitos, diseño y tareas trabajados con Spec Kit. |
+| `docs/arquitectura.md` | Documento técnico autocontenido para la entrega: decisiones, datos, flujos, seguridad, operación y propuesta AWS. |
 
-La evidencia y límites de cada corrección están en [evaluación](docs/evaluacion.md).
-La tabla describe el comportamiento implementado; los casos pendientes del recorrido
-no se consideran aprobados por aparecer aquí.
+El trabajo siguió Spec-Driven Development: requisitos y criterios de aceptación, diseño de contratos y estado, tareas de implementación y comprobación. Spec Kit organiza ese proceso; no participa en la conversación del agente en ejecución.
 
-### Flujo técnico: del webhook a la respuesta, como un AI Agent de n8n
-
-La caja **AI Agent** equivale al agente con modelo, instrucciones, memoria y herramientas que se reconoce en n8n. LangGraph mantiene un único nodo: `START → agent → END`; las llamadas a herramientas ocurren dentro de él. El brazo estático `awaiting_pin` / `waiting_auth` es control de autenticación fuera del agente. Este diagrama describe el recorrido acordado; su verificación y despliegue se registran por separado.
-
-```mermaid
-flowchart TD
-    WEB["Webhook: HMAC, scope y evento<br/>Sin red de negocio antes del acuse"]
-    STOP["Rechazar, ignorar o cancelar<br/>Sin invocar al agente"]
-    TRANSPORT["Preparar transporte local según fase<br/>Auth: Fernet temporal · resto: datos firmados"]
-    INBOX["Persistir inbox_event + trabajo durable<br/>Deduplicación por mensaje"]
-    ACK["HTTP 200: acuse del webhook<br/>No es la respuesta de WhatsApp"]
-    WORK["Worker: lock, deduplicación y revisión<br/>Consultar pending y control humano"]
-    AUTH{"¿awaiting_pin / waiting_auth?"}
-    STATIC["IdentityService.consume_auth: brazo estático<br/>Todos los mensajes · formato 4 a 8 dígitos<br/>PIN válido en formato: consultar central"]
-    RESULT{"Resultado de autenticación"}
-    OK["Salir de auth con autorización<br/>Evento neutro identity_verified"]
-    EXHAUST["Tercer fallo: salir sin autorización<br/>Evento neutro auth_attempts_exhausted"]
-    MEDIA["Fuera de auth: medios si existen<br/>Audio: transcripción · Imagen: visión LLM"]
-    LOAD["Recuperar checkpoint PostgreSQL<br/>thread_id = source_id literal"]
-    subgraph GRAPH["LangGraph conversacional"]
-        START(["START"])
-        AGENT["AI Agent · único nodo agent<br/>System prompt + contexto autorizado + historial<br/>LLM decide respuesta y herramientas"]
-        END(["END"])
-        START --> AGENT --> END
-    end
-    TOOLS["9 tools: llamadas dentro de agent<br/>Confirmar: awaiting_pin y contador cero"]
-    CENTRAL["Central + validaciones del backend<br/>PIN, bloqueo y permisos financieros"]
-    SAVE["Guardar checkpoint actualizado<br/>Mismo source_id literal"]
-    OUT["Persistir respuesta en outbox"]
-    DISPATCH["Dispatcher: revalidar pending y salida"]
-    CHAT["API Chatwoot → WhatsApp / Meta"]
-    LF["Langfuse: observación privada<br/>Sin PIN, grants ni sobre cifrado auth"]
-
-    WEB -->|admitido| TRANSPORT
-    WEB -->|firma, scope o evento no válido| STOP
-    TRANSPORT --> INBOX
-    INBOX --> ACK
-    INBOX --> WORK
-    WORK -->|control permite continuar| AUTH
-    WORK -->|humano, repetido o revisión invalidada| STOP
-    AUTH -->|sí| STATIC
-    STATIC -->|formato válido| CENTRAL
-    CENTRAL -->|resultado PIN| STATIC
-    STATIC --> RESULT
-    RESULT -->|PIN correcto| OK
-    RESULT -->|fallo menor que 3: respuesta fija| OUT
-    RESULT -->|tercer fallo| EXHAUST
-    OK --> LOAD
-    EXHAUST --> LOAD
-    AUTH -->|no: todo mensaje llega al agente| MEDIA
-    MEDIA --> LOAD --> START
-    AGENT -->|llamada interna| TOOLS
-    TOOLS -->|resultado validado: continúa el nodo| AGENT
-    TOOLS -->|confirm_candidate: solicitud PIN fija, sin otra inferencia| END
-    TOOLS -->|cartera autorizada| CENTRAL
-    CENTRAL -->|resultado financiero| TOOLS
-    END --> SAVE --> OUT
-    OUT --> DISPATCH --> CHAT
-    WORK -.-> LF
-    AGENT -.-> LF
-    DISPATCH -.-> LF
-```
-
-El webhook valida firma, scope y evento y realiza persistencia local durable antes de responder **HTTP 200**. Las consultas de negocio a Chatwoot y central se hacen después en el worker; el dispatcher revalida el control antes del envío. Una conversación en `open` no llega al modelo. Durante la fase de autenticación, Fernet protege temporalmente el transporte a la cola; el PIN en claro y ese sobre cifrado quedan fuera de prompts, checkpoints y Langfuse. Firmar un sobre da integridad; el cifrado Fernet es la protección adicional del contenido de autenticación.
-
-Fuera de `awaiting_pin`, todos los mensajes admitidos —incluidos números aislados, `sí`, `no`, `dale`, preguntas, asesor, cambio de cliente y medios— pasan al agente. No existe una expresión regular global para interceptar PIN fuera de esa fase. Un texto que imite `agil.identity.v1.` se envuelve como datos del remitente: no permite fabricar una validación ni una respuesta protegida.
-
-Las nueve herramientas son `locate_customer`, `manage_identity`, `list_debts`, `select_debt`, `create_full_payment`, `quote_agreement`, `accept_agreement`, `verify_payment` y `handoff_human`. El modelo elige; el backend valida argumentos y permisos. `manage_identity(confirm_candidate)` activa `awaiting_pin`, reinicia el contador local a cero y devuelve la solicitud fija de PIN **sin otra inferencia**. Confirmar, rechazar o cambiar nunca concede cartera.
-
-En `awaiting_pin`, `IdentityService.consume_auth` procesa **todos** los mensajes de forma estática. Formato incorrecto o PIN rechazado consume un intento. Antes del tercero devuelve una respuesta fija; un PIN correcto produce `identity_verified`; el tercero produce `auth_attempts_exhausted` **sin sesión financiera**. Ambos eventos neutros retornan al nodo; después del agotamiento puede orientar y atender una petición de asesor. Los tres intentos locales no anulan el bloqueo central de 15 minutos por PIN incorrecto. Audio y visión solo se preparan fuera de auth; un PIN hablado o incrustado en una imagen no autentica. Langfuse observa y no orquesta.
-
-### Dónde aprende el LLM a usar las herramientas
-
-Hay dos fuentes que se envían juntas en cada llamada del nodo a Responses:
-
-1. **Instrucciones de uso y reglas:** [prompts.py](apps/backend/src/backend/agent/prompts.py) define el system prompt: cuándo localizar, confirmar, consultar cartera, pagar, verificar un recibo o derivar. [graph.py](apps/backend/src/backend/agent/graph.py) añade el contexto actual autorizado del servidor y selecciona el historial de memoria.
-2. **Catálogo ejecutable:** en [tools.py](apps/backend/src/backend/agent/tools.py), `TOOL_SCHEMAS` es la lista de definiciones que recibe el modelo. Cada función declara `name`, `description` y `parameters` (tipos, `required`, `enum` y rechazo de campos extra). El modelo recibe **tres herramientas antes de autenticar** —`locate_customer`, `manage_identity`, `handoff_human`— y **nueve con sesión validada**. Durante `awaiting_pin` responde el brazo estático y no se llama al modelo.
-
-`TEXT = {"type": "string"}` define un valor de texto. `OPTIONAL = {"type": ["string", "null"]}` permite texto o `null`; el nombre no significa que pueda omitirse la clave. En el esquema estricto, `_schema` incluye todas las propiedades en `required`: cuando un campo anulable no aplica, se envía su clave con `null`.
-
-La ruta concreta de envío de `tools` es esta (líneas de esta versión del código):
-
-- [graph.py, línea 169](apps/backend/src/backend/agent/graph.py#L169): pasa `tools=catalog` a `await inference.response(...)`, junto con `instructions` e `input`.
-- [integrations/openai.py, línea 208](apps/backend/src/backend/integrations/openai.py#L208): incorpora `"tools": tools or []` al diccionario `request` enviado al SDK.
-- [integrations/openai.py, línea 234](apps/backend/src/backend/integrations/openai.py#L234): ejecuta `await self.sdk.responses.create(**request)`. Esta es la llamada que envía la petición a OpenAI; definir `TOOL_SCHEMAS` por sí solo no la envía.
-
-Este fragmento JSON resume el payload; muestra una sola definición para explicar su forma. La petición real incluye el catálogo permitido completo, contexto, historial y opciones del modelo. No añade argumentos a las herramientas:
-
-```json
-{
-  "instructions": "SYSTEM_PROMPT + contexto actual autorizado del servidor",
-  "input": [{"role": "user", "content": "dale"}],
-  "tools": [{
-    "type": "function",
-    "name": "manage_identity",
-    "description": "Confirma o rechaza el candidato, o cambia de titular; no autentica.",
-    "strict": true,
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "action": {
-          "type": "string",
-          "enum": ["confirm_candidate", "reject_candidate", "change_customer"]
-        }
-      },
-      "required": ["action"],
-      "additionalProperties": false
-    }
-  }]
-}
-```
-
-Ante una confirmación clara, el modelo puede pedir `manage_identity` con `{"action":"confirm_candidate"}`; para rechazar, `{"action":"reject_candidate"}`; para cambiar, `{"action":"change_customer"}`. **El PIN nunca es un argumento de herramienta ni una entrada del LLM durante autenticación.** La ejecución Python valida catálogo, esquema, estado y permisos. Normalmente devuelve un `function_call_output` al modelo para continuar el mismo bucle; confirmar el candidato termina ese bucle con la solicitud estática de PIN, sin otra inferencia. Tras `identity_verified`, el nodo solicita la consulta inicial de deudas.
-
-| Herramienta | Para qué sirve | Argumentos del modelo |
-|---|---|---|
-| `locate_customer` | Buscar persona; devolver nombre enmascarado y documento completo de la demo | `phone_e164` o `document_type` + `document_number`; los campos no usados van en `null` |
-| `manage_identity` | Confirmar/rechazar candidato o cambiar de persona; sin autorizar cartera | `action`, con los tres valores del ejemplo |
-| `list_debts` | Consultar cartera y acuerdos vigentes de la persona autenticada, sin seleccionar | `service_type`, o `null` sin filtro |
-| `select_debt` | Elegir una deuda y recuperar su acuerdo y enlace vigente reutilizable | `debt_id` |
-| `create_full_payment` | Crear enlace por el saldo vigente, sin descuento | `debt_id` |
-| `quote_agreement` | Cotizar oferta de al menos el 80 %, sin aceptarla | `debt_id`, `offer_amount_usd` |
-| `accept_agreement` | Aceptar propuesta previa en otro mensaje y obtener enlace | `agreement_id` |
-| `verify_payment` | Consultar pago y validar persona/deuda del comprobante | `debt_id`, `payment_reference` o `null` |
-| `handoff_human` | Registrar atención humana y suspender automatización | `reason`, `offer_amount_usd` o `null`, `summary` |
-
-Los campos anulables siguen presentes en el esquema estricto, con valor `null` cuando no aplican. `reason` admite `requested`, `dispute`, `below_minimum`, `payment_unverified` o `technical_failure`. Importes de oferta son cadenas decimales en USD. El modelo aporta filtros, referencias obtenidas y la intención de gestión; el backend incorpora identidad validada, grant, mensaje origen, versiones y claves idempotentes. Esos datos de autorización no los elige el modelo. Central vuelve a comprobar titularidad, vigencia y condiciones financieras antes de producir efectos.
-
-### Secuencia general del sistema
-
-Este diagrama muestra el orden de los intercambios. El mapa de servicios de la
-siguiente sección muestra dónde vive cada componente. Las secuencias detalladas
-de [campaña, autenticación y pago](docs/arquitectura.md#3-secuencia-completa-campaña-conversación-y-pago)
-y [atención humana](docs/arquitectura.md#5-atención-humana-y-devolución-del-control)
-están en el documento técnico.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor OP as Operador
-    actor CL as Cliente
-    participant CW as Chatwoot y WhatsApp
-    participant BE as Backend y portales
-    participant DB as PostgreSQL operativo
-    participant WK as Worker y agente
-    participant AI as OpenAI
-    participant CE as Central
-    OP->>BE: Segmentar, previsualizar y lanzar campaña
-    BE->>CE: Obtener cartera elegible
-    BE->>DB: Guardar destinatarios únicos
-    WK->>DB: Tomar siguiente destinatario
-    WK->>CW: Enviar plantilla al contacto Live autorizado
-    CW-->>CL: Notificación
-    CL->>CW: Responder
-    CW->>BE: Webhook firmado
-    BE->>DB: Persistir evento y job sin duplicados
-    BE-->>CW: HTTP 200 sin esperar al LLM
-    WK->>DB: Tomar job, bloquear thread y leer identidad
-    WK->>CW: Verificar que el bot conserva control pending
-    alt Fase de PIN
-        WK->>CE: Validar código fuera del LLM
-        CE-->>WK: Resultado de autenticación
-    else Texto o medios admitidos
-        WK->>AI: Preprocesar medio si existe
-        WK->>DB: Recuperar checkpoint
-        WK->>AI: Interpretar con prompt, contexto y tools
-        AI-->>WK: Decisión de herramienta o respuesta
-        WK->>CE: Ejecutar tool financiera autorizada si corresponde
-        CE-->>WK: Resultado registrado
-    end
-    WK->>DB: Guardar checkpoint si pasó al agente y encolar salida
-    WK->>CW: Enviar respuesta desde outbox
-    CW-->>CL: Respuesta o enlace tras autenticación
-    CL->>BE: Aprobar pago simulado en el portal
-    BE->>CE: Aplicar pago y condonación de forma idempotente
-    CE-->>BE: Comprobante y saldo actualizado
-    BE-->>CL: Mostrar comprobante
-    CL->>CW: Enviar captura
-    Note over CW,WK: Nuevo turno por el mismo ingreso y cola.
-    WK->>AI: Interpretar imagen y pedir verificación
-    WK->>CE: Consultar pago real registrado
-    CE-->>WK: Aplicado o discrepancia
-    WK->>CW: Confirmar registro o gestionar discrepancia
-    CW-->>CL: Resultado verificado
-```
-
-El dibujo resume el ciclo de herramientas y los reingresos. Un PIN correcto o el
-tercer fallo producen un evento neutro que puede continuar al agente; los fallos
-anteriores reciben respuesta estática. El comprobante no aplica el pago: central
-ya lo registró al aprobar en el portal. Los destinos simulados no llaman al canal.
-
-### Arquitectura y planes futuros
-
-El despliegue público de la demo ejecuta **12 contenedores de aplicación en una
-única EC2 emulada**: seis del producto (`backend`, `worker`, `central`,
-`central-db`, `memory-db`, `cloudflared`) y seis de Langfuse (web, worker,
-PostgreSQL, ClickHouse, Redis y MinIO). Floci, el motor de emulación, el invitado
-y los auxiliares de acceso añaden contenedores de infraestructura fuera de ese
-conteo. Chatwoot/Meta y OpenAI son servicios externos.
-
-```mermaid
-flowchart TB
-    CW["Chatwoot / WhatsApp · externo"]
-    AI["OpenAI · externo"]
-    subgraph EC2["Una EC2 emulada · 12 contenedores de aplicación"]
-        CF["cloudflared · entrada HTTPS"]
-        BE["backend · webhook y portales"]
-        MD[("memory-db · cola, memoria y operación")]
-        WO["worker · LangGraph y tools"]
-        CE["central · API financiera"]
-        CD[("central-db · cartera y pagos")]
-        subgraph LF["Langfuse · 6 contenedores"]
-            LW["web · interfaz e ingesta de trazas"]
-            LK["worker"]
-            LP[("PostgreSQL")]
-            LC[("ClickHouse")]
-            LRED[("Redis")]
-            LM[("MinIO · medios")]
-        end
-        CF --> BE
-        BE <--> MD
-        MD <--> WO
-        BE --> CE
-        WO --> CE
-        CE --> CD
-        BE -. "trazas" .-> LW
-        WO -. "trazas" .-> LW
-    end
-    CW -- "webhook" --> CF
-    WO -- "respuestas y derivación" --> CW
-    WO <--> AI
-```
-
-El backend recibe eventos y sirve los portales; el worker consume trabajos y
-ejecuta el agente. Ambos usan la API de central para las operaciones financieras:
-**la central es el único escritor de `central-db`**. `memory-db` conserva la cola,
-los checkpoints y el estado operativo. Langfuse recoge la observabilidad y los
-medios. El túnel mantiene el hostname con un único equipo de aplicación activo;
-cambiar de equipo requiere detener el conector anterior y preparar la instalación
-sin copiar datos privados de estudio.
-
-**No se ha desplegado en AWS.** Floci ya permite crear un invitado Linux por
-`RunInstances` y ejecutar los servicios en su Docker interno. El perfil local sin
-túnel tiene once; la demo pública añade `cloudflared`, hasta los doce del diagrama.
-Se comprobaron salud, límites efectivos de 4 CPU/16 GiB y persistencia PostgreSQL
-después de Stop/Start. Es un contenedor privilegiado con Docker propio y kernel
-compartido; no acredita una VM AWS, EBS, rendimiento ni backup/restauración real.
-El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp ya
-llegan al invitado emulado; se comprueban sus recorridos reales en la evaluación.
-El entorno anterior conserva el estudio y tiene detenido su conector. IaC, separar componentes en más servicios y crear
-plantillas nuevas automáticamente son planes futuros.
-
-El **[documento técnico de arquitectura](docs/arquitectura.md)** consolida las
-capas de emulación, este inventario, las secuencias de negocio, seguridad,
-consistencia y observabilidad. Distingue la demo de la propuesta de infraestructura
-AWS: la propuesta sustituye la entrada Cloudflare y la inferencia directa de
-OpenAI por servicios AWS y requiere adaptar el canal corporativo. Es diseño,
-no infraestructura aprovisionada ni una migración automática.
-
-Referencias técnicas: [evaluación y límites](docs/evaluacion.md), [plan](specs/001-cobranza-whatsapp/plan.md), [modelo de datos](specs/001-cobranza-whatsapp/data-model.md), [contratos](specs/001-cobranza-whatsapp/contracts/), [dominio de demo](docs/dominio-demo.md), [despliegue EC2](docs/despliegue-ec2.md), [PRD](specs/prd.md) y [tareas](specs/001-cobranza-whatsapp/tasks.md).
+Para entender la solución de principio a fin, lee el **[documento de arquitectura](docs/arquitectura.md)**. Para operar el laboratorio con más detalle, usa la [referencia de emulación](docs/emulacion-ec2.md). El prototipo prioriza una sola máquina para iterar; separar componentes y automatizar la infraestructura son evoluciones propuestas, no despliegues ya realizados.

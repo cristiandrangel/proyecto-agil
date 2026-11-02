@@ -59,6 +59,13 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 
 ## Documentación
 
+- El README es la entrada del evaluador: producto y capacidades, instalación,
+  recorrido con acciones/resultados, evidencia y ayuda operativa. Evitar acumular
+  historia de correcciones o duplicar explicaciones internas extensas.
+- `docs/arquitectura.md` es el entregable técnico autocontenido: incluir allí
+  contratos, datos, flujos, decisiones, controles, observabilidad y propuesta AWS.
+  No delegar explicaciones necesarias a enlaces a otros archivos del repo.
+
 - Durante el recorrido guiado con Cristian, incorporar al `README.md` cada paso,
   explicación práctica y ajuste acordado, en su sección correspondiente. Incluir
   acciones y resultados esperados; distinguirlos de los resultados realmente
