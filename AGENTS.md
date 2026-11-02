@@ -37,6 +37,10 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 
 ## Documentación
 
+- Durante el recorrido guiado con Cristian, incorporar al `README.md` cada paso,
+  explicación práctica y ajuste acordado, en su sección correspondiente. Incluir
+  acciones y resultados esperados; distinguirlos de los resultados realmente
+  observados. No copiar credenciales ni datos personales del test al documento público.
 - El PRD debe centrarse en el producto; omitir historia de la conversación y del proceso de redacción.
 
 - Distinguir requisitos confirmados, recomendaciones y TBD.

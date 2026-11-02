@@ -114,8 +114,10 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 
 ### 3.4. Responder, autenticar y elegir hogar
 
-1. Desde tu WhatsApp, responde a la plantilla: `Hola, quiero revisar mi deuda`.
-2. Comprueba el mensaje entrante y la respuesta del bot en Chatwoot. El agente debe presentarse, dar contexto y proteger el detalle financiero hasta autenticar al titular.
+**Antes de responder:** debes haber recibido la plantilla en WhatsApp y tener abierta su conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Conserva también abierta la pestaña de campaña de la central.
+
+1. Desde tu **WhatsApp**, responde a la plantilla con `Hola, quiero revisar mi deuda`. Si la plantilla muestra el botón **Explícame más**, puedes pulsarlo una vez en lugar de escribir ese mensaje; no necesitas hacer ambas cosas.
+2. Espera la respuesta y comprueba en Chatwoot tanto tu mensaje entrante como la salida del bot. En este primer intercambio, verifica que el agente se presenta como Alex, explica el contexto de cobranza y la necesidad de autenticarte antes de dar detalles, y muestra una pista de identidad enmascarada si encontró un registro. La redacción es generada por el modelo y puede variar. **Revisa esta apertura antes de continuar; todavía no envíes el PIN.**
 3. Si muestra una pista de identidad, responde **sí** solo si corresponde al registro de Ana. Si pide documento o la búsqueda por teléfono no encuentra el registro, escribe `CC 10000001` y confirma la pista correcta.
 4. Cuando solicite el PIN, escribe **2468**, en un mensaje de texto independiente.
 5. Tras validar, debe consultar la cartera de Ana y mostrar hogar y telefonía. Responde: `Quiero gestionar hogar`.
