@@ -298,6 +298,20 @@ Escribir «te dejo con el asistente» por sí solo no cambia el control del cana
 El registro empieza con las nuevas devoluciones verificadas tras esta versión;
 no se inventa un evento para casos históricos que ya estaban devueltos.
 
+**Repetir el retorno con contexto de hogar:** usa la conversación existente en
+`pending`, sin restaurar datos ni lanzar otra campaña. Escribe `Quiero continuar
+con hogar`; si la sesión venció, confirma el registro y envía `2468` solo cuando
+se solicite el PIN. Después pide `Quiero hablar con un asesor` y espera `open`.
+Desde Chatwoot responde públicamente `Se aclaró la duda sobre telefonía. La
+obligación que vamos a gestionar es hogar. Te devuelvo al asistente`. Desde WhatsApp
+contesta `Entendido, sigamos con hogar` mientras aún esté en `open`: el bot debe
+permanecer en silencio. Devuelve explícitamente la conversación a `pending` y
+envía `Entonces, ¿cuánto debo por hogar?`. Debe consultar el saldo vigente de hogar
+y continuar, usando la aclaración anterior, sin remitirte otra vez al asesor por
+la transferencia ya finalizada. Si caduca la identidad durante el ejercicio,
+debe volver a autenticar; completa el intercambio dentro de la misma sesión para
+comprobar la continuidad de ese contexto.
+
 Por ejemplo, escribe `Retomemos lo que hablamos con el asesor`. En la siguiente
 entrada al agente, el diálogo humano de la misma revisión de identidad se incorpora
 al estado como mensajes normales: `asesorhumano: Revisaré el caso mañana` y
