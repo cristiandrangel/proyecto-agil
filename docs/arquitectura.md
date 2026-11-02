@@ -441,6 +441,9 @@ El enlace debe acompañarse de una instrucción para enviar una imagen del compr
 
 ### 4.6. Medios, modelo y protección frente a instrucciones ajenas
 
+El prompt incluye un glosario demostrativo: hogar significa internet y televisión para la vivienda; telefonía, servicio celular; televisión, TV contratada por separado. Puede explicar estos conceptos sin revelar contratos personales ni inventar características de los planes.
+
+
 En el prototipo, el agente utiliza `gpt-5.6-luna` con esfuerzo de razonamiento `high`; visión usa también `gpt-5.6-luna`, con esfuerzo `none`, y audio usa `gpt-transcribe`. Son los identificadores de la integración probada, no una garantía de acceso desde cualquier cuenta. Se probó reducir la temperatura a cero y el proveedor rechazó ese parámetro con esta configuración; se mantiene el ajuste admitido y las reglas del prompt.
 
 El worker valida y descarga medios de orígenes admitidos con controles contra acceso a direcciones internas, redirecciones y archivos inválidos. El límite es 5 MiB por archivo y 60 segundos de audio. Se admiten imágenes PNG/JPEG/WebP y los formatos de audio validados por el normalizador, incluido WebM cuando puede comprobarse su duración. La extracción conserva el texto que acompaña al adjunto y genera contexto textual para el mismo nodo principal.
@@ -639,7 +642,7 @@ Toda edición de una deuda incrementa su versión e invalida condiciones previas
 
 ### 6.5. Control de gasto de inferencia
 
-El presupuesto nominal de la demo es USD 5, con corte local conservador de hasta USD 4,50 y dos inferencias concurrentes. La configuración entregada puede reducir el límite según el presupuesto disponible. Este control aplica a llamadas que pasan por esta aplicación; no impone por sí solo un tope contractual sobre la API key del proveedor ni cubre su uso desde otro sistema.
+El presupuesto nominal y el límite local de la demo son USD 10, con dos inferencias concurrentes. La configuración entregada puede reducir el límite según el presupuesto disponible; los cambios conservan el consumo ya registrado. Este control aplica a llamadas que pasan por esta aplicación; no impone por sí solo un tope contractual sobre la API key del proveedor ni cubre su uso desde otro sistema.
 
 Antes de llamar al proveedor, `BudgetService` reserva una estimación conservadora en `inference_reservation`. Un bloqueo transaccional global serializa la comprobación:
 
@@ -956,13 +959,15 @@ Estas opciones son planes de evolución, no requisitos añadidos a la prueba ni 
 
 ### 9.1. Pruebas de software
 
-La última suite completa registrada corresponde a la revisión `45201b3`, del 2 de noviembre de 2026: **447 pruebas aprobadas, cero fallos y cero omitidas, en 51,93 segundos**. Incluye PostgreSQL 17 real, migraciones, contratos de identidad, aislamiento por titular, concurrencia y transacciones financieras, campañas, cola/outbox, contexto del agente, medios y observabilidad. Inferencia y mensajería externas usan dobles en esa batería.
+La última suite completa se ejecutó el 2 de noviembre de 2026 tras ajustar la portabilidad y las cuotas: **453 pruebas aprobadas, cero fallos y cero omitidas, en 52,08 segundos**. La suite anterior de 447 corresponde a `45201b3`. Incluye PostgreSQL 17 real, migraciones, contratos de identidad, aislamiento por titular, concurrencia y transacciones financieras, campañas, cola/outbox, contexto del agente, medios y observabilidad. Inferencia y mensajería externas usan dobles en esa batería.
 
 La recuperación de acuerdos se verificó para propuesta pendiente y aceptación, cambio de titular, nueva autenticación, caducidad, saldo/versión incompatibles y orden no reutilizable. La consulta agrupa datos sin una consulta adicional por cada deuda. También se comprobó su despliegue y una respuesta de la API con acuerdo válido. Falta repetir ese recorrido con WhatsApp y el LLM sobre la última corrección; no se renuevan vencimientos para aparentar éxito.
 
 Las migraciones de autenticación e historial humano se comprobaron sobre PostgreSQL, incluida conservación de datos y reversión/reaplicación en los casos ensayados. Las pruebas de telemetría verifican entradas/salidas, jerarquía, exclusión de secretos y restauración del contexto padre para efectos asíncronos.
 
 ### 9.2. Pruebas reales de integración
+
+En la Mac ARM64 se levantó el stack, se verificaron por lectura las integraciones y se observaron respuestas reales. Durante el chat se agotaron los 100 envíos diarios del relay compartido. Se amplió a 1.000 conservando el ledger; el siguiente mensaje se envió correctamente. El presupuesto local se ajustó a USD 10 sin reiniciar consumo ni conversaciones. Esto verifica esa integración en el segundo equipo, sin dar por completados todos los pagos y variantes nativos.
 
 Se observaron campañas por el número TEST de Meta, identificación, PIN, pago simulado completo, acuerdos, envío de capturas, transcripción, atención humana, retorno y persistencia en recorridos de desarrollo. La aplicación y Langfuse corrieron dentro del invitado creado por Floci, con acceso público a los portales y llamadas reales al proveedor de inferencia.
 

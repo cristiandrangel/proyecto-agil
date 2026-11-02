@@ -2,6 +2,34 @@
 
 Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Mac ARM64, cuotas y presupuesto de evaluación — 2 de noviembre
+
+La revisión `1bc75ce` aprobó **453 pruebas, cero fallos y cero omitidas, en
+52,08 segundos**, en Docker aislado con PostgreSQL real y proveedores externos
+simulados. Incluye regresiones de selección EC2 ARM/x86, límites cgroup,
+cuotas persistentes y gasto. Se corrigieron dos fixtures de pruebas que dependían
+de archivos externos al test y una expectativa del límite anterior; la corrida
+completa posterior pasó. Los tres avisos de Alembic son deprecaciones existentes.
+
+En un segundo equipo Mac ARM64 se levantó el entorno emulado con la aplicación y
+Langfuse. El preflight verificó las integraciones por lectura sin inferencia pagada.
+El chat respondió hasta agotar los **100 intentos diarios** del relay compartido;
+dos respuestas generadas quedaron fallidas por rechazo del canal. No fue un fallo
+del login, de la inferencia ni un límite de Meta.
+
+Por instrucción de Cristian, el relay pasó a **1.000 intentos/día**, conservando
+los 100 consumidos. El presupuesto nominal y local de IA pasó a **USD 10**,
+conservando el ledger y las reservas. La configuración efectiva en la Mac y el
+prompt con definiciones de hogar, telefonía y televisión se comprobaron dentro
+del backend. El siguiente mensaje se registró como enviado y Cristian confirmó
+que la conversación continuó. No se reenviaron automáticamente los mensajes
+fallidos ni se borró la conversación.
+
+Esto acredita arranque e integración conversacional en la Mac, no el recorrido
+completo de todos los pagos, medios, retorno y persistencia de ese equipo. Windows
+sigue pendiente de ejecución nativa. Los resultados anteriores se conservan como
+historia de sus respectivas versiones.
+
 ## Recuperación de acuerdos tras autenticar de nuevo — 2 de noviembre
 
 Se detectó que la central conservaba un acuerdo aceptado, pero las consultas de

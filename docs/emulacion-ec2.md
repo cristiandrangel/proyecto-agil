@@ -287,3 +287,27 @@ explica el modelo de ejecución. La implementación se contrastó con el
 y su [catálogo de capacidades](https://github.com/floci-io/floci/blob/9be236e2890c2042a6bb819f1a9228be996acd90/src/main/resources/ec2/instance-type-catalog.yaml).
 El procedimiento de [despliegue EC2 real](despliegue-ec2.md) sigue separado y
 requiere una comprobación real antes de afirmar que está listo para producción.
+
+
+## Recuperación avanzada de una restauración
+
+La vía habitual es reintentar la misma restauración desde la central cuando
+termine el trabajo activo. Para inspeccionarla por terminal, con un cliente
+OpenSSH disponible en el equipo de la demo:
+
+```bash
+ssh -i .local/ec2-emulation/id_ed25519 -p 2244 -o UserKnownHostsFile=.local/ec2-emulation/known_hosts root@127.0.0.1
+cd /srv/proyecto-agil/app
+```
+
+Dentro del invitado:
+
+```bash
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --status
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --confirm RESET_DEMO --operation-key UUID_DE_LA_OPERACION
+```
+
+Conserva la misma clave de operación; no ejecutes esto contra el Compose de
+desarrollo del anfitrión. El reset tiene etapas persistentes porque las dos
+bases no comparten una transacción distribuida. No borres volúmenes para
+resolver un error de restauración.
