@@ -101,6 +101,36 @@ memoria. La evidencia anterior de cada sección conserva su fecha y alcance.
 
 ## Runtime y preflight de lectura
 
+### Ajuste de guía al pago, negociación y cierre de sesión
+
+Después del recorrido, se modificaron el system prompt y la descripción de
+`manage_identity`: guiar hacia el pago completo, intentar hasta dos contraofertas
+graduales antes de cotizar la oferta inicial y cerrar sesión usando la revocación
+existente de `change_customer`. El agente espera el documento del siguiente
+titular tras cerrar, manteniendo la misma conversación y fase inicial. El mínimo
+del 80 % y la aceptación del acuerdo en un mensaje posterior siguen vigentes.
+
+Se comprobaron **siete escenarios ficticios con Luna real** y herramientas sin
+ejecutar: cierre eligió `change_customer`; pago íntegro eligió `create_full_payment`;
+ante oferta de USD 90 sobre USD 100, propuso USD 95; tras rechazar USD 95, propuso
+USD 92; tras dos rechazos eligió cotizar USD 90; al aceptar USD 95 eligió cotizar
+95; después del resultado de cierre respondió pidiendo nueva identificación sin
+llamar a una localización automática. Las dos contraofertas tuvieron redacción
+natural y no crearon propuestas por su cuenta.
+
+Las siete llamadas quedaron liquidadas por **USD 0,00241969 estimados**. La lectura
+de comparación previa usó otras cinco llamadas por USD 0,00159088: ante la primera
+oferta de 90, la versión anterior intentaba cotizar inmediatamente ese importe.
+No hubo escrituras de canal o central, ni ejecución de las herramientas propuestas.
+Los accesos y el ledger fueron los del runtime; entradas, identidades y deudas de
+diagnóstico fueron ficticias. Son muestras del comportamiento del prompt, no una
+garantía universal ni un recorrido financiero completo por WhatsApp.
+
+Las **21 pruebas unitarias de contexto y tools** pasaron en 0,41 segundos y Ruff
+pasó. La suite completa de 353 corresponde a la revisión anterior a estos cambios
+de prompt. Backend y worker se actualizaron para la prueba posterior del usuario;
+la conversación bajo control humano se conserva hasta su devolución explícita.
+
 ### Revisión de confirmación, PIN y acuse del webhook
 
 La suite de 351 casos verifica que una confirmación como «dale» llega al único

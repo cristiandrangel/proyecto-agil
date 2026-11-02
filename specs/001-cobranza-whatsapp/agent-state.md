@@ -129,6 +129,12 @@ nuevo cliente. El backend contrasta revisiones antes de llamar al modelo, inclus
 si la ejecución cayó antes de guardar la limpieza. El bucle reinicia su entrada
 al LLM tras un cambio de registro, sin arrastrar el prompt financiero anterior.
 
+El cierre explícito de sesión utiliza esa misma operación de cambio: revoca y
+limpia antes de volver a identify; el agente espera un nuevo documento en lugar
+de localizar automáticamente al titular anterior. La negociación de hasta dos
+contraofertas se orienta desde el prompt y el historial de la deuda seleccionada;
+no añade campos de permiso, nodos ni altera el mínimo financiero del backend.
+
 ## Información que se conserva fuera del estado
 
 | Ubicación | Información y autoridad |

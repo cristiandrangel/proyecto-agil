@@ -41,6 +41,20 @@ a otra inferencia del nodo. reject_candidate y
 change_customer limpian el desafío o revocan el contexto correspondiente; las
 referencias financieras anteriores no se reutilizan.
 
+La petición explícita de cerrar sesión usa `manage_identity(change_customer)`.
+Tras el resultado no verificado, el agente confirma el cierre y espera otro
+documento; no vuelve a buscar al titular anterior automáticamente por source_id.
+La fase vuelve a identify y se requiere confirmación y PIN para el nuevo registro.
+
+El prompt orienta hacia pago íntegro y ofrece un siguiente paso concreto. Ante
+una oferta válida con descuento intenta hasta dos contraofertas conversacionales,
+graduales y superiores a la oferta, una por turno, sin anunciar inicialmente el
+descuento máximo. El historial de la deuda determina cuántas realizó. Si acepta
+una, cotiza ese importe; si rechaza ambas, puede cotizar la oferta válida mantenida.
+No hay una escalera fija de porcentajes ni un contador adicional de autorización.
+Quote y aceptación posterior siguen siendo pasos distintos. Los importes por
+debajo del 80 % siguen derivándose a humano y central valida los límites.
+
 El resultado de una orden entrega al modelo un marcador de enlace asociado a su
 order_id, sin la capability. El backend sustituye ese marcador por la URL firmada
 al preparar la salida autorizada. Checkpoints y trazas conservan el marcador, no

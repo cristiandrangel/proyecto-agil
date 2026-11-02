@@ -30,7 +30,8 @@ TOOL_SCHEMAS = [
     ),
     _schema(
         "manage_identity",
-        "Confirma o rechaza el candidato según la intención del cliente, o cambia de titular. "
+        "Confirma o rechaza el candidato según la intención del cliente. change_customer "
+        "cierra la sesión revocando el acceso y permite gestionar otro titular con nuevo PIN. "
         "Confirmar activa el brazo estático del PIN con tres oportunidades; nunca autentica "
         "ni autoriza la cartera. No recibe códigos.",
         {"action": {"type": "string", "enum": [

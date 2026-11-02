@@ -160,7 +160,7 @@ No restaures todavía ni lances otra campaña: telefonía ya pertenece a la mism
 
 1. Escribe `Ahora quiero gestionar telefonía`. Debe seleccionar esa deuda. Cambiar de servicio del mismo titular no exige otro PIN mientras su sesión siga vigente.
 2. Propón `Puedo pagar USD 54 por telefonía`.
-3. Espera la propuesta: USD 54 recibidos y USD 6 condonados, equivalente al 90 % de USD 60. **Todavía no está pagada.**
+3. El agente debe intentar hasta dos contraofertas superiores, una por turno. Para probar el acuerdo del 90 %, recházalas manteniendo tu oferta de USD 54; si aceptas una contraoferta, el acuerdo será por ese importe. Después espera la cotización de USD 54 recibidos y USD 6 condonados. **Todavía no está pagada.**
 4. En **otro mensaje**, responde `Sí, acepto esa propuesta de USD 54`. No juntes oferta y aceptación en el mismo mensaje.
 5. Abre el nuevo enlace. Revisa base USD 60, pago USD 54 y condonación USD 6. Pulsa **Simular aprobación**.
 6. Guarda una captura del nuevo recibo y envíala al agente indicando que es de telefonía. Debe verificarla consultando central.
@@ -215,12 +215,15 @@ Para probar edición sin gasto de IA, pulsa **Deuda** y modifica mora o servicio
 
 ### 4.3. Aislamiento, identidad equivocada y cambio de titular
 
-**Prueba de cierre de sesión pendiente:** solicitar `Quiero cerrar sesión` debe
+**Cerrar sesión y gestionar a otra persona:** solicitar `Quiero cerrar sesión` debe
 revocar la autorización y limpiar selección y contexto financiero, volviendo a
 `identify` con el mismo thread. Después se debe poder localizar otro documento,
-confirmar su pista y autenticar su PIN. El backend ya dispone de la revocación al
-cambiar de cliente; queda ajustar y comprobar la intención explícita de cierre
-desde el prompt. Cambiar únicamente la fase no revoca los permisos.
+confirmar su pista y autenticar su PIN. El prompt dirige el cierre a
+`manage_identity(action=change_customer)`, que revoca el acceso. Tras confirmar el
+cierre, debe esperar el nuevo documento sin volver a localizar automáticamente
+al titular anterior por teléfono. Cambiar únicamente la fase no revoca los permisos.
+Comprueba este caso fuera del brazo estático del PIN y con la conversación en
+`pending`; si quedó bajo control humano, devuélvela explícitamente como indica 4.5.
 
 1. En la conversación de Ana, envía `Cambiar cliente`. El agente debe entender la intención, solicitar la transición con `manage_identity` y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de `awaiting_pin`; durante esa fase todos los mensajes se tratan como intentos de autenticación.
 2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN.
@@ -237,7 +240,7 @@ No cambies el teléfono de Bruno para este ejercicio: se permite gestionar otro 
 
 1. Cambia de cliente a `CC 10000002`, confirma, valida PIN y selecciona hogar.
 2. Propón `Puedo pagar USD 160`. Es exactamente el 80 % de USD 200.
-3. Espera la propuesta de USD 160 recibidos y USD 40 condonados; acéptala en **otro mensaje**.
+3. Si intenta contraofertas superiores, mantén USD 160 para comprobar el límite exacto; deben ser como máximo dos. Espera la propuesta de USD 160 recibidos y USD 40 condonados y acéptala en **otro mensaje**.
 4. Abre el enlace, aprueba el pago simulado y envía el recibo como en el camino principal.
 
 **Debes ver:** acuerdo permitido, aplicado solo al pagar, saldo cero y USD 40 condonados. Si quieres compararlo con un caso de USD 100, tras restaurar puedes usar hogar de Ana: USD 80 recibidos y USD 20 condonados.
@@ -505,14 +508,16 @@ herramientas financieras y la verificación de imagen sí tenían entradas/salid
 La corrección y su evidencia se registran en [evaluación](docs/evaluacion.md);
 las trazas históricas conservan su estructura original.
 
-**Anotaciones para ajustar el prompt:** guiar hacia la selección de deuda y el
-pago con un siguiente paso concreto, interpretar el cierre explícito de sesión
-y negociar mediante hasta dos contraofertas antes de aceptar un descuento.
-Si el usuario acepta una contraoferta, se debe avanzar; no ofrecer un descuento
-adicional innecesario. La secuencia de porcentajes todavía debe concretarse y
-comprobarse. El mínimo del 80 %, la aceptación explícita del acuerdo y la
-revocación de acceso siguen siendo validaciones del backend. Estas anotaciones
-no se presentan como comportamiento ya probado en el recorrido anterior.
+**Ajuste posterior del prompt:** guía hacia el pago completo con un siguiente paso
+concreto, interpreta el cierre explícito de sesión y negocia mediante hasta dos
+contraofertas graduales por encima de la oferta del cliente. No hay una escalera
+fija de porcentajes: se adapta al saldo, capacidad e historial de esa deuda. Si
+acepta una contraoferta, se cotiza ese importe; si rechaza ambas y mantiene una
+oferta válida, se cotiza la suya. Se respetan límites explícitos insuperables y
+no se anuncia de entrada el descuento máximo. Una oferta inferior al 80 % sigue
+derivándose a humano. El mínimo, la aceptación del acuerdo en otro mensaje y la
+revocación siguen bajo control del backend. Este ajuste no formaba parte del
+recorrido anterior: su comprobación se distingue en [evaluación](docs/evaluacion.md).
 
 ### Flujo técnico: del webhook a la respuesta, como un AI Agent de n8n
 
