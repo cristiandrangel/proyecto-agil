@@ -1,5 +1,9 @@
 # Arquitectura inicial: una sola EC2
 
+> Antecedente de diseño. Para el inventario implementado, las secuencias y la
+> propuesta AWS de la entrega, consultar el [documento técnico consolidado](../docs/arquitectura.md).
+> Las cajas y pendientes de este mapa describen la planificación inicial.
+
 La base acordada es **una máquina EC2 con todos los componentes propios ejecutados mediante Docker Compose**. Las dos interfaces web, el backend con el agente, el sistema central simulado, las bases de datos y la observabilidad comparten la máquina. Los contenedores y los datos mantienen límites separados.
 
 Se elige EC2 por la flexibilidad para arrancar e iterar rápido sobre el stack completo. La evolución prevista es evaluar servicios especializados que permitan reducir el costo total y la carga operativa según el uso medido. El ahorro es un objetivo por validar, sin una migración comprometida para esta entrega.

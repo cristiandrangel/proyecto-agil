@@ -9,6 +9,8 @@ Antes de retomar, lee `.local/RETOMAR.md` si existe: contiene el punto de pausa,
 la forma de arrancar y las verificaciones pendientes de este equipo. Es una nota
 privada ignorada; no publicarla ni copiar sus datos privados al repositorio.
 La guía del evaluador está en `README.md` y la evidencia pública en `docs/evaluacion.md`.
+El documento técnico consolidado para la entrega es `docs/arquitectura.md`;
+distinguir siempre el prototipo local ejecutado de la propuesta AWS no desplegada.
 
 ## Instalación y acompañamiento del evaluador
 

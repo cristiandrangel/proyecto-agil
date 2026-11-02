@@ -1,7 +1,9 @@
 # Implementation Plan: Demo de cobranza por WhatsApp
 
 **Branch**: `main` | **Feature**: `001-cobranza-whatsapp` | **Date**: 2026-10-31
-**Spec**: [spec.md](spec.md) | **Entrega**: lunes 2026-11-02, America/Bogota; hora pendiente.
+**Spec**: [spec.md](spec.md) | **Hito interno**: lunes 2026-11-02.
+**Entrega oficial**: martes 2026-11-03, 23:59 America/Bogota.
+**Documento técnico de entrega**: [arquitectura](../../docs/arquitectura.md).
 **Input**: Especificación funcional y arquitectura de una sola EC2.
 **Estado**: Aplicación implementada y ejecutándose en EC2 emulada. El 2 de
 noviembre se comprobaron integraciones, campaña, audio, imágenes, pagos, control

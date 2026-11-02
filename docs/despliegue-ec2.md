@@ -1,7 +1,7 @@
 # Despliegue de demo en una EC2
 
-Estado: procedimiento preparado y Compose validado localmente. **No se ha creado
-una EC2, montado un EBS real ni publicado un túnel con este procedimiento.** La
+Estado: referencia manual para AWS real. **No se ha creado
+una EC2 real, montado un EBS real ni publicado un túnel con este procedimiento.** La
 base acordada es una sola EC2; tamaño, región y costo se eligen al ejecutar.
 El stack incluye backend, worker, central, dos PostgreSQL y los almacenes de
 Langfuse. Una máquina mínima no se considera capacidad demostrada; medir RAM,
@@ -32,12 +32,15 @@ GB-mes, 100 GB representan USD 8/mes adicionales. El cómputo On-Demand se factu
 hasta detener o terminar la instancia; los volúmenes conservados siguen facturándose.
 Las llamadas de IA y el canal se presupuestan por separado.
 
-La emulación local prevista utiliza recursos del equipo evaluador y no contrata
-una EC2 real. El objetivo discutido es ensayar el despliegue ejecutable del stack,
-además del smoke de APIs ya existente. El [perfil ejecutable de EC2 emulada](emulacion-ec2.md)
-ya verificó el stack completo dentro de un invitado Linux creado por RunInstances,
-con datos ficticios e integraciones externas deshabilitadas. Es una emulación
-con contenedores anidados; no demuestra capacidad o despliegue en AWS real.
+La emulación local utiliza recursos del equipo evaluador y no contrata una EC2
+real. El [perfil ejecutable de EC2 emulada](emulacion-ec2.md) ya verificó el stack
+dentro de un invitado Linux creado por RunInstances, primero sin proveedores y
+después con el recorrido público autorizado de WhatsApp, inferencia y pagos
+simulados. Es una emulación con contenedores anidados; no demuestra capacidad ni
+despliegue en AWS real. El [documento técnico](arquitectura.md) distingue este
+prototipo y la propuesta de entrada, inferencia y operación sobre AWS; el
+procedimiento manual de esta página conserva el túnel de demo y no implementa
+por sí solo esa propuesta completa.
 
 ## Preparar el host y la persistencia
 

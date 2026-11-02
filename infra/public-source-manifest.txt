@@ -95,6 +95,7 @@ apps/central/src/central/orders.py
 apps/central/src/central/payments.py
 apps/central/src/central/schemas.py
 apps/central/src/central/seed.py
+docs/arquitectura.md
 docs/despliegue-ec2.md
 docs/dominio-demo.md
 docs/emulacion-ec2.md

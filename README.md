@@ -7,7 +7,9 @@ solicita operaciones sujetas a sus permisos y reglas.
 
 Este repositorio contiene el backend y worker conversacional, la central de
 cartera y pago, la interfaz de campañas, persistencia, observabilidad, pruebas,
-evals y scripts de entrega. El [PRD](specs/prd.md) describe el producto,
+evals y scripts de entrega. El **[documento técnico de arquitectura](docs/arquitectura.md)**
+explica la infraestructura, los servicios, las secuencias y la propuesta AWS.
+El [PRD](specs/prd.md) describe el producto,
 [la arquitectura de servicios](#arquitectura-y-planes-futuros) muestra sus
 componentes y [la evaluación](docs/evaluacion.md) registra lo comprobado y lo pendiente.
 
@@ -1072,6 +1074,69 @@ Ante una confirmación clara, el modelo puede pedir `manage_identity` con `{"act
 
 Los campos anulables siguen presentes en el esquema estricto, con valor `null` cuando no aplican. `reason` admite `requested`, `dispute`, `below_minimum`, `payment_unverified` o `technical_failure`. Importes de oferta son cadenas decimales en USD. El modelo aporta filtros, referencias obtenidas y la intención de gestión; el backend incorpora identidad validada, grant, mensaje origen, versiones y claves idempotentes. Esos datos de autorización no los elige el modelo. Central vuelve a comprobar titularidad, vigencia y condiciones financieras antes de producir efectos.
 
+### Secuencia general del sistema
+
+Este diagrama muestra el orden de los intercambios. El mapa de servicios de la
+siguiente sección muestra dónde vive cada componente. Las secuencias detalladas
+de [campaña, autenticación y pago](docs/arquitectura.md#3-secuencia-completa-campaña-conversación-y-pago)
+y [atención humana](docs/arquitectura.md#5-atención-humana-y-devolución-del-control)
+están en el documento técnico.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor OP as Operador
+    actor CL as Cliente
+    participant CW as Chatwoot y WhatsApp
+    participant BE as Backend y portales
+    participant DB as PostgreSQL operativo
+    participant WK as Worker y agente
+    participant AI as OpenAI
+    participant CE as Central
+    OP->>BE: Segmentar, previsualizar y lanzar campaña
+    BE->>CE: Obtener cartera elegible
+    BE->>DB: Guardar destinatarios únicos
+    WK->>DB: Tomar siguiente destinatario
+    WK->>CW: Enviar plantilla al contacto Live autorizado
+    CW-->>CL: Notificación
+    CL->>CW: Responder
+    CW->>BE: Webhook firmado
+    BE->>DB: Persistir evento y job sin duplicados
+    BE-->>CW: HTTP 200 sin esperar al LLM
+    WK->>DB: Tomar job, bloquear thread y leer identidad
+    WK->>CW: Verificar que el bot conserva control pending
+    alt Fase de PIN
+        WK->>CE: Validar código fuera del LLM
+        CE-->>WK: Resultado de autenticación
+    else Texto o medios admitidos
+        WK->>AI: Preprocesar medio si existe
+        WK->>DB: Recuperar checkpoint
+        WK->>AI: Interpretar con prompt, contexto y tools
+        AI-->>WK: Decisión de herramienta o respuesta
+        WK->>CE: Ejecutar tool financiera autorizada si corresponde
+        CE-->>WK: Resultado registrado
+    end
+    WK->>DB: Guardar checkpoint si pasó al agente y encolar salida
+    WK->>CW: Enviar respuesta desde outbox
+    CW-->>CL: Respuesta o enlace tras autenticación
+    CL->>BE: Aprobar pago simulado en el portal
+    BE->>CE: Aplicar pago y condonación de forma idempotente
+    CE-->>BE: Comprobante y saldo actualizado
+    BE-->>CL: Mostrar comprobante
+    CL->>CW: Enviar captura
+    Note over CW,WK: Nuevo turno por el mismo ingreso y cola.
+    WK->>AI: Interpretar imagen y pedir verificación
+    WK->>CE: Consultar pago real registrado
+    CE-->>WK: Aplicado o discrepancia
+    WK->>CW: Confirmar registro o gestionar discrepancia
+    CW-->>CL: Resultado verificado
+```
+
+El dibujo resume el ciclo de herramientas y los reingresos. Un PIN correcto o el
+tercer fallo producen un evento neutro que puede continuar al agente; los fallos
+anteriores reciben respuesta estática. El comprobante no aplica el pago: central
+ya lo registró al aprobar en el portal. Los destinos simulados no llaman al canal.
+
 ### Arquitectura y planes futuros
 
 El despliegue público de la demo ejecuta **12 contenedores de aplicación en una
@@ -1082,7 +1147,7 @@ y los auxiliares de acceso añaden contenedores de infraestructura fuera de ese
 conteo. Chatwoot/Meta y OpenAI son servicios externos.
 
 ```mermaid
-flowchart LR
+flowchart TB
     CW["Chatwoot / WhatsApp · externo"]
     AI["OpenAI · externo"]
     subgraph EC2["Una EC2 emulada · 12 contenedores de aplicación"]
@@ -1101,7 +1166,7 @@ flowchart LR
             LM[("MinIO · medios")]
         end
         CF --> BE
-        BE --> MD
+        BE <--> MD
         MD <--> WO
         BE --> CE
         WO --> CE
@@ -1132,5 +1197,12 @@ El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp ya
 llegan al invitado emulado; se comprueban sus recorridos reales en la evaluación.
 El entorno anterior conserva el estudio y tiene detenido su conector. IaC, separar componentes en más servicios y crear
 plantillas nuevas automáticamente son planes futuros.
+
+El **[documento técnico de arquitectura](docs/arquitectura.md)** consolida las
+capas de emulación, este inventario, las secuencias de negocio, seguridad,
+consistencia y observabilidad. Distingue la demo de la propuesta de infraestructura
+AWS: la propuesta sustituye la entrada Cloudflare y la inferencia directa de
+OpenAI por servicios AWS y requiere adaptar el canal corporativo. Es diseño,
+no infraestructura aprovisionada ni una migración automática.
 
 Referencias técnicas: [evaluación y límites](docs/evaluacion.md), [plan](specs/001-cobranza-whatsapp/plan.md), [modelo de datos](specs/001-cobranza-whatsapp/data-model.md), [contratos](specs/001-cobranza-whatsapp/contracts/), [dominio de demo](docs/dominio-demo.md), [despliegue EC2](docs/despliegue-ec2.md), [PRD](specs/prd.md) y [tareas](specs/001-cobranza-whatsapp/tasks.md).
