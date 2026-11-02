@@ -1,9 +1,9 @@
-# Guion de validación previsto
+# Quickstart técnico
 
-**Estado:** contrato de ejecución para la implementación. Los comandos de aplicación
-siguientes todavía no están implementados; no ejecutar como si la demo ya estuviera
-lista. Los scripts deben existir y verificarse antes de convertir este guion en
-el README final. Datos ficticios y ningún movimiento de dinero real.
+**Estado, 2 de noviembre:** implementación ejecutable con Floci y proveedores
+reales. El recorrido guiado del evaluador vive en el [README](../../README.md);
+la evidencia y sus límites en [evaluación](../../docs/evaluacion.md). Se usan datos
+ficticios y no se mueve dinero real.
 
 ## Lo que ya se puede revisar
 
@@ -21,40 +21,37 @@ es main; no se exige una rama con el nombre de la feature.
 
 ## Preparación privada para la demo
 
-Requisitos de la futura ejecución: Docker con Compose, puertos locales libres,
-memoria/disco suficientes para aplicación y Langfuse, conectividad a OpenAI y
-Chatwoot. La cuenta/inbox, plantilla, destinatario y endpoint HTTPS deben estar
-habilitados. Confirmar hora límite del lunes 2026-11-02 al organizar la entrega.
+Requisitos: Linux x86_64, Docker Engine con Compose v2, Bash, puertos locales y
+memoria/disco suficientes según [EC2 emulada](../../docs/emulacion-ec2.md).
+El archivo privado de entrega proporciona las integraciones y los accesos UI.
+El conector del equipo anterior debe estar detenido antes de activar el nuevo.
 
-1. Crear `.env` desde `.env.example` y poner claves reales solo en el archivo privado.
-2. Configurar URL/token/cuenta/inbox Chatwoot, esquema de autenticación y firma o relay.
-3. Conectar `cobranza.agenx-dev-test.work` mediante el túnel persistente previsto en
-   [dominio de demo](../../docs/dominio-demo.md), verificar HTTPS y asociarlo al
-   webhook del bot sin publicar secretos. Mantener un único equipo activo.
-4. Configurar OpenAI, modelos y control local de USD 4.50, dentro del presupuesto de 5.
-5. Configurar credencial del operador, claves de servicios, firma de pagos y Langfuse.
+1. Colocar `.env.entrega` junto al README, sin secretos internos ni datos de estudio.
+2. Usar exclusivamente las claves de integración y UI permitidas por el helper.
+3. Conservar el mismo hostname y un solo conector; no se modifican otras bandejas.
+4. Descontar el consumo previo si se reutiliza la misma clave de OpenAI.
+5. Obtener el entorno efectivo y los accesos al final de
+   `.local/ec2-emulation/evaluator.env` después del arranque.
 
-## Arranque previsto
+## Arranque de entrega
 
-Desde la raíz del repositorio, los comandos objetivo son:
+Desde la raíz del repositorio:
 
 ```bash
-cp .env.example .env
-# Editar .env localmente antes de arrancar.
-docker compose --env-file .env -f infra/compose.yaml up -d --build
-docker compose --env-file .env -f infra/compose.yaml exec backend python -m scripts.preflight
-docker compose --env-file .env -f infra/compose.yaml exec backend python -m scripts.seed
+chmod 600 .env.entrega
+./emulate-ec2.sh up --delivery-file .env.entrega --public
+./emulate-ec2.sh preflight
+./emulate-ec2.sh verify --mode live
 ```
 
-El entrypoint deberá aplicar migraciones de cada servicio y preparar los checkpoints
-una sola vez de forma idempotente antes de readiness. Los scripts se empaquetan en
-la imagen del backend. El preflight normal no envía mensajes ni consume inferencia;
-una prueba `--live` requiere activar explícitamente las operaciones que se quieren
-probar y muestra su costo/efecto. No ejecuta una campaña por sorpresa.
+Los entrypoints aplican migraciones y preparan checkpoints antes de readiness.
+El preflight normal no envía mensajes ni consume inferencia. El arranque no lanza
+campañas: ese paso se hace en la central. Reanudar con
+`./emulate-ec2.sh up --public` conserva datos y configuración.
 
-Endpoints previstos: central `http://localhost:8080/central`, pago bajo `/p/`,
-Langfuse en origen local `http://localhost:3000` y `/health`, `/ready` sin secretos.
-En EC2 se usa HTTPS y las rutas públicas definidas en
+Endpoints: central `https://cobranza.agenx-dev-test.work/central`, pago bajo `/p/`,
+Langfuse en `http://localhost:13000` y `/health`, `/ready` sin secretos.
+Se usan HTTPS y las rutas públicas definidas en
 [contrato de aplicación](contracts/application.md); bases y Floci son internos.
 
 ## Recorrido A: campaña y pago completo

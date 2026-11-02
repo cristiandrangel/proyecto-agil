@@ -8,7 +8,7 @@ El perfil [EC2 emulada](emulacion-ec2.md) creó un invitado Linux mediante
 `RunInstances` de Floci 2.4.0 y ejecutó dentro once servicios con Docker propio.
 Se comprobaron salud del backend y Langfuse, separación de los motores Docker,
 límites efectivos de 4 CPU/16 GiB y persistencia de un marcador PostgreSQL tras
-EC2 Stop/Start. El marcador se eliminó al terminar. El fixture contiene 13
+EC2 Stop/Start. El marcador se eliminó al terminar. El fixture inicial contenía 13
 personas, 14 deudas y cero campañas, mensajes, liquidaciones o inferencias.
 También se detuvo el motor Docker exterior y `./emulate-ec2.sh up` recuperó
 la misma instancia y conservó el entorno privado y los datos. Los forwards
@@ -21,15 +21,41 @@ completo. El test de exclusión de secretos del archivo de fuentes pasó con
 `uv run python -m pytest -q tests/unit/test_ec2_emulation.py`.
 
 Es un laboratorio con contenedores privilegiados y kernel compartido, no una VM
-AWS ni una validación de EBS o capacidad de producción. OpenAI, Chatwoot y el
-túnel permanecen deshabilitados en ese fixture; el dominio público continúa en
-la demo anterior. La conexión de proveedores y el corte del túnel todavía deben
-verificarse en el nuevo entorno. No se copiaron datos de estudio ni el `.env`
-del desarrollador.
+AWS ni una validación de EBS o capacidad de producción. Después de ese ensayo
+se provisionaron las integraciones privadas y se trasladó el túnel: conector,
+backend y worker anteriores detenidos; doce servicios propios en el invitado,
+incluido `cloudflared`. No se copiaron datos de estudio ni el `.env` completo del
+desarrollador. La clave de IA conserva solo el presupuesto restante del ledger
+anterior; la instalación limpia no renueva el límite.
+
+Comprobado en el entorno emulado público el 2 de noviembre:
+
+| Recorrido | Resultado observado |
+|---|---|
+| HTTPS | Login 303, cookie Secure, cartera/health/ready 200; webhook sin firma 401 y entrada local 403. |
+| Proveedores | Preflight por lectura de modelos OpenAI, bandeja TEST y autenticación Langfuse aprobado. |
+| Campaña | 12/12 procesados: un envío real entregado, once simulados, cero fallos. Una persona respondió; contactabilidad del 100 % sobre la única persona real contactada. |
+| Acuerdo | Hogar USD 100: acuerdo por USD 80, condonación USD 20, aceptación posterior, pago aplicado y saldo cero en PostgreSQL. |
+| Comprobante | La imagen llegó y se almacenó en Langfuse. Visión omitió un carácter de la referencia; la consulta exacta devolvió `absent` y el agente derivó a humano pese al pago aplicado. El fallo se conservó en la traza. |
+| Corrección | Prompts de visión y agente reforzados: referencia ilegible sin inventar caracteres; tras búsqueda fallida, consultar la misma deuda autenticada sin referencia antes de escalar. Tres casos con LLM real aprobaron la decisión; ninguna herramienta ni mensaje se ejecutó en esa evaluación aislada. |
+| Retorno humano | Se registró `returned` con evento de devolución y el nuevo turno consultó cartera: hogar liquidado, telefonía pendiente USD 60. |
+| Audio | Una nota de voz real se transcribió y produjo selección de telefonía y enlace de pago íntegro por USD 60. |
+| Pago íntegro | Telefonía: USD 60 recibidos, cero condonación, saldo cero. El comprobante nuevo pasó por visión, `verify_payment` devolvió `applied` y el agente confirmó el pago y la ausencia de deudas pendientes. |
+| Assets | Dos imágenes y un audio cargados en Langfuse; sus tres URLs firmadas en el puerto 19090 devolvieron 200 y el tamaño almacenado. |
+| Trazas | Trece turnos de conversación y tres diagnósticos del prompt: 116 observaciones en 16 trazas, sin observaciones `ERROR`. Se comprobó por API el `verify_payment` final y sus importes. El login real en Chrome quedó visible con el proyecto y las trazas nuevas. |
+| Persistencia con integraciones | EC2 Stop/Start conservó los dos pagos, el conjunto de checkpoints, el número de eventos y el gasto registrado, contrastados antes y después. Login HTTPS y preflight volvieron a responder correctamente. |
+
+El comprobante nuevo de telefonía sí pasó por la versión corregida. El caso de
+referencia mal leída quedó como evidencia histórica; la recuperación por deuda
+se comprobó con tres escenarios del LLM real y con la consulta posterior de la
+cartera, sin afirmar que se repitió aquella misma captura. El arranque con archivo
+de entrega aplica las credenciales iniciales antes de crear las bases; la
+portabilidad a otro PC sigue requiriendo un ensayo en ese equipo.
 
 ## Resultados comprobados
 
-- **Última suite Docker aislada: 377 pruebas aprobadas, cero fallos y cero omitidas, en 46,35 segundos**, finalizada el 2026-11-02 a las 03:48 UTC (1 de noviembre, 22:48 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
+- **Última suite Docker aislada: 390 pruebas aprobadas, cero fallos y cero omitidas, en 44,75 segundos**, el 2 de noviembre. Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La revisión de esta entrega detectó que el test de ventana conservaba un techo fijo de 4500 tokens, menor que el prompt ampliado; ahora utiliza el límite de producción de 12000 y comprueba conservación del mensaje reciente, pares tool/result y checkpoints completos. La suite anterior de 377 pruebas corresponde al cierre del 1 de noviembre.
+- **Infraestructura adicional: 20 pruebas focalizadas aprobadas**, incluido un contenedor Docker creado sin arrancar, sin red y con datos ficticios para contrastar `Config.Env`: barras, apóstrofes y dólares se conservan exactamente en el archivo privado. Ese ensayo del daemon anfitrión vive separado en `tests/infrastructure/`; no se requiere un socket Docker dentro del runner aislado de aceptación.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.

@@ -4,30 +4,39 @@ Demo de cobranza por WhatsApp con cartera editable y pagos simulados en USD. Est
 
 ## 1. Instalar y abrir las interfaces
 
-Necesitas Docker con Compose v2, Bash, conexión a Internet, tu WhatsApp autorizado para la prueba y el archivo privado de configuración entregado.
+La modalidad de entrega es **EC2 emulada con Floci**: la aplicación, las bases y
+Langfuse corren dentro de un invitado Linux con Docker propio. Chatwoot, Meta y
+OpenAI siguen siendo externos. El laboratorio usa contenedores con kernel
+compartido; no contrata una instancia AWS. Requiere Linux x86_64, Docker Engine
+con Compose v2, Bash e Internet. Los requisitos de memoria/disco y límites están
+en [EC2 emulada](docs/emulacion-ec2.md).
 
-**EC2 emulada:** ya existe un perfil ejecutable con Floci, separado del entorno
-WhatsApp descrito a continuación. En Linux, `./emulate-ec2.sh up` crea un invitado
-con Docker propio y arranca dentro la aplicación y Langfuse. Abre la central en
-`http://localhost:18080/central` y Langfuse en `http://localhost:13000`; sus accesos
-nuevos quedan al final de `.local/ec2-emulation/evaluator.env`. Este perfil
-empieza con datos ficticios limpios y las integraciones externas deshabilitadas;
-todavía no recibe WhatsApp ni publica el dominio. Consulta los requisitos,
-verificaciones y comandos de [EC2 emulada](docs/emulacion-ec2.md). No copies el
-`.env` ni las conversaciones de desarrollo para habilitarlo.
-
-1. Abre la carpeta del proyecto y coloca el archivo privado como `.env` junto a este README. Si preparas otra instalación, parte de `.env.example` y completa las integraciones con quien administra la demo. No publiques ni ejecutes ese archivo como un script.
-2. Para una instalación nueva, usa volúmenes nuevos del proyecto Compose `proyecto-agil`. No copies los datos ni el `.env` del desarrollador sin la configuración de entrega acordada. Si cambias de equipo, detén antes el conector público anterior: solo debe haber una aplicación activa para este dominio.
+1. Abre la carpeta del repositorio y coloca el archivo privado entregado como
+   `.env.entrega`, junto a este README. Contiene las integraciones y accesos de
+   interfaces acordados; no contiene conversaciones de estudio ni un respaldo
+   de las bases. No lo publiques ni lo ejecutes como un script.
+2. Confirma con quien entrega la prueba que su conector del dominio está
+   detenido. El hostname se conserva; **solo debe haber un equipo de aplicación
+   activo**. No copies volúmenes ni datos del desarrollador. El script genera
+   secretos internos nuevos para tu instalación.
 3. Arranca:
 
    ```bash
-   ./start.sh
+   chmod 600 .env.entrega
+   ./emulate-ec2.sh up --delivery-file .env.entrega --public
    ```
 
-4. Espera a que termine. El primer arranque descarga imágenes, prepara bases, migraciones, checkpoints y Langfuse. El script conserva la configuración existente y completa los secretos internos ausentes; imprime la URL de la central. Los fixtures se cargan solo si la base está vacía: reiniciar no sobrescribe pagos ni contactos.
+4. Espera a que termine. El primer arranque descarga imágenes, crea el invitado
+   por la API EC2, prepara bases, migraciones, checkpoints y Langfuse, y comprueba
+   las integraciones por lectura antes de abrir el túnel. Los fixtures se cargan
+   solo si la base está vacía. Para reanudar esta misma instalación usa
+   `./emulate-ec2.sh up --public`: conserva configuración, pagos y memoria.
 5. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
 
-   Sus usuarios y contraseñas están juntos **al final del `.env`**, en el bloque **ACCESOS WEB DEL EVALUADOR**, separados por interfaz.
+   El entorno efectivo se exporta a **`.local/ec2-emulation/evaluator.env`**.
+   Sus usuarios y contraseñas están juntos **al final de ese archivo**, en el
+   bloque **ACCESOS WEB DEL EVALUADOR**, separados por interfaz. Cuando esta guía
+   menciona el `.env` privado de interfaces, se refiere a ese archivo exportado.
 
    | Interfaz | Dirección | Credenciales del `.env` privado |
    |---|---|---|
@@ -35,9 +44,14 @@ verificaciones y comandos de [EC2 emulada](docs/emulacion-ec2.md). No copies el
    | Chatwoot de pruebas | `CHATWOOT_UI_URL` | `CHATWOOT_UI_EMAIL`, `CHATWOOT_UI_PASSWORD` |
    | Langfuse | `LANGFUSE_PUBLIC_URL` | `LANGFUSE_INIT_USER_EMAIL`, `LANGFUSE_INIT_USER_PASSWORD` |
 
-En la configuración pública, la central es [cobranza.agenx-dev-test.work/central](https://cobranza.agenx-dev-test.work/central). Usa siempre el origen que imprime el script y coincide con `PUBLIC_BASE_URL`. En modo local explícito puede ser `http://localhost:8080/central`; Langfuse suele estar en `http://localhost:3000`.
+La central es [cobranza.agenx-dev-test.work/central](https://cobranza.agenx-dev-test.work/central)
+y Langfuse está en [localhost:13000](http://localhost:13000). Usa el origen HTTPS
+de `PUBLIC_BASE_URL` para iniciar sesión en la central. Los puertos locales del
+invitado no sustituyen ese origen de autenticación. El comando sin archivo de
+entrega, `./emulate-ec2.sh up`, crea un laboratorio local sin proveedores en una
+instalación nueva; ese modo por sí solo no permite el recorrido WhatsApp.
 
-El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es distinto del login de la central y de las claves de API. Puedes abrirlo en una ventana privada para conservar otra sesión. Este recorrido no requiere administrar Cloudflare, Meta o AWS, ni operar otras bandejas. Si falta ese acceso, la parte de atención humana debe realizarla una persona que lo tenga.
+El usuario de Chatwoot lo proporciona quien administra la **bandeja TEST**. Es distinto del login de la central y de las claves de API. Puedes abrirlo en una ventana privada para conservar otra sesión. Este recorrido no requiere administrar Cloudflare, Meta o AWS, ni operar otras bandejas. Si falta ese acceso, la parte de atención humana debe realizarla una persona que lo tenga. `./start.sh` se conserva para desarrollo directo con Compose; no se usa para arrancar la entrega emulada.
 
 ### 1.1. Iniciar sesión en la central
 
@@ -178,6 +192,12 @@ El pago se aplica una sola vez. Recargar el recibo no crea otro cobro. Si una pe
 4. Contrasta la confirmación con hogar liquidada y el importe registrado. Más adelante puedes ver `tool.verify_payment` en Langfuse.
 
 **Debes comprobar:** solo confirma un pago aplicado a la deuda autorizada. Reenviar la misma captura no aplica otro pago ni condona de nuevo. Si no puede leer o verificar el recibo, debe explicar la limitación o pedir apoyo; no debe afirmar éxito sin registro central.
+
+**Si visión lee mal una referencia:** una búsqueda exacta fallida no demuestra
+que el pago no exista. El agente debe consultar otra vez la misma deuda
+autenticada sin referencia antes de escalar. Si central confirma el pago,
+informa sus importes y saldo; no declara auténtica una captura cuya referencia
+no pudo corroborar. Nunca cambia de titular o servicio para hacerla coincidir.
 
 ### 3.7. Cambiar a telefonía y pagar el 90 %
 
@@ -656,22 +676,23 @@ La jerarquía, captura y saneamiento tienen pruebas deterministas. La comprobaci
 Hazlo al terminar un turno, sin pagos o envíos en curso. Primero anota un saldo y una referencia de recibo; conserva la pestaña de campaña si aún necesitas su panel. La persona que opera los contenedores puede ejecutar:
 
 ```bash
-docker compose --env-file .env -f infra/compose.yaml restart backend worker central
+./emulate-ec2.sh restart
 ```
 
-Después abre la cartera y el recibo: pagos, saldos y acuerdos deben mantenerse. Envía otra consulta desde la conversación en `pending`; el contexto debe recuperarse del checkpoint, salvo caducidad de identidad. Esto **no** restaura la cartera ni borra la sesión financiera antes de su TTL. Si recargas la central, perderás la selección visual de campaña, aunque sus datos continúen guardados.
+El comando detiene y arranca la instancia por la API EC2 y comprueba persistencia
+PostgreSQL. Después abre la cartera y el recibo: pagos, saldos y acuerdos deben mantenerse. Envía otra consulta desde la conversación en `pending`; el contexto debe recuperarse del checkpoint, salvo caducidad de identidad. Esto **no** restaura la cartera ni borra la sesión financiera antes de su TTL. Si recargas la central, perderás la selección visual de campaña, aunque sus datos continúen guardados.
 
 Para detener conservando datos:
 
 ```bash
-docker compose --env-file .env -f infra/compose.yaml stop
+./emulate-ec2.sh stop
 ```
 
 ### Apagar el equipo y retomar la revisión
 
-Conserva `.env` y los volúmenes de Docker. Puedes apagar el equipo después de
+Conserva `.env.entrega`, `.local/ec2-emulation/` y los volúmenes de Docker. Puedes apagar el equipo después de
 terminar los turnos y pagos en curso; no uses `down -v` ni restaures la demo si
-quieres revisar esta misma conversación. Al encender, ejecuta `./start.sh` desde
+quieres revisar esta misma conversación. Al encender, ejecuta `./emulate-ec2.sh up --public` desde
 la carpeta del repositorio, espera las comprobaciones y vuelve a abrir las tres
 interfaces. Los contenedores usan reinicio automático, pero el script permite
 comprobar y completar el arranque. Un reinicio no rellena de nuevo una base existente.
@@ -700,25 +721,35 @@ Al terminar, puedes deshabilitar el contacto Live o restaurar la demo según la 
 Si el arranque falla o falta una respuesta, revisa procesos y diagnósticos sin publicar la configuración privada:
 
 ```bash
-docker compose --env-file .env -f infra/compose.yaml ps
-docker compose --env-file .env -f infra/compose.yaml logs --tail=80 backend worker central
+./emulate-ec2.sh status
+./emulate-ec2.sh verify --mode live
 ```
 
 El preflight comprueba salud, acceso a modelos, bandeja/relay y autenticación de Langfuse. **No genera inferencia ni envía mensajes**:
 
 ```bash
-docker compose --env-file .env -f infra/compose.yaml exec backend python -m scripts.preflight --base-url http://localhost:8000
+./emulate-ec2.sh preflight
 ```
 
 Un preflight correcto no acredita el recorrido de WhatsApp ni la lectura completa de una traza. En producción, usa HTTPS y el origen configurado; la entrada local de mensajes está deshabilitada. El webhook exige firma y scope de cuenta/bandeja. Las páginas privadas mantienen login, cookie y CSRF; la página de pago solo permite la orden del enlace, con importe determinado por central.
 
 ### Si el reset queda en mantenimiento
 
-Desde la interfaz conserva la misma operación al reintentar. Para inspeccionarla y reanudarla por terminal:
+Desde la interfaz conserva la misma operación al reintentar. La opción habitual
+es reanudar desde la central. Para diagnóstico avanzado por terminal, entra al
+invitado con un cliente OpenSSH:
 
 ```bash
-docker compose --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --status
-docker compose --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --confirm RESET_DEMO --operation-key UUID_DE_LA_OPERACION
+ssh -i .local/ec2-emulation/id_ed25519 -p 2244 -o UserKnownHostsFile=.local/ec2-emulation/known_hosts root@127.0.0.1
+cd /srv/proyecto-agil/app
+```
+
+Los siguientes comandos se ejecutan **dentro del invitado**, con su entorno
+privado, nunca contra el proyecto de desarrollo del anfitrión:
+
+```bash
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --status
+docker compose -p agil-ec2-fixture --env-file .env -f infra/compose.yaml exec backend python -m scripts.reset_demo --confirm RESET_DEMO --operation-key UUID_DE_LA_OPERACION
 ```
 
 Para iniciar un reset por terminal se usa `python -m scripts.reset_demo --confirm RESET_DEMO` dentro del backend. No se cambia la llave literal de memoria ni se borra gasto para eludir límites. Las etapas se guardan porque las dos bases no tienen una transacción distribuida.
@@ -817,6 +848,7 @@ se distingue en [evaluación](docs/evaluacion.md).
 | Autenticación | La confirmación natural pasa por el agente. El PIN se intercepta fuera del LLM; tras agotamiento, el agente explica y ofrece opciones sin buscar otro titular automáticamente. |
 | Conversación | El prompt exige cordialidad, alcance exclusivo de cobranza y resistencia a instrucciones ajenas; conduce hacia el pago y permite cerrar sesión mediante revocación del backend. |
 | Negociación | Propuestas 95 % → 80 % según la oferta vigente, condonación condicionada explícita, confirmación posterior y comprobante pedido junto al enlace. |
+| Comprobantes | Una referencia ilegible no se inventa. Tras una búsqueda por referencia fallida, consulta la misma deuda autenticada sin referencia antes de escalar; confirma únicamente el registro financiero del sistema. |
 | Atención humana | `open` suspende al bot; el diálogo público se guarda de forma pasiva. El retorno comprobado a `pending` incorpora un evento a la memoria antes de la nueva consulta. |
 | Observabilidad | Inputs/outputs, estados, generaciones, herramientas, medios y entregas correlacionadas; los secretos y PIN siguen excluidos. Los errores históricos permanecen visibles. |
 | Guía | Accesos de las tres interfaces, filtros de Chatwoot, configuración del evaluador, pasos de pago/variantes y recorrido de trazas en este README. |
@@ -962,8 +994,9 @@ Una sola máquina ejecuta backend/worker, central y PostgreSQL separados para ca
 comprobaron salud, límites efectivos de 4 CPU/16 GiB y persistencia PostgreSQL
 después de Stop/Start. Es un contenedor privilegiado con Docker propio y kernel
 compartido; no acredita una VM AWS, EBS, rendimiento ni backup/restauración real.
-El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp todavía
-usan el entorno anterior. IaC, separar componentes en más servicios y crear
+El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp ya
+llegan al invitado emulado; se comprueban sus recorridos reales en la evaluación.
+El entorno anterior conserva el estudio y tiene detenido su conector. IaC, separar componentes en más servicios y crear
 plantillas nuevas automáticamente son planes futuros.
 
 Referencias técnicas: [evaluación y límites](docs/evaluacion.md), [plan](specs/001-cobranza-whatsapp/plan.md), [modelo de datos](specs/001-cobranza-whatsapp/data-model.md), [contratos](specs/001-cobranza-whatsapp/contracts/), [dominio de demo](docs/dominio-demo.md), [despliegue EC2](docs/despliegue-ec2.md), [PRD](specs/prd.md) y [tareas](specs/001-cobranza-whatsapp/tasks.md).

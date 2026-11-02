@@ -3,7 +3,10 @@
 **Branch**: `main` | **Feature**: `001-cobranza-whatsapp` | **Date**: 2026-10-31
 **Spec**: [spec.md](spec.md) | **Entrega**: lunes 2026-11-02, America/Bogota; hora pendiente.
 **Input**: Especificación funcional y arquitectura de una sola EC2.
-**Estado**: Diseño para implementación; no hay aplicación ejecutable todavía.
+**Estado**: Aplicación implementada y ejecutándose en EC2 emulada. El 2 de
+noviembre se comprobaron integraciones, campaña, audio, imágenes, pagos, control
+humano y persistencia; los límites de aceptación están en
+[evaluación](../../docs/evaluacion.md).
 
 ## Summary
 
@@ -24,11 +27,13 @@ real de contenedores en el invitado. El ensayo se aislará de la demo actual.
 No aprovisiona AWS real. IaC y la separación en servicios especializados para
 optimizar el coste medido siguen siendo planes futuros.
 
-La entrada pública prevista es `cobranza.agenx-dev-test.work`, bajo el dominio de
+La entrada pública activa es `cobranza.agenx-dev-test.work`, bajo el dominio de
 pruebas administrado en Cloudflare. Un conector opcional `cloudflared` en Compose
-permitirá mantener el hostname al cambiar de PC o pasar a EC2, con un solo equipo
-activo y migración de datos separada. El túnel, su DNS y la integración real siguen
-pendientes. [Configuración y verificaciones](../../docs/dominio-demo.md).
+mantiene el hostname al cambiar de entorno, con un solo equipo activo y migración
+de datos separada. El corte al invitado emulado ya está aplicado; el traslado a
+otro PC físico debe verificarse en ese destino. El archivo privado de entrega se
+aplica antes de inicializar las bases, con secretos internos nuevos.
+[Configuración y verificaciones](../../docs/dominio-demo.md).
 
 ## Technical Context
 

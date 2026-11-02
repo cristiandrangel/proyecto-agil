@@ -100,7 +100,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 
 - [ ] T039 [P] [US4] Escribir pruebas de medio inválido, origen/redirect, texto acompañante, referencia ajena e inyección en tests/integration/test_media.py y tests/fixtures/ (FR-09, FR-10, FR-17; AC-11, AC-12, AC-13, AC-15, AC-16, AC-23).
 - [x] T040 [US4] Implementar descargas limitadas, transcripción y extracción visual no verificada antes del nodo en apps/backend/src/backend/agent/media.py (FR-10, FR-11, FR-19; AC-11, AC-15, AC-16, AC-24).
-- [ ] T041 [US4] Integrar contexto multimodal con verify_payment y limpieza de adjuntos en apps/backend/src/backend/worker.py y agent/prompts.py (FR-10, FR-11, FR-17; AC-11, AC-12, AC-13, AC-15, AC-16, AC-23).
+- [x] T041 [US4] Integrar contexto multimodal con verify_payment y limpieza de adjuntos en apps/backend/src/backend/worker.py y agent/prompts.py (FR-10, FR-11, FR-17; AC-11, AC-12, AC-13, AC-15, AC-16, AC-23).
 
 **Checkpoint**: verificar el incremento con evidencia antes de dar por terminada la fase.
 
@@ -138,7 +138,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 - [x] T051 [P] Crear perfil Floci y smoke de APIs EC2/disco/red solo locales en infra/compose.floci.yaml y scripts/smoke_floci.py; registrar cobertura sin IaC obligatorio (FR-20; AC-01).
 - [ ] T052 [P] Preparar entrada HTTPS fija con Cloudflare Tunnel para cobranza.agenx-dev-test.work, conector opcional en Compose y cambio secuencial de equipo según docs/dominio-demo.md; configurar PUBLIC_BASE_URL y verificar webhook y enlaces públicos. Preparar override de una EC2, instrucciones de EBS y restore en infra/compose.ec2.yaml y docs/despliegue-ec2.md; Caddy en infra/Caddyfile es alternativa de HTTPS directo. No desplegar AWS de forma implícita (FR-20; AC-01, AC-19).
 - [x] T053 Implementar runner de aceptación y variantes de fallos/concurrencia en scripts/run_acceptance.py con reporte de AC-01–31 en docs/evaluacion.md (FR-03, FR-07, FR-09, FR-13, FR-16, FR-18, FR-20; AC-01–31).
-- [ ] T054 Ejecutar preflight y recorridos reales opt-in de WhatsApp/OpenAI/audio/imagen con captura y registrar modelo, consumo, control humano y limitaciones en docs/evaluacion.md (FR-06, FR-10, FR-11, FR-17, FR-18, FR-19, FR-20; AC-05, AC-06, AC-08, AC-11, AC-15, AC-18, AC-24, AC-28).
+- [x] T054 Ejecutar preflight y recorridos reales opt-in de WhatsApp/OpenAI/audio/imagen con captura y registrar modelo, consumo, control humano y limitaciones en docs/evaluacion.md (FR-06, FR-10, FR-11, FR-17, FR-18, FR-19, FR-20; AC-05, AC-06, AC-08, AC-11, AC-15, AC-18, AC-24, AC-28).
 - [ ] T055 Validar README.md desde entorno limpio y completar guion/diagramas de sustentación y grabación de respaldo en docs/evaluacion.md y docs/despliegue-ec2.md (FR-20; AC-01, AC-19, AC-28).
 - [x] T056 Revisar secretos, datos públicos, dependencias fijadas y diff exacto final de README.md, .env.example y docs/evaluacion.md antes de publicar evidencia (FR-19, FR-20; AC-24).
 
@@ -251,10 +251,8 @@ logging externo.
 |---|---|
 | T034 | Recibos durables `message_updated` y atribución exacta `delivered`/`read`/`failed` implementados, con dedupe, conciliación temprana, métricas y reset probados. La respuesta de campaña real cuenta también bajo control humano, sin cola de contenido ni IA, y se deduplica entre ingreso/worker; las preparaciones y simulaciones quedan excluidas. El payload instalado puede omitir el estado del mensaje actualizado: esos recibos siguen pendientes (`status_missing`); falta resolver/verificar los casos reales sin estado exacto. |
 | T039 | Completar prueba dirigida de inyección en contenido multimodal y comprobante/referencia ajena dentro del recorrido integrado; límites de descarga y aislamiento financiero ya tienen pruebas separadas. |
-| T041 | Verificar el recorrido integrado adjunto + texto → worker → agente → `verify_payment`, con limpieza de datos privados y decisión basada en central; las piezas están implementadas y probadas por separado. |
 | T044 | Verificar de forma integrada el fallback por fallo persistente y la consulta previa de pago antes de derivar un comprobante no confirmado. Herramientas, política del prompt y outbox humano ya existen. |
 | T052 | Corte HTTPS/producción, URL del bot y relay acotado ya aplicados; login HTTP y Chrome/tabla, HMAC de prueba y rechazos verificados. Completar enlaces/evento WhatsApp auténtico y cambio de equipo. Túnel, Compose y guía EC2 preparados; no hay despliegue AWS ni Caddy configurado. |
-| T054 | Recorridos WhatsApp de extremo a extremo, audio/visión, campaña entregada, comprobante y atención humana reales; registrar resultados y consumo sin secretos. La plantilla aprobada no acredita un envío. |
 | T055 | Ensayo del evaluador desde checkout/volúmenes nuevos, guion/diagramas finales y grabación de respaldo. |
 
 ## Extensión de entrega: EC2 emulada ejecutable
@@ -272,7 +270,7 @@ logging externo.
   detener el engine exterior conservando instancia, entorno y datos; logins HTTP
   de central y Langfuse autenticados. [Alcance](../../docs/emulacion-ec2.md).
 
-- [ ] T058 Habilitar el recorrido externo en el invitado emulado con un entorno
+- [x] T058 Habilitar el recorrido externo en el invitado emulado con un entorno
   privado de entrega: claves acotadas, continuidad del presupuesto de IA,
   OpenAI/relay/bandeja TEST y traslado secuencial del conector Cloudflare al mismo
   hostname. Conservar fixtures limpios y trazas de estudio en el entorno anterior.
@@ -280,9 +278,17 @@ logging externo.
   evaluador iniciar la campaña; no confundir salud del fixture local con una
   integración WhatsApp verificada (FR-20; AC-01, AC-24, AC-28).
 
+  Evidencia del 2 de noviembre: doce servicios dentro del invitado, conector
+  anterior detenido; HTTPS y preflight aprobados; campaña real entregada y once
+  simulados; PIN, negociación 95 % → 80 %, acuerdo pagado USD 80/20 y pago íntegro
+  USD 60/0; audio, imágenes, `verify_payment`, transferencia y retorno humano.
+  Trece turnos y tres diagnósticos registrados en Langfuse, con tres assets
+  descargables por sus URLs firmadas. Los pagos, checkpoints y consumo real se
+  conservaron tras EC2 Stop/Start. Véase [evaluación](../../docs/evaluacion.md).
+
 ## Resumen
 
-**50 tareas completas; 8 pendientes o parciales**, de 58. No se declara completada
+**53 tareas completas; 5 pendientes o parciales**, de 58. No se declara completada
 la aceptación AC-01–31: cada AC conserva sus límites de evidencia en la evaluación.
 No hay hooks de extensión configurados. El puntero de feature es local y la rama
 actual sigue siendo main.

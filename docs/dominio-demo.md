@@ -152,10 +152,19 @@ otro túnel o se cambia el nombre interno del servicio, sí habrá que ajustar l
 ruta correspondiente en Cloudflare. Nunca deben quedar dos conectores hacia
 bases independientes del mismo sistema.
 
-El perfil limpio todavía tiene OpenAI y Chatwoot deshabilitados. La salud local
-no acredita ese corte ni las integraciones. Las credenciales, la continuidad del
-presupuesto de IA y las comprobaciones HTTPS se preparan por separado, sin
-transferir conversaciones de estudio a la instalación del evaluador.
+El modo local sin archivo de entrega tiene OpenAI y Chatwoot deshabilitados.
+La salud local no acredita el corte ni las integraciones. El 2 de noviembre se
+aplicó el corte al invitado emulado con integraciones privadas explícitas:
+conector, backend y worker anteriores detenidos; un único conector activo dentro
+del invitado; login HTTPS 303, sesión Secure, cartera/health/ready 200, webhook
+sin firma 401 y entrada local 403. OpenAI, bandeja TEST y Langfuse pasaron su
+preflight de lectura. La campaña del nuevo entorno registró un envío real y once
+simulados; el recorrido WhatsApp y sus resultados se documentan en
+[evaluación](evaluacion.md).
+
+El entorno anterior conserva datos y trazas de estudio. No se copiaron a la
+base del evaluador. El presupuesto de la clave reutilizada descontó el consumo
+histórico antes de habilitar nuevas llamadas; cambiar de base no renovó el límite.
 
 El hostname puede conservarse al pasar de PC a EC2. Primero se detienen el
 conector y la aplicación del equipo anterior; después se prepara el nuevo y se

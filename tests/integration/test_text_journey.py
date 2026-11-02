@@ -391,6 +391,7 @@ async def test_oversized_current_input_fails_before_inference(journey_store):
 
 @pytest.mark.asyncio
 async def test_token_window_trims_complete_old_groups_without_deleting_history(journey_store):
+    from backend.config import BackendSettings
     from backend.integrations.openai import token_count
 
     store, conninfo = journey_store
@@ -415,7 +416,10 @@ async def test_token_window_trims_complete_old_groups_without_deleting_history(j
         }
         for number in range(30)
     ]
-    inference = Inference(final("Respuesta nueva"), max_tokens=4500)
+    # Exercise the configured production budget. The previous fixed 4500 ceiling
+    # became smaller than the system prompt itself after the prompt review.
+    limit = BackendSettings.model_fields["ai_max_input_tokens"].default
+    inference = Inference(final("Respuesta nueva"), max_tokens=limit)
     async with checkpointer(conninfo, setup=True) as saver:
         graph = build_graph(
             saver,
@@ -435,10 +439,17 @@ async def test_token_window_trims_complete_old_groups_without_deleting_history(j
                     "tools": sent["tools"],
                 }
             )
-            <= 4500
+            <= limit
         )
         serialized = json.dumps(sent["input"], ensure_ascii=False)
         assert "Mensaje más reciente" in serialized and "History-0 " not in serialized
+        assert "History-29 " in serialized
+        assert {
+            item["call_id"] for item in sent["input"] if item.get("type") == "function_call"
+        } == {
+            item["call_id"] for item in sent["input"]
+            if item.get("type") == "function_call_output"
+        }
         assert sum(item.get("role") in {"user", "assistant"} for item in sent["input"]) <= 20
         assert len(state["messages"]) == 31
         assert state["messages"][0]["id"] == "old-0"

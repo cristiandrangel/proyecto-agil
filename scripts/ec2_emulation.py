@@ -6,6 +6,7 @@ Only local emulation; never consumes AWS profiles or the owner's .env/data.
 from __future__ import annotations
 
 import argparse
+import ast
 import io
 import json
 import os
@@ -18,6 +19,8 @@ from pathlib import Path
 
 import boto3
 from botocore.config import Config
+
+from scripts.ec2_live_config import parse_delivery
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local" / "ec2-emulation"
@@ -113,7 +116,13 @@ def source_archive():
     # public files. Never traverses the working tree or includes private state.
     files = set(run(["git", "-C", str(ROOT), "ls-files", "-z"]).stdout.decode().split("\0"))
     files.update(str(p.relative_to(ROOT)) for p in (ROOT / "infra/floci-runtime").glob("*"))
-    files.update(["scripts/ec2_emulation.py", "infra/compose.floci-runtime.yaml"])
+    files.update(
+        [
+            "scripts/ec2_emulation.py",
+            "scripts/ec2_live_config.py",
+            "infra/compose.floci-runtime.yaml",
+        ]
+    )
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as archive:
         for name in sorted(files):
@@ -267,7 +276,7 @@ def create():
     print("EC2 guest running; UserData and SSH verified", flush=True)
 
 
-def bootstrap():
+def prepare_guest_environment():
     state()
     ssh(
         "mkdir -p /srv/proyecto-agil/app && tar xzf - -C /srv/proyecto-agil/app",
@@ -284,16 +293,30 @@ def bootstrap():
         "ENABLE_LOCAL_MESSAGE_ENDPOINT='false', OPENAI_API_KEY='', CHATWOOT_BASE_URL='http://127.0.0.1:9', "
         "CHATWOOT_CONTACTS_BASE_URL='http://127.0.0.1:9', CHATWOOT_API_TOKEN='fixture-disabled', "
         "CHATWOOT_CONTACTS_API_TOKEN='fixture-disabled', CHATWOOT_ACCOUNT_ID='999', CHATWOOT_INBOX_ID='999', "
-        "CHATWOOT_WEBHOOK_SECRET='fixture-disabled', CLOUDFLARE_TUNNEL_TOKEN='', LANGFUSE_CAPTURE_CONTENT='false')\n"
+        "CHATWOOT_WEBHOOK_SECRET='fixture-disabled', CLOUDFLARE_TUNNEL_TOKEN='', LANGFUSE_CAPTURE_CONTENT='false', LANGFUSE_MEDIA_PUBLIC_ENDPOINT='http://localhost:19090')\n"
         "lines=[line.split('=',1)[0]+'='+values[line.split('=',1)[0]] if '=' in line and not line.lstrip().startswith('#') else line for line in p.read_text().splitlines()]\n"
         "p.write_text('COMPOSE_PROJECT_NAME=agil-ec2-fixture\\n'+'\\n'.join(lines)+'\\n')\np.chmod(0o600)\nPY"
     )
+
+
+def bootstrap(delivery_file=None):
+    prepare_guest_environment()
+    if delivery_file:
+        # Before Compose creates any Langfuse DB/container, so known delivery
+        # credentials become the actual first-initialization credentials.
+        configure_live(delivery_file)
     compose("up -d --build --wait --wait-timeout 600", capture=False)
     compose("exec -T backend python -m scripts.seed", capture=False)
+    current = state()
+    if current.get("live_configured"):
+        current["live_applied"] = True
+        write_json(LOCAL / "state.json", current)
     print("Fixture stack bootstrapped inside guest", flush=True)
 
 
-def verify():
+def verify(mode="auto"):
+    if mode == "auto":
+        mode = "live" if state().get("live_applied") else "fixture"
     instance = state()["instance_id"]
     described = ec2().describe_instances(InstanceIds=[instance])["Reservations"][0]["Instances"][0]
     containers = [
@@ -329,7 +352,8 @@ def verify():
         "langfuse-clickhouse",
         "langfuse-minio",
     }
-    if {row["Service"] for row in containers} != expected:
+    actual = {row["Service"] for row in containers}
+    if not expected.issubset(actual) or actual - expected - {"cloudflared"}:
         raise RuntimeError("Unexpected services in guest fixture")
     if any(
         row.get("Health") not in ("healthy", "") or row.get("State") != "running"
@@ -371,7 +395,7 @@ def verify():
         .stdout.decode()
         .strip()
     )
-    if central != "13|14|0" or memory != "0|0|0|0":
+    if mode == "fixture" and (central != "13|14|0" or memory != "0|0|0|0"):
         raise RuntimeError("Fixture is not pristine")
     report = {
         "instance_id": instance,
@@ -390,16 +414,20 @@ def verify():
         "guest_cgroup_memory_limit_bytes": int(cgroup[0]),
         "guest_cgroup_memory_current_bytes": int(cgroup[1]),
         "guest_cgroup_cpu_max": cgroup[2],
-        "fixtures": {
-            "customers": 13,
-            "debts": 14,
-            "settlements": 0,
-            "campaigns": 0,
-            "inbox": 0,
-            "outbox": 0,
-            "inference_reservations": 0,
-        },
-        "external_integrations": "disabled; no messages or inference",
+        "verification_mode": mode,
+        "fixtures": dict(
+            zip(("customers", "debts", "settlements"), map(int, central.split("|")), strict=True)
+        )
+        | dict(
+            zip(
+                ("campaigns", "inbox", "outbox", "inference_reservations"),
+                map(int, memory.split("|")),
+                strict=True,
+            )
+        ),
+        "external_integrations": "disabled; no messages or inference"
+        if mode == "fixture"
+        else "configured separately; health-only check, no messages or inference performed",
         "verified_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     previous_path = LOCAL / "verification.json"
@@ -535,7 +563,20 @@ def access():
 
         wait_for(reachable, timeout=120)
     print("Host HTTP /login and Langfuse health verified through SSH forwards")
-    print("Central: http://localhost:18080/central")
+    exported = {}
+    for line in result.stdout.decode().splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, value = line.split("=", 1)
+            value = value.strip()
+            exported[key.strip()] = (
+                ast.literal_eval(value) if value.startswith(('"', "'")) else value
+            )
+    central_origin = exported.get("PUBLIC_BASE_URL", "http://localhost:18080")
+    print("Central: " + central_origin.rstrip("/") + "/central")
+    if exported.get("APP_ENV") == "production":
+        print(
+            "Central login uses the configured HTTPS origin; localhost is only an administrative forward."
+        )
     print("Langfuse: http://localhost:13000")
     print("Private fixture credentials: " + str(destination))
 
@@ -545,6 +586,125 @@ def status():
     if (LOCAL / "state.json").exists():
         print("EC2 instance: " + state()["instance_id"])
         compose("ps", capture=False)
+
+
+def load_delivery(delivery_file):
+    path = Path(delivery_file)
+    if not path.is_file() or path.is_symlink() or path.stat().st_mode & 0o077:
+        raise ValueError("Delivery file must be a regular private file with mode 0600")
+    if path.resolve() == (ROOT / ".env").resolve():
+        raise ValueError("The owner environment is not a delivery integration file")
+    values = parse_delivery(path.read_text())
+    values.setdefault("LANGFUSE_MEDIA_PUBLIC_ENDPOINT", "http://localhost:19090")
+    return values
+
+
+def configure_live(delivery_file):
+    state()
+    values = load_delivery(delivery_file)
+    # Deploy the public helper, then send only whitelisted integration values via
+    # SSH stdin. Neither command arguments nor logs contain these values.
+    ssh(
+        "cat > /srv/proyecto-agil/app/scripts/ec2_live_config.py",
+        input=(ROOT / "scripts/ec2_live_config.py").read_bytes(),
+    )
+    result = ssh(
+        "cd /srv/proyecto-agil/app && python3 -m scripts.ec2_live_config",
+        input=json.dumps(values).encode(),
+    )
+    report = json.loads(result.stdout)
+    current = state()
+    current["live_configured"] = True
+    current["live_applied"] = False
+    write_json(LOCAL / "state.json", current)
+    write_json(LOCAL / "live-provisioning.json", report)
+    print("Private integration configuration staged; internal guest secrets and data preserved.")
+    print("No service restarted, no tunnel started. Apply explicitly after the authorized cutover.")
+
+
+def apply_live():
+    current = state()
+    if not current.get("live_configured"):
+        raise RuntimeError("Configure an explicit private delivery file first")
+    # Captured output cannot reveal credentials via diagnostic logs. No tunnel,
+    # databases, Langfuse or external provider is created or contacted here.
+    ssh(
+        "mkdir -p /srv/proyecto-agil/app && tar xzf - -C /srv/proyecto-agil/app",
+        input=source_archive(),
+    )
+    compose("build backend worker")
+    compose(
+        "up -d --no-deps --force-recreate --wait --wait-timeout 300 backend worker langfuse-web"
+    )
+    current["live_applied"] = True
+    write_json(LOCAL / "state.json", current)
+    print(
+        "Backend, worker and Langfuse web recreated with staged integrations; public tunnel remains operator-controlled."
+    )
+
+
+def preflight(*, report_name="preflight.json"):
+    # No --live-inference: only read provider configuration/status, never send.
+    result = compose(
+        "exec -T backend python -m scripts.preflight --base-url http://localhost:8000", check=False
+    )
+    try:
+        report = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        raise RuntimeError("Read-only preflight produced no valid report") from None
+    write_json(LOCAL / report_name, report)
+    if (
+        result.returncode != 0
+        or report.get("status") != "ok"
+        or report.get("inference_opt_in")
+        or report.get("channel_writes") != 0
+    ):
+        raise RuntimeError(
+            "Read-only preflight failed; no public connector was started by this check"
+        )
+    print(json.dumps(report, indent=2))
+    return report
+
+
+def start_public():
+    current = state()
+    if not current.get("live_configured") or not current.get("live_applied"):
+        raise RuntimeError(
+            "Public startup requires explicitly provisioned and applied private integrations"
+        )
+    preflight(report_name="public-preflight.json")
+    compose("--profile public up -d --no-deps cloudflared")
+    print(
+        "Read-only preflight passed; this guest public connector started. Other projects were not changed."
+    )
+
+
+def stop():
+    # The instance owns its connector and application containers. Stop only this
+    # exact EC2 resource, preserving all emulator and guest storage for up.
+    instance = state()["instance_id"]
+    client = ec2()
+    client.stop_instances(InstanceIds=[instance])
+    client.get_waiter("instance_stopped").wait(
+        InstanceIds=[instance], WaiterConfig={"Delay": 2, "MaxAttempts": 90}
+    )
+    close_access()
+    print("EC2 guest stopped; guest volumes and private configuration preserved. Resume with up.")
+
+
+def up(delivery_file=None, *, public=False):
+    if delivery_file:
+        load_delivery(delivery_file)  # Fail before allocating resources for an invalid file.
+    elif public and (not (LOCAL / "state.json").exists() or not state().get("live_configured")):
+        raise RuntimeError(
+            "--public requires an explicit delivery file or an already configured private guest"
+        )
+    create()
+    bootstrap(delivery_file)
+    verify()
+    access()
+    if public:
+        start_public()
 
 
 def close_access():
@@ -585,14 +745,35 @@ def main():
             "access",
             "status",
             "close-access",
+            "configure-live",
+            "apply-live",
+            "preflight",
+            "stop",
         ],
     )
-    action = parser.parse_args().action
+    parser.add_argument("--delivery-file")
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="Start only this guest connector after a successful read-only preflight",
+    )
+    parser.add_argument("--mode", choices=["auto", "fixture", "live"], default="auto")
+    args = parser.parse_args()
+    action = args.action
+    if args.public and action != "up":
+        parser.error("--public is only supported with up")
+    if args.delivery_file and action not in {"up", "configure-live"}:
+        parser.error("--delivery-file is only supported with up or configure-live")
+    if action == "configure-live":
+        if not args.delivery_file:
+            parser.error("configure-live requires --delivery-file explicitly")
+        configure_live(args.delivery_file)
+        return
+    if action == "verify":
+        verify(args.mode)
+        return
     if action == "up":
-        create()
-        bootstrap()
-        verify()
-        access()
+        up(args.delivery_file, public=args.public)
     else:
         globals()[action.replace("-", "_")]()
 

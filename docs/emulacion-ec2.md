@@ -3,8 +3,10 @@
 Este perfil ejecuta la aplicación completa y Langfuse dentro de un Linux invitado
 creado mediante `RunInstances` de Floci 2.4.0. El invitado es un contenedor Linux
 privilegiado con su propio Docker Engine; no es una VM con kernel independiente.
-No crea recursos AWS ni requiere una cuenta AWS. Las integraciones externas
-permanecen deshabilitadas: no hay claves OpenAI, envíos WhatsApp ni túnel público.
+No crea recursos AWS ni requiere una cuenta AWS. El modo local empieza sin
+proveedores; el modo de entrega conecta OpenAI, la bandeja TEST de Chatwoot y el
+túnel mediante un archivo privado explícito. Ambos ejecutan el mismo stack en el
+Docker del invitado.
 
 ## Capas y aislamiento
 
@@ -54,26 +56,81 @@ Desde la raíz del repositorio:
 ./emulate-ec2.sh restart
 ```
 
+### Entrega con todas las integraciones
+
+Quien entrega prepara un archivo privado `.env.entrega`, con las claves acotadas,
+el origen HTTPS, la configuración de TEST y los accesos de las tres interfaces.
+Debe usar únicamente las variables permitidas por
+`scripts/ec2_live_config.py`. No se entrega el `.env` de desarrollo ni sus bases.
+La instalación nueva genera sus propios secretos de bases, sesión, pagos y
+Langfuse; el archivo de entrega puede fijar los logins iniciales de central y
+Langfuse antes de crear las bases.
+
+```bash
+chmod 600 .env.entrega
+./emulate-ec2.sh up --delivery-file .env.entrega --public
+```
+
+El orden es crear el invitado, generar su entorno interno, aplicar la lista
+permitida por stdin SSH, arrancar Compose y verificar salud. Después se ejecuta
+un preflight de lectura de OpenAI, Chatwoot y Langfuse. Solo si pasa y se pidió
+`--public`, se inicia el conector de ese invitado. No se envían campañas ni se
+infieren mensajes al instalar. El operador debe haber detenido el conector del
+equipo anterior; el script no puede apagar otro PC ni traslada sus datos.
+
+Para reanudar la misma instalación:
+
+```bash
+./emulate-ec2.sh up --public
+./emulate-ec2.sh preflight
+./emulate-ec2.sh verify --mode live
+./emulate-ec2.sh stop
+```
+
+`stop` detiene la instancia por EC2 y conserva almacenamiento y configuración.
+`up` los recupera. Los logins iniciales de Langfuse no se cambian sobrescribiendo
+`INIT_*` después de inicializar sus volúmenes: el provisionamiento rechaza ese
+cambio para evitar que el archivo muestre una contraseña que la base no usa.
+
+Para habilitar integraciones en un laboratorio ya creado se separan preparación
+y aplicación:
+
+```bash
+./emulate-ec2.sh configure-live --delivery-file .env.entrega
+./emulate-ec2.sh apply-live
+./emulate-ec2.sh up --public
+```
+
+`configure-live` valida la lista permitida, conserva secretos internos y escribe
+el entorno privado de forma atómica. `apply-live` reconstruye backend/worker y
+recrea Langfuse web para aplicar el puerto público de medios; no inicia el túnel.
+No se aceptan claves internas de bases en el archivo de integraciones. El
+presupuesto de una clave reutilizada debe descontar el consumo anterior antes de
+iniciar otra base vacía; crear una instalación no renueva el crédito de OpenAI.
+
 `up` crea el engine, arranca Floci, crea la instancia por EC2, transfiere solamente
 fuentes públicas de Git y prepara un `.env` nuevo desde `.env.example` con secretos
 internos aleatorios. Reintentar conserva ese entorno, volúmenes y datos. No lee ni
 copia el `.env`, volúmenes ni conversaciones del propietario. El seed es
 idempotente y contiene clientes ficticios con contactos simulados.
 
-Las interfaces se alcanzan por forwards SSH que escuchan sólo en loopback:
+Las interfaces locales se alcanzan por forwards SSH que escuchan sólo en loopback:
 
-- Central: [localhost:18080/central](http://localhost:18080/central).
+- Central sin proveedores: [localhost:18080/central](http://localhost:18080/central).
 - Langfuse: [localhost:13000](http://localhost:13000).
 - MinIO para medios locales: `localhost:19090`.
 
 Las credenciales nuevas están en `.local/ec2-emulation/evaluator.env`, ignorado
 por Git y con permiso 0600. Los accesos web figuran al final del archivo. Estos
-usuarios y contraseñas corresponden sólo al fixture emulado. El archivo también
+usuarios y contraseñas corresponden al entorno emulado. El archivo también
 permanece dentro del invitado en `/srv/proyecto-agil/app/.env`.
 
 La API Floci escucha en `127.0.0.1:4567` y SSH en `127.0.0.1:2244`. Son puertos
 alternativos; el perfil no ocupa los puertos 8080/3000/4566 del entorno existente.
-No se inicia `cloudflared` ni se toca DNS, Chatwoot o el túnel del propietario.
+En modo local no se inicia `cloudflared` ni se toca DNS, Chatwoot o el túnel.
+Con integraciones, la central se abre por el origen HTTPS exportado, no por el
+puerto HTTP local. Langfuse permanece en `localhost:13000`; sus medios se sirven
+desde `localhost:19090`, con firmas preservadas al subirlos a MinIO interno.
 
 ```bash
 ./emulate-ec2.sh close-access # Cierra sólo los forwards SSH
@@ -90,8 +147,10 @@ ni comandos contra los volúmenes de otros proyectos.
 `verify` comprueba el estado EC2, los servicios saludables, `/health`, `/ready`,
 salud de Langfuse, separación de los tres daemons, ausencia de socket exterior en
 el invitado, límites efectivos y fixture limpio (13 clientes,14 deudas,
-0 liquidaciones/campañas/inbox/outbox/reservas de inferencia). No comprueba acceso
-a proveedores externos, porque esas credenciales están deliberadamente ausentes.
+0 liquidaciones/campañas/inbox/outbox/reservas de inferencia). El modo `fixture`
+exige esos conteos iniciales; el modo `live` permite campañas y pagos de prueba
+existentes y registra sus conteos reales. El preflight de lectura y el recorrido
+WhatsApp se comprueban por separado.
 
 `restart` escribe un marcador en una tabla temporal de prueba de PostgreSQL,
 detiene y vuelve a iniciar la instancia usando EC2, espera la recuperación de la
