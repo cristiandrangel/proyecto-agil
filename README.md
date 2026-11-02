@@ -449,6 +449,23 @@ Chatwoot y la central abiertos para comparar cada resultado con su traza.
 5. Para audio o imagen, abre sus generaciones y assets privados. Para el envío, expande **response_enqueue → delivery**.
 6. Contrasta estados, modelo, latencias, tokens y coste estimado. El coste vacío de una raíz span no significa consumo cero: el detalle está en sus generaciones hijas.
 
+### Diferencia entre preflight, conversation y delivery
+
+Estos nombres los asigna nuestra instrumentación. La tabla lista observaciones,
+no necesariamente una fila por traza: dos filas pueden tener el mismo `trace_id`
+y distinto identificador de observación porque registran operaciones diferentes.
+
+| Nombre | Qué registra en esta demo |
+|---|---|
+| `preflight` | Diagnóstico o prueba interna ejecutada durante el desarrollo. Puede llamar al modelo real con datos ficticios; no es un paso obligatorio de cada mensaje de WhatsApp. |
+| `conversation` | Procesamiento de un mensaje entrante: control de autenticación, medios, agente y preparación de respuesta. No representa todo el historial del chat. |
+| `delivery` | Intento de ejecutar una salida pendiente contra Chatwoot: enviar mensaje, nota privada o cambiar el estado de la conversación. |
+
+Compartir traza significa pertenecer a la misma ejecución relacionada; no significa
+ser la misma operación ni representar dos mensajes entrantes. Para la revisión del
+chat, filtra el nombre `conversation` y abre su árbol. Las pruebas internas pueden
+aparecer en el proyecto y sumar consumo aunque no hayan enviado mensajes a WhatsApp.
+
 ### Cómo leer el árbol y el detalle
 
 En **Tree**, lee de arriba hacia abajo; la sangría indica qué operación está dentro
