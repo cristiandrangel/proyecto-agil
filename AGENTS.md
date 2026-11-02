@@ -22,8 +22,8 @@ distinguir siempre el prototipo local ejecutado de la propuesta AWS no desplegad
 - Arrancar con `./emulate-ec2.sh up --delivery-file .env.entrega --public`, o
   `.\emulate-ec2.cmd up --delivery-file .env.entrega --public` en Windows.
   `start.sh` corresponde al desarrollo directo anterior, no a esta entrega.
-- Antes de activar el dominio, confirmar con el dueño del despliegue anterior
-  que su conector está detenido: solo un equipo de aplicación activo.
+- La preparación del dominio corresponde a quien entrega el proyecto. No pedir
+  al evaluador confirmaciones de traspaso ni cambios de DNS en el recorrido.
 - Para reanudar la misma instalación usar `up --public` sin volver a importar
   la entrega. Conservar bases, presupuesto y configuración; no resetear ni
   borrar volúmenes para resolver un problema de acceso.

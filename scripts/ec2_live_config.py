@@ -134,6 +134,42 @@ def quote_env(value):
     return "'" + value.replace("'", "\\'") + "'"
 
 
+def group_interface_access(original):
+    """Move existing UI settings together without decoding or changing values."""
+    groups = [
+        ("Central de cobranza: abre PUBLIC_BASE_URL + /central (login en /login).",
+         ("PUBLIC_BASE_URL", "OPERATOR_USERNAME", "OPERATOR_PASSWORD")),
+        ("Chatwoot: bandeja de pruebas.",
+         ("CHATWOOT_UI_URL", "CHATWOOT_UI_EMAIL", "CHATWOOT_UI_PASSWORD")),
+        ("Langfuse: trazas del agente.",
+         ("LANGFUSE_PUBLIC_URL", "LANGFUSE_INIT_USER_EMAIL", "LANGFUSE_INIT_USER_NAME", "LANGFUSE_INIT_USER_PASSWORD")),
+    ]
+    keys = {key for _, members in groups for key in members}
+    body, entries = [], {}
+    in_footer = False
+    for line in original.splitlines():
+        if line.startswith("# ACCESOS WEB DEL EVALUADOR"):
+            in_footer = True
+        key = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else None
+        if key in keys:
+            if key in entries:
+                raise ValueError("Duplicate interface setting")
+            entries[key] = line
+        elif not in_footer or (key is not None):
+            body.append(line)
+    body = "\n".join(body).rstrip()
+    footer = ["# ACCESOS WEB DEL EVALUADOR — URL, usuario y contraseña por interfaz",
+              "# Copia los valores sin comillas. El PIN de WhatsApp es 2468; no es un login web."]
+    for description, members in groups:
+        footer += ["", "# " + description]
+        if "LANGFUSE_PUBLIC_URL" in members and "LANGFUSE_PUBLIC_URL" not in entries:
+            footer.append("# URL en la entrega emulada: http://localhost:13000")
+        footer.extend(entries[key] for key in members if key in entries)
+    footer += ["", "# Portal de pagos: abre el enlace que envía el agente por WhatsApp.",
+               "# No tiene usuario ni contraseña independientes; el acceso está en el enlace temporal."]
+    return body + "\n\n" + "\n".join(footer) + "\n"
+
+
 def merge_environment(original, updates):
     validate(updates)
     lines = []
@@ -160,7 +196,7 @@ def merge_environment(original, updates):
             + [""]
             + lines
         )
-    return "\n".join(lines) + "\n"
+    return group_interface_access("\n".join(lines) + "\n")
 
 
 LANGFUSE_INITIAL_UI = frozenset(

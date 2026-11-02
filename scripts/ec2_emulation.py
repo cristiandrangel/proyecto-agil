@@ -22,7 +22,7 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-from scripts.ec2_live_config import parse_delivery
+from scripts.ec2_live_config import group_interface_access, parse_delivery
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local" / "ec2-emulation"
@@ -683,7 +683,7 @@ def access():
     # Credentials remain local and private; never print the environment.
     result = ssh("cat /srv/proyecto-agil/app/.env")
     destination = LOCAL / "evaluator.env"
-    destination.write_bytes(result.stdout)
+    destination.write_text(group_interface_access(result.stdout.decode()))
     destination.chmod(0o600)
     start_access_tunnel()
     # Probe from the runner's bridge network; published host ports still bind loopback.

@@ -6,6 +6,20 @@ Gestionar una cartera grande exige contactar a muchas personas, entender su situ
 
 Este repositorio es el prototipo funcional de la propuesta para Liberty Latin America. El recorrido empieza en una central web de deudores, continúa en tu propio WhatsApp y termina verificando pagos, resultados comerciales y trazas. Puedes vivirlo como cliente y observarlo como operador, asesor y evaluador técnico.
 
+**Autor: Cristian Danilo Bolaños Rangel.**
+
+## Qué sistemas vas a usar
+
+| Sistema | Para qué sirve | Dónde funciona |
+|---|---|---|
+| Central de deudores y campañas | Consultar cartera, editar el contacto de prueba, segmentar, lanzar campañas y ver resultados. | Se levanta en tu equipo; tiene interfaz web. |
+| Agente de cobranza | Conversar por WhatsApp, consultar deudas, negociar, generar enlaces y solicitar un asesor. | Backend y worker en tu equipo; usa inferencia real de OpenAI. |
+| Portal de pagos | Aprobar o rechazar un pago simulado y obtener su comprobante. | Se levanta en tu equipo; accedes desde el enlace del agente. |
+| Langfuse | Inspeccionar entradas, salidas, llamadas al modelo, herramientas y tiempos de cada turno. | Se levanta en tu equipo; tiene interfaz web propia. |
+| Chatwoot | Ver la conversación de WhatsApp, atender como asesor y devolver el control al bot. | Servicio existente, conectado al número TEST de Meta; recibes su acceso. |
+
+El lanzador instala también las bases de datos y los servicios auxiliares. No necesitas entrar en ellos para realizar la demo. WhatsApp/Meta, Chatwoot y OpenAI requieren Internet; no se instalan en tu computador.
+
 ## Qué podrás comprobar
 
 | Capacidad | Qué harás durante la demo |
@@ -19,20 +33,28 @@ Este repositorio es el prototipo funcional de la propuesta para Liberty Latin Am
 | Resultados y observabilidad | Comparar recaudo, condonación y contactabilidad; abrir cada turno en Langfuse y ver modelos, tools, entradas y salidas. |
 | Persistencia | Reiniciar el entorno y comprobar que pagos y memoria siguen disponibles, respetando la caducidad de identidad. |
 
-**Qué es real:** WhatsApp/Meta, Chatwoot y las llamadas a OpenAI; el backend, las herramientas, las bases de datos y Langfuse ejecutan código funcional. **Qué es simulado:** clientes y deudas, PIN fijo, pasarela de pago y envíos a contactos ficticios. No se cobra dinero real.
+## Supuestos y alcance de la demo
 
-La entrega corre localmente en una **EC2 emulada con Floci**, que ejecuta el stack Docker en un contenedor Linux con Docker propio. No hay una instancia contratada en AWS. La infraestructura AWS propuesta, sus decisiones y los detalles internos están en el **[documento técnico de arquitectura](docs/arquitectura.md)**, que se puede leer de forma independiente.
+- **Integraciones reales:** WhatsApp/Meta, Chatwoot y OpenAI. El agente, sus herramientas, las bases y Langfuse ejecutan código funcional.
+- **Cartera ficticia:** la central representa la integración con un ERP o sistema financiero. Hay 13 personas y 14 deudas iniciales, en USD; se gestiona una deuda a la vez.
+- **Pagos simulados:** no se cobra dinero real. Se liquida la obligación mediante pago completo o acuerdo con condonación; no hay cuotas ni abonos parciales. La política de negociación es demostrativa, no una política atribuida a LLA.
+- **PIN estático de prueba: `2468` para todos los clientes ficticios.** Escríbelo únicamente cuando el agente lo pida. En producción se sustituiría por OTP u otro mecanismo de autenticación aprobado por la empresa. No es la contraseña de ninguna interfaz.
+- **Campaña de prueba:** se usa una plantilla previamente aprobada. Solo tu contacto, configurado como Live, recibe WhatsApp; los destinos ficticios simulan el envío.
+- **Despliegue local:** Floci emula operaciones EC2 y crea un contenedor Linux con Docker propio para ejecutar el stack. No hay una instancia contratada en AWS. La propuesta AWS está en el [documento técnico de arquitectura](docs/arquitectura.md).
+- **Instalación limpia:** el archivo privado aporta integraciones y accesos, no conversaciones ni bases del desarrollador. El lanzador crea los datos ficticios y los secretos internos de la nueva instalación.
 
-**PIN de demostración: `2468` para todos los clientes ficticios.** Es distinto de las contraseñas de las interfaces; escríbelo en WhatsApp únicamente cuando el agente lo solicite.
+**Puedes conversar libremente con texto, notas de voz e imágenes durante la prueba.** No hace falta copiar las frases del recorrido: son ejemplos. El agente transcribe audios e interpreta imágenes, incluidos comprobantes; para confirmar un pago siempre consulta la central. La única excepción es la validación del PIN: cuando lo solicite, envía únicamente sus dígitos como texto.
 
 ## Cómo recorrer este repositorio
 
-1. [Instala y abre las tres interfaces](#1-instalar-y-abrir-las-interfaces).
+1. **Preparación — secciones 1 y 2:** [instala y abre las tres interfaces](#1-instalar-y-abrir-las-interfaces).
 2. [Reconoce los datos ficticios](#2-reconocer-los-datos-de-prueba).
-3. [Completa el camino principal](#3-camino-principal-campaña-pago-íntegro-y-acuerdo): campaña, hogar al 100 % y telefonía al 90 %.
+3. **Aquí empieza la demo — sección 3:** [completa el camino principal](#3-camino-principal-campaña-pago-íntegro-y-acuerdo): campaña, hogar al 100 % y telefonía al 90 %.
 4. [Explora las variantes](#4-variantes-funcionales-sin-envíos-de-campaña-innecesarios): medios, otra identidad, excepciones y asesor.
 5. [Contrasta los resultados comerciales](#5-leer-resultados-y-fijar-el-corte-de-campaña), comprueba la [persistencia](#6-comprobar-persistencia-y-dejar-la-demo-preparada) y termina con la [revisión guiada en Langfuse](#7-revisar-cada-turno-completo-en-langfuse).
 6. Consulta [la evidencia y sus límites](#9-qué-se-ha-validado) y la [ayuda de operación](#10-operación-y-solución-de-problemas) cuando lo necesites.
+
+**Hasta terminar la sección 2 estarás preparando el entorno. La demo funcional empieza en la sección 3**, cuando editas tu contacto y lanzas la campaña. Las secciones 4 a 7 amplían la prueba y revisan sus resultados.
 
 El camino principal no necesita ejecutar todas las variantes ni restaurar datos. Las variantes son pruebas independientes: cada una indica su preparación. Las frases de ejemplo orientan la conversación; evalúa la acción y los datos, no una redacción exacta.
 
@@ -58,17 +80,16 @@ Git se necesita para clonar; si recibes un ZIP completo, extráelo y abre esa
 carpeta. No necesitas instalar Python ni SSH en el anfitrión: el lanzador los
 ejecuta en su contenedor auxiliar. El repositorio público no incluye las
 integraciones privadas; obtén `.env.entrega` de quien entrega la prueba antes
-de continuar con el recorrido real.
+de continuar con el recorrido real. Recibes ese archivo listo para usar: no debes
+completar ni convertir variables. `.env.entrega` conserva las integraciones y
+accesos proporcionados; el `.env` completo del desarrollador incluye configuración
+interna de su instalación y no se utiliza como archivo de entrega.
 
 1. Abre la carpeta del repositorio y coloca el archivo privado entregado como
    `.env.entrega`, junto a este README. Contiene las integraciones y accesos de
    interfaces acordados; no contiene conversaciones de estudio ni un respaldo
    de las bases. No lo publiques ni lo ejecutes como un script.
-2. Confirma con quien entrega la prueba que su conector del dominio está
-   detenido. El hostname se conserva; **solo debe haber un equipo de aplicación
-   activo**. No copies volúmenes ni datos del desarrollador. El script genera
-   secretos internos nuevos para tu instalación.
-3. Con Docker iniciado, arranca desde la carpeta del repositorio. En Linux/macOS:
+2. Con Docker iniciado, arranca desde la carpeta del repositorio. En Linux/macOS:
 
    ```bash
    chmod 600 .env.entrega
@@ -81,18 +102,20 @@ de continuar con el recorrido real.
    .\emulate-ec2.cmd up --delivery-file .env.entrega --public
    ```
 
-4. Espera a que termine. El primer arranque descarga imágenes, crea el invitado
+3. Espera a que termine. El primer arranque descarga imágenes, crea el invitado
    por la API EC2, prepara bases, migraciones, checkpoints y Langfuse, y comprueba
    las integraciones por lectura antes de abrir el túnel. Los fixtures se cargan
    solo si la base está vacía. Para reanudar esta misma instalación usa
    `./emulate-ec2.sh up --public` (Windows: `.\emulate-ec2.cmd up --public`):
    conserva configuración, pagos y memoria.
-5. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
+4. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
 
    El entorno efectivo se exporta a **`.local/ec2-emulation/evaluator.env`**.
-   Sus usuarios y contraseñas están juntos **al final de ese archivo**, en el
+   Sus URL, usuarios y contraseñas están juntos **al final de ese archivo**, en el
    bloque **ACCESOS WEB DEL EVALUADOR**, separados por interfaz. Cuando esta guía
    menciona el `.env` privado de interfaces, se refiere a ese archivo exportado.
+   Los mismos accesos también están al final de `.env.entrega`, recibido antes
+   de instalar. El portal de pagos se abre desde WhatsApp y no tiene otro login.
 
    | Interfaz | Dirección | Credenciales del `.env` privado |
    |---|---|---|
@@ -154,6 +177,8 @@ En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LA
 Todos los nombres y documentos de esta cartera son ficticios. Cada fila representa una deuda de un servicio; nombre y teléfono se comparten entre las deudas de una persona. Los mensajes de WhatsApp que aparecen a continuación son **ejemplos orientativos**: el modelo puede responder con otra redacción. Evalúa la acción y sus datos, no una frase exacta.
 
 ## 3. Camino principal: campaña, pago íntegro y acuerdo
+
+> **Aquí comienza la demo.** Ya instalaste el sistema, abriste la central, Chatwoot y Langfuse, y conoces los datos de prueba. Ahora actuarás como operador para lanzar la campaña y como cliente desde tu WhatsApp. El primer paso es asociar tu número a Ana.
 
 Haz este recorrido antes de los escenarios de bloqueo o derivación humana. Utiliza una única campaña real para Ana, con sus dos servicios, y destinos simulados para las demás personas. Mantén abierta la pestaña de campaña hasta revisar sus métricas y fijar el corte: actualmente, recargar la página no recupera el panel de una campaña existente.
 

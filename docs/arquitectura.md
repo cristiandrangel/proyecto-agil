@@ -1,6 +1,6 @@
 # Proyecto Ágil: documento técnico de arquitectura
 
-**Autor:** Cristian Rangel · **Revisión:** 2 de noviembre de 2026.
+**Autor:** Cristian Danilo Bolaños Rangel · **Revisión:** 2 de noviembre de 2026.
 
 Este documento describe de forma autocontenida el problema, la solución implementada, sus contratos de datos, ejecución, controles, operación y propuesta de infraestructura AWS. Incluye el procedimiento de demostración y distingue capacidades verificadas, simulaciones y trabajo pendiente. Su lectura no requiere abrir otros documentos del repositorio.
 
@@ -59,7 +59,7 @@ Los supuestos explícitos son:
 - Los datos maestros de identidad, servicio y saldo existen en un sistema corporativo; la API central de esta demo representa esa frontera.
 - La moneda es USD. El prototipo liquida íntegramente una obligación mediante pago completo o pago con condonación; no implementa abonos parciales, cuotas ni planes de financiación.
 - La política demostrativa permite cobrar al menos el 80 % del saldo y condonar la diferencia al aplicar el pago. No se atribuye esta política a LLA.
-- Las personas y documentos son ficticios. El mismo PIN `2468` facilita la evaluación; en producción debe sustituirse por el mecanismo de identidad autorizado por la empresa.
+- Las personas y documentos son ficticios. El mismo PIN `2468` facilita la evaluación; en producción debe sustituirse por OTP u otro mecanismo de identidad autorizado por la empresa.
 - El evaluador controla el único contacto Live. Los demás destinos son simulados y no se intenta enviarles mensajes.
 - Los horarios permitidos, consentimiento, exclusiones, tratamiento de datos y política de cobranza en Panamá deben acordarse con operación y jurídico antes de un piloto real. La demo no acredita cumplimiento normativo.
 
@@ -1002,7 +1002,7 @@ Con el repositorio extraído y `.env.entrega` en su raíz:
 .\emulate-ec2.cmd up --delivery-file .env.entrega --public
 ```
 
-Antes de activar el dominio debe detenerse el conector de la instalación anterior. Dos equipos con el mismo túnel y bases distintas podrían recibir tráfico de forma inconsistente; no constituyen alta disponibilidad. El evaluador conserva el hostname y no necesita administrar DNS, Meta o AWS. Su WhatsApp sí debe estar autorizado como destinatario del número TEST cuando Meta lo requiera.
+La entrega conserva el hostname y su configuración preparada; el evaluador no necesita administrar DNS, Meta o AWS. Su WhatsApp sí debe estar autorizado como destinatario del número TEST cuando Meta lo requiera.
 
 ### 10.2. Interfaces y datos de demostración
 

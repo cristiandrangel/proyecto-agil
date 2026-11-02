@@ -145,8 +145,9 @@ El orden es crear el invitado, generar su entorno interno, aplicar la lista
 permitida por stdin SSH, arrancar Compose y verificar salud. Después se ejecuta
 un preflight de lectura de OpenAI, Chatwoot y Langfuse. Solo si pasa y se pidió
 `--public`, se inicia el conector de ese invitado. No se envían campañas ni se
-infieren mensajes al instalar. El operador debe haber detenido el conector del
-equipo anterior; el script no puede apagar otro PC ni traslada sus datos.
+infieren mensajes al instalar. El dominio se entrega preparado y se conservan
+sus parámetros; el evaluador no necesita coordinar cambios de DNS ni trasladar
+datos de otra instalación.
 
 Para reanudar la misma instalación:
 
