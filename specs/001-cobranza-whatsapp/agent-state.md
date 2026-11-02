@@ -75,12 +75,16 @@ conversación y revisión de identidad, deduplicados y anteriores al mensaje act
 Los mensajes del asesor llevan el prefijo asesorhumano: en un mensaje normal de
 contexto. Se guardan en el próximo checkpoint y usan la misma ventana de historial;
 no se convierten en permisos ni resultados de herramientas.
-El worker añade channel_control=bot al contexto del servidor solo tras verificar
-pending y ausencia de bloqueo humano. No es un campo nuevo del estado ni se lee
-del texto del asesor. Una fase handoff_requested anterior vuelve a la fase de
-gestión correspondiente al registro y deuda actuales; el historial de transferencia
-no representa el control vigente. El prompt pide consultar cartera al retomar una
-pregunta de saldo y usar el diálogo humano como contexto.
+Al verificar una devolución real, HandoffService guarda returned y return_event_id
+atómicamente. HumanMemory recupera el evento por esa referencia durable, incluso
+si el worker se reinició antes del checkpoint. El nodo lo incorpora a messages,
+después del diálogo humano y antes del mensaje de retorno del cliente, con prefijo
+evento_canal:. El id estable channel-return:<case_id> impide duplicados. Una fase
+handoff_requested anterior vuelve a la fase de gestión correspondiente cuando se
+incorpora el evento. No hay campos nuevos en AgentState ni indicador channel_control
+en el system prompt; el evento forma parte de la secuencia conversacional. El prompt
+pide consultar cartera al retomar una pregunta de saldo. Los casos históricos
+devueltos sin return_event_id no generan eventos reconstruidos.
 El diagrama siguiente representa los turnos fuera del brazo estático y los eventos
 neutros de salida de autenticación; no añade nodos al grafo conversacional.
 

@@ -270,6 +270,9 @@ class HandoffService:
                     status == "pending" and case.open_observed and source.id != case.source_event_id
                 ):
                     case.status = "returned"
+                    # Commit the return and its originating event together. A worker
+                    # retry can recover the same marker even before a checkpoint exists.
+                    case.return_event_id = source.id
             # A takeover observed during inference cancels its not-yet-sent message.
             if status != "pending":
                 session.execute(

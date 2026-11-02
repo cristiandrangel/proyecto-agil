@@ -4,11 +4,11 @@ Registro actualizado el **1 de noviembre de 2026**. El código está implementad
 
 ## Resultados comprobados
 
-- **Última suite Docker aislada: 375 pruebas aprobadas, cero fallos y cero omitidas, en 42,48 segundos**, finalizada el 2026-11-02 a las 03:29 UTC (1 de noviembre, 22:29 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
+- **Última suite Docker aislada: 377 pruebas aprobadas, cero fallos y cero omitidas, en 46,35 segundos**, finalizada el 2026-11-02 a las 03:48 UTC (1 de noviembre, 22:48 en Bogotá). Se construyó una imagen nueva con PostgreSQL 17 y red interna, sin credenciales de proveedores. El runner terminó con código 0 y todas las referencias AC presentes. La ejecución anterior de 303 pruebas, a las 18:14:58 UTC del 1 de noviembre, corresponde a las verificaciones históricas de captura completa descritas más abajo.
 - Verificación estática de esta revisión aprobada: `uv run ruff check .`, compilación de Python en aplicaciones/paquetes/scripts/migraciones y relay, `bash -n start.sh`, y validación Compose de runtime, pruebas, override EC2 y Floci. Estas comprobaciones no ejecutan un despliegue AWS.
 - El [runner](../scripts/run_acceptance.py) ejecutó unitarias, contratos e integración, comprobó que todas las referencias AC de su informe se ejecutaran y produjo evidencia automatizada para AC-01–31. **No marca la aceptación completa como aprobada**: la evidencia manual y live sigue pendiente. Un test omitido, un fallo o una referencia ausente impiden un resultado global correcto.
 - `python -m scripts.run_acceptance --live` devolvió bloqueo explícito con código de salida 2. No hay un runner de aceptación real implementado y no se simula su éxito.
-- La suite incluye las migraciones operativas **0001→0005**, caché/precio v2, contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants. Las regresiones más recientes cubren confirmación elegida por el agente, fase estática de PIN, transporte cifrado, ACK sin proveedores y nombre enmascarado con documento completo.
+- El esquema operativo llega a **backend_0006**, con round-trip 0005/0006, conservación de un caso histórico y paridad de modelos comprobados en la suite. Incluye caché/precio v2, contratos del relay y regresiones de login, entrega, cuotas, catálogos globales y seed numérico con UUID/PIN estables. También cubre contactos con varios aliases, conversaciones sin binding y atribución de respuesta por la misma conversación sin modificar la llave de memoria ni los grants. Las regresiones más recientes cubren confirmación elegida por el agente, fase estática de PIN, transporte cifrado, ACK sin proveedores y nombre enmascarado con documento completo.
 - Migración central verificada con PostgreSQL 17: upgrade, comparación sin diferencias frente a los modelos, downgrade y nuevo upgrade. El test está en `test_frozen_alembic_upgrade_downgrade_matches_models`.
 - El lanzador `start.sh` tiene nueve pruebas de perfiles, URL y lectura segura de configuración. Se verificó que una cadena de comando dentro del token de `.env` no se ejecuta y que el perfil público precede a `up` solo cuando corresponde.
 - Reset probado con dos esquemas reales y AsyncPostgresSaver: tras un fallo de central persiste mantenimiento; repetir la misma operación completa el reset una sola vez, elimina checkpoints de la llave literal y conserva el consumo registrado.
@@ -191,7 +191,8 @@ al modelo el control actual que el backend ya había verificado. La fase enviada
 era `select_debt`, así que ese fallo concreto no se explica por una fase de
 handoff atascada.
 
-Se añadió `channel_control=bot` al contexto del servidor después de las
+En una primera corrección, posteriormente sustituida por el evento descrito debajo,
+se añadió `channel_control=bot` al contexto del servidor después de las
 comprobaciones del worker, sin nuevos campos de estado ni autorización por texto.
 El prompt diferencia el control actual de un resultado histórico de handoff y
 pide una consulta vigente al retomar una pregunta de saldo. También se normaliza
@@ -205,6 +206,37 @@ incluye dos regresiones del retorno aplicado, con y sin deuda seleccionada:
 comprueba que una frase del asesor no reactive al bot y que solo el retorno real
 entregue el control actual y la fase correcta al modelo. Queda repetir el turno por
 WhatsApp después de esta corrección para acreditar la respuesta en el canal.
+
+### Evento de devolución dentro del historial
+
+La versión actual elimina `channel_control` del contexto del servidor y registra
+la transición dentro de `messages`, sin añadir campos al esquema de AgentState.
+Cuando la reconciliación verifica transferencia aplicada, `open` observado y
+`pending` en un mensaje distinto, guarda `returned` y `return_event_id` en la
+misma transacción del caso. El evento se reconstruye desde esa referencia y se
+incorpora después del diálogo humano y antes de la consulta que retomó el chat,
+con prefijo `evento_canal:` e id estable `channel-return:<case_id>`. Sobrevive a un
+reinicio anterior al checkpoint y no se duplica al reintentar o en turnos posteriores.
+La migración 0006 mantiene nula la referencia de casos históricos ya devueltos;
+no se fabrica una fecha o un evento anterior. Scope, revisión de identidad y
+reset limitan la recuperación del marcador.
+
+Las dos regresiones de retorno con y sin deuda seleccionada comprueban ahora el
+mensaje ordenado, persistencia, deduplicación y ausencia de `channel_control` en
+las instrucciones. Se añadieron pruebas de filtrado del evento y de migración.
+La primera suite encontró una suposición de orden en un test de entrega del
+handoff: con timestamps iguales, podía observar un efecto dependiente aplazado.
+Se ajustó el test al polling real, exigiendo tres envíos efectivos únicos y padres
+conservados también en los intentos aplazados; la implementación de envío no cambió.
+La suite final aprobó **377 casos, cero fallos y cero omitidos**, en 46,35 segundos.
+
+Con Luna real se evaluaron de nuevo retorno y continuación tras una respuesta
+errónea, esta vez con el evento en mensajes y sin el indicador en instrucciones.
+Ambas variantes consultaron `list_debts`, reconocieron la aclaración del asesor y
+respondieron hogar USD 100 y telefonía liquidada. Cuatro llamadas por
+USD 0,00174844 estimados, todas liquidadas, usando resultados ficticios de tools,
+sin ejecución de herramientas ni escrituras en central o canal. La verificación
+WhatsApp de esta nueva representación queda pendiente de una nueva devolución.
 
 ### Ajuste de guía al pago, negociación y cierre de sesión
 

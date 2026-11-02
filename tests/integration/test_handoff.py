@@ -146,6 +146,13 @@ async def test_return_requires_applied_transfer_open_observation_then_new_pendin
     result = await service.reconcile_control(newer, "pending")
     assert not result["thread_blocked"] and not service.blocked(event.thread_id)
     assert result["cases"][0]["case_status"] == "returned"
+    with handoff_store() as session:
+        assert session.scalar(select(HumanCase)).return_event_id == newer.id
+    # A later pending observation must not move the original return marker.
+    latest = followup(handoff_store, message_id="another-followup")
+    await service.reconcile_control(latest, "pending")
+    with handoff_store() as session:
+        assert session.scalar(select(HumanCase)).return_event_id == newer.id
 
 
 @pytest.mark.asyncio
@@ -256,3 +263,40 @@ async def test_reason_amount_and_tenant_are_validated(case_setup, handoff_store)
     assert caught.value.status == 403
     with handoff_store() as session:
         assert session.scalar(select(HumanCase)) is None
+
+
+def test_backend_migrations_preserve_legacy_case_and_match_return_event_model(case_setup, handoff_store, monkeypatch):
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.autogenerate import compare_metadata
+    from alembic.config import Config
+    from alembic.migration import MigrationContext
+    from backend import config as backend_config
+    from sqlalchemy.engine import make_url
+
+    _, event, customer, debt = case_setup
+    with handoff_store.begin() as db:
+        db.add(HumanCase(
+            thread_id=event.thread_id, account_id=event.account_id, inbox_id=event.inbox_id,
+            conversation_id=event.conversation_id, source_event_id=event.id,
+            customer_id=customer, debt_id=debt, reason='dispute', origin='agent',
+            status='returned', open_observed=True,
+        ))
+    engine = handoff_store().get_bind()
+    # This fixture starts with current metadata; stamp it, then round-trip 0005/0006.
+    # Scoped fixture engine carries its search_path in connect_args; obtain it from PostgreSQL.
+    with engine.connect() as connection:
+        schema = connection.scalar(text('select current_schema()'))
+    url = make_url(os.getenv('TEST_MEMORY_DATABASE_URL') or os.environ['TEST_DATABASE_URL']).update_query_dict({'options': '-csearch_path=' + schema})
+    monkeypatch.setattr(backend_config, 'get_settings', lambda: SimpleNamespace(memory_database_url=url.render_as_string(hide_password=False)))
+    cfg = Config(str(Path(__file__).resolve().parents[2] / 'migrations/backend/alembic.ini'))
+    command.stamp(cfg, 'head')
+    command.downgrade(cfg, 'backend_0005')
+    command.upgrade(cfg, 'head')
+    with handoff_store() as db:
+        case = db.scalar(select(HumanCase))
+        assert case.status == 'returned' and case.return_event_id is None
+        assert case.customer_id == customer and case.debt_id == debt
+    with engine.connect() as connection:
+        assert compare_metadata(MigrationContext.configure(connection), Base.metadata) == []

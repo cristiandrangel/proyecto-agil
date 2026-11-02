@@ -1093,14 +1093,18 @@ async def test_handoff_deliveries_keep_original_tool_parent_after_root_and_retry
         assert len(effects) == 3
         for row in effects:
             assert row.payload_private["_trace_context"] == original_context
-    await send_outputs(runtime)
+    for _ in range(3):
+        await send_outputs(runtime)
     runtime.observability.flush()
     deliveries = [span for span in exporter.get_finished_spans() if span.name == "delivery"]
-    assert len(deliveries) == 3
+    # Equal timestamps can put a dependent effect first; deferred polls retain
+    # the same parent and the worker later sends all three effects exactly once.
+    assert len(deliveries) >= 3
+    assert sum(exported_status(span) == "sent" for span in deliveries) == 3
     for delivery in deliveries:
         assert f"{delivery.context.trace_id:032x}" == original_context["trace_id"]
         assert f"{delivery.parent.span_id:016x}" == original_context["parent_span_id"]
-        assert exported_status(delivery) == "sent"
+        assert exported_status(delivery) in {"sent", "deferred"}
     with runtime.sessions() as session:
         assert all(row.state == "sent" for row in session.scalars(select(Outbox)))
     assert runtime.channel.status == "open"
@@ -1564,7 +1568,7 @@ async def test_return_to_bot_loads_human_exchange_into_state_and_inference(runti
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('selected', [False, True])
-async def test_applied_handoff_return_supplies_current_bot_control_not_historical_case(runtime, webapp, selected):
+async def test_applied_handoff_return_inserts_durable_channel_event_before_client_once(runtime, webapp, selected):
     from backend.agent.graph import build_graph
     from backend.agent.tools import ToolRuntime
     from backend.persistence.models import HumanCase, VerifiedContext
@@ -1605,14 +1609,72 @@ async def test_applied_handoff_return_supplies_current_bot_control_not_historica
         resumed = payload(source, message=102, content='Entonces, ¿cuánto debo?')
         resumed['conversation']['status'] = 'pending'
         await post(client, runtime, resumed)
-        await process_job(runtime, runtime.queue.claim('return-control-worker'))
+        resumed_job = runtime.queue.claim('return-control-worker')
+        # Simulate a restart after the return committed, before the agent checkpoint.
+        await runtime.handoff.reconcile_control(resumed_job.event, 'pending')
+        await runtime.handoff.reconcile_control(resumed_job.event, 'pending')
+        await process_job(runtime, resumed_job)
     request = runtime.inference.calls[-1]
     context = json.loads(request['instructions'].rsplit('Contexto actual del servidor: ', 1)[1])
-    assert context['channel_control'] == 'bot'
+    assert 'channel_control' not in context
     assert context['identity_verified'] is True
     assert context['phase'] == ('discuss_payment' if selected else 'select_debt')
     assert any('asesorhumano: La llamada era incorrecta' in item.get('content', '') for item in request['input'])
+    from backend.services.human_memory import RETURN_MESSAGE
+
+    marker = {'role': 'user', 'content': RETURN_MESSAGE}
+    advisor_index = next(i for i, item in enumerate(request['input']) if 'asesorhumano:' in item.get('content', ''))
+    assert request['input'].count(marker) == 1
+    assert advisor_index < request['input'].index(marker) < len(request['input']) - 1
+    assert request['input'][-1]['content'] == 'Entonces, ¿cuánto debo?'
     assert not runtime.handoff.blocked(source)
     with runtime.sessions() as db:
         case = db.scalar(select(HumanCase).where(HumanCase.thread_id == source))
         assert case.status == 'returned' and case.open_observed
+        assert case.return_event_id == resumed_job.event.id
+    # Further turns recover the same message; they do not append a new copy.
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(webapp), base_url='http://testserver') as client:
+        await post(client, runtime, payload(source, message=103, content='Continuemos'))
+        await process_job(runtime, runtime.queue.claim('return-control-worker'))
+    assert runtime.inference.calls[-1]['input'].count(marker) == 1
+    async with checkpointer(runtime.settings.memory_conninfo) as saver:
+        saved = await saver.aget_tuple(thread_config(source))
+        markers = [g for g in saved.checkpoint['channel_values']['messages'] if g.get('channel_event') == 'human_returned']
+        assert len(markers) == 1
+
+
+def test_return_marker_requires_completed_case_matching_revision_scope_and_reset(runtime):
+    from backend.persistence.models import HumanCase, ResetMetadata
+    from backend.services.human_memory import RETURN_MESSAGE, HumanMemory
+
+    seed_human_context(runtime)
+    with runtime.sessions.begin() as db:
+        original = db.scalar(select(InboxEvent).where(InboxEvent.message_id == '100'))
+        returning = InboxEvent(
+            account_id='9', inbox_id='7', conversation_id='11', message_id='102',
+            thread_id='literal-human-memory', identity_revision=3, status='completed',
+        )
+        db.add(returning)
+        db.flush()
+        case = HumanCase(
+            thread_id=original.thread_id, account_id='9', inbox_id='7', conversation_id='11',
+            source_event_id=original.id, reason='requested', origin='agent',
+            status='transferred', open_observed=True, return_event_id=returning.id,
+        )
+        db.add(case)
+        db.flush()
+        case_id = case.id
+    memory = HumanMemory(runtime.sessions)
+    assert memory.groups(human_event(message='102'), 3) == []
+    with runtime.sessions.begin() as db:
+        db.get(HumanCase, case_id).status = 'returned'
+    assert memory.groups(human_event(message='101'), 3) == []
+    group = memory.groups(human_event(message='102'), 3)
+    assert len(group) == 1 and group[0]['id'] == 'channel-return:' + str(case_id)
+    assert group[0]['items'] == [{'role': 'user', 'content': RETURN_MESSAGE}]
+    assert memory.groups(human_event(message='103'), 3) == group
+    assert memory.groups(human_event(message='103'), 4) == []
+    assert memory.groups(human_event(message='103', conversation_id='12'), 3) == []
+    with runtime.sessions.begin() as db:
+        db.add(ResetMetadata(key='demo', epoch=1, reset_at=utcnow()))
+    assert memory.groups(human_event(message='103'), 3) == []

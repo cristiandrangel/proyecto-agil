@@ -77,22 +77,27 @@ def _challenge_group(group):
     )
 
 
-def build_graph(checkpointer, *, runtime, inference, text, human_memory=None, channel_control=None):
+def build_graph(checkpointer, *, runtime, inference, text, human_memory=None):
     async def agent(state: AgentState):
         event = runtime.event
         snapshot = runtime.identity.snapshot(event.thread_id)
         same_identity = state.get("identity_revision", -1) == snapshot["identity_revision"]
         groups = list(state.get("messages", [])) if same_identity else []
+        returned_to_bot = False
         if human_memory is not None:
             # Passive entries are ordinary context, never tool outputs or instructions.
             history = human_memory.groups(event, snapshot["identity_revision"])
             known = {group["id"] for group in groups}
+            returned_to_bot = any(
+                group.get("channel_event") == "human_returned" and group["id"] not in known
+                for group in history
+            )
             groups.extend(group for group in history if group["id"] not in known)
         # References are hydrated once and subsequently assigned explicitly, including None.
         runtime.pending_agreement_id = state.get("pending_agreement_id") if same_identity else None
         runtime.active_order_id = state.get("active_order_id") if same_identity else None
         runtime.phase = state.get("phase", "identify") if same_identity else "identify"
-        if channel_control == "bot" and runtime.phase == "handoff_requested":
+        if returned_to_bot and runtime.phase == "handoff_requested":
             runtime.phase = (
                 "discuss_payment" if snapshot["verified"] and snapshot["selected_debt_id"]
                 else "select_debt" if snapshot["verified"] else "identify"
@@ -137,8 +142,6 @@ def build_graph(checkpointer, *, runtime, inference, text, human_memory=None, ch
                 "pending_agreement_id": runtime.pending_agreement_id,
                 "active_order_id": runtime.active_order_id,
             }
-            if channel_control is not None:
-                context["channel_control"] = channel_control
             instructions = (
                 SYSTEM_PROMPT
                 + "\nContexto actual del servidor: "

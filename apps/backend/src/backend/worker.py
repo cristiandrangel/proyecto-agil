@@ -141,7 +141,6 @@ async def _process_turn(runtime, job, *, trace=None):
                 graph = build_graph(
                     saver, runtime=tools, inference=runtime.inference, text=text,
                     human_memory=HumanMemory(runtime.sessions),
-                    channel_control="bot",
                 )
                 with runtime.observability.span(
                     "agent", event_id=event.id, thread_id=event.thread_id,

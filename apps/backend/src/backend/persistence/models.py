@@ -188,6 +188,9 @@ class HumanCase(Record, Base):
     verification_summary: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="open")
     open_observed: Mapped[bool] = mapped_column(Boolean, default=False)
+    return_event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("inbox_event.id", name="fk_human_case_return_event")
+    )
     __table_args__ = (UniqueConstraint("source_event_id", "origin"),)
 
 

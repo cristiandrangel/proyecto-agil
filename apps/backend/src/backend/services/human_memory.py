@@ -3,11 +3,16 @@
 import json
 from uuid import uuid4
 
-from backend.persistence.models import InboxEvent, ResetMetadata, VerifiedContext, utcnow
+from backend.persistence.models import HumanCase, InboxEvent, ResetMetadata, VerifiedContext, utcnow
 from sqlalchemy import BigInteger, cast, select
 from sqlalchemy.dialects.postgresql import insert
 
 PREFIX = "human_context.v1:"
+RETURN_MESSAGE = (
+    "evento_canal: La atención humana terminó y el backend confirmó la devolución "
+    "del control al asistente. La transferencia anterior ha finalizado; continúa "
+    "con el diálogo del asesor y la nueva consulta del cliente."
+)
 
 
 class HumanMemory:
@@ -72,13 +77,39 @@ class HumanMemory:
             rows = list(db.scalars(query.order_by(
                 cast(InboxEvent.message_id, BigInteger).desc()
             ).limit(30)))
-            groups = []
+            ordered = []
             for row in reversed(rows):
                 data = json.loads(row.normalized_content[len(PREFIX):])
                 label = "asesorhumano" if data["speaker"] == "advisor" else "cliente (durante atención humana)"
-                groups.append({
+                ordered.append((int(row.message_id), {
                     "id": "human:" + str(row.id),
                     "items": [{"role": "user", "content": label + ": " + data["text"]}],
                     "complete": True,
-                })
-            return groups
+                }))
+            returns = select(HumanCase, InboxEvent).join(
+                InboxEvent, HumanCase.return_event_id == InboxEvent.id
+            ).where(
+                HumanCase.status == "returned",
+                HumanCase.thread_id == event.thread_id,
+                HumanCase.account_id == str(event.account_id),
+                HumanCase.inbox_id == str(event.inbox_id),
+                HumanCase.conversation_id == str(event.conversation_id),
+                InboxEvent.thread_id == event.thread_id,
+                InboxEvent.account_id == str(event.account_id),
+                InboxEvent.inbox_id == str(event.inbox_id),
+                InboxEvent.conversation_id == str(event.conversation_id),
+                InboxEvent.identity_revision == identity_revision,
+                cast(InboxEvent.message_id, BigInteger) <= int(event.message_id),
+            )
+            if reset:
+                returns = returns.where(InboxEvent.received_at >= reset.reset_at)
+            for case, source in db.execute(returns.order_by(
+                cast(InboxEvent.message_id, BigInteger).desc()
+            ).limit(30)):
+                ordered.append((int(source.message_id), {
+                    "id": "channel-return:" + str(case.id),
+                    "channel_event": "human_returned",
+                    "items": [{"role": "user", "content": RETURN_MESSAGE}],
+                    "complete": True,
+                }))
+            return [group for _, group in sorted(ordered, key=lambda item: item[0])]

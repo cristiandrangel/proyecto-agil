@@ -261,7 +261,7 @@ operación, permisos y efectos externos.
 | conversation_job | id, event_id, thread_id, state, attempts, next_attempt_at, last_error | Un trabajo por evento; orden por received_at e id; exclusión por thread, aun con varios conversation_id |
 | verified_context | thread_id, identity_revision, candidate_reference opcional, challenge_state, auth_failures, binding_ref, customer_id opcional, central_grant opcional, expires_at opcional, selected_debt_id opcional | Una fila por thread; fallos locales de auth entre 0 y 3; candidato pendiente no equivale a cliente autenticado; grant privado solo para adaptador central, fuera del modelo y trazas |
 | outbox | id, operation_key, source_event_id, thread_id, identity_revision, account_id, inbox_id, conversation_id, kind, payload_privado, state, channel_message_id, attempts | Destino copiado del evento o del binding validado de campaña; nunca una última conversación global; unique operation_key; queued/sent/uncertain/cancelled/failed; incierto sin reenvío ciego |
-| human_case | id, thread_id, account_id, inbox_id, conversation_id, source_event_id, customer_id opcional, debt_id opcional, reason, origin, offer_cents, verification_summary, status | Clave única por evento/origen; bloqueo del thread mientras esté bajo control humano; nota/status se envían a la conversación del caso |
+| human_case | id, thread_id, account_id, inbox_id, conversation_id, source_event_id, return_event_id opcional, customer_id opcional, debt_id opcional, reason, origin, offer_cents, verification_summary, status | Clave única por evento/origen; bloqueo del thread mientras esté bajo control humano; return_event_id referencia el inbox_event que verificó la devolución y se guarda junto a returned; nota/status se envían a la conversación del caso |
 | business_event | id, source_key, event_type, campaign_id opcional, customer_id, debt_id opcional, thread_id, account_id, inbox_id, conversation_id, occurred_at | Unique source_key evita duplicar canal o central; atribuir al cliente efectivamente autorizado sin cambiar el destinatario original de campaña |
 | inference_reservation | id, turn_id, modality, model, price_version, reserved_usd, actual_usd, state, provider_response_id | Decimal para USD de inferencia; reserved/settled/uncertain; reservas atómicas comunes a workers |
 | central_cursor | consumer, last_sequence | Avanza al guardar eventos conciliados; no perder pago por respuesta HTTP perdida |
@@ -271,6 +271,9 @@ Los mensajes públicos del asesor y del cliente durante atención humana reutili
 inbox_event con status=human_context y un contenido JSON etiquetado con speaker y
 texto. No crean conversation_job. La revisión de identidad, el scope exacto y la
 fecha del último reset limitan su recuperación; no requieren una tabla nueva.
+El evento de devolución se recupera desde human_case.return_event_id; su grupo
+channel-return:<case_id> se guarda en messages y el siguiente checkpoint, una vez
+por caso, con los mismos límites de scope, revisión y reset.
 
 Los grants y la outbox son datos privados operativos del servidor, nunca archivos
 versionados ni entradas del modelo. En awaiting_pin, el ingreso persiste transporte
