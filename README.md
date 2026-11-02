@@ -194,8 +194,8 @@ Haz este recorrido antes de los escenarios de bloqueo o derivación humana. Util
 ### 3.1. Configurar tu WhatsApp en Ana
 
 1. En **Explorar cartera**, selecciona **Tipo de documento: CC** y escribe **Número de documento: 10000001**. Deja los otros filtros sin restringir y pulsa **Aplicar filtros**.
-2. Deben aparecer dos filas: hogar USD 100 y telefonía USD 60. En cualquiera, pulsa **Contacto**.
-3. En **Editar contacto compartido**, cambia **Celular E.164** por tu WhatsApp con `+` y código de país, sin espacios. Deja el nombre ficticio.
+2. Deben aparecer dos filas: hogar USD 100 y telefonía USD 60. En cualquiera de las dos, ve a la columna **Acciones**, al extremo derecho de la tabla, y pulsa el botón **Contacto**.
+3. Se abrirá una ventana para editar el contacto. Dentro de esa ventana, busca el campo del celular (**Celular E.164**) y reemplaza el número ficticio por tu WhatsApp con `+` y código de país, sin espacios. Conserva el nombre de Ana.
 4. Selecciona **Live · evaluador autorizado** y pulsa **Guardar cambios**. Este modo habilita el contacto para pruebas reales; no hay una casilla adicional.
 5. Comprueba que ambas filas muestran el mismo teléfono, **Live** y contacto habilitado. Deja a todas las demás personas en modo **Simulado**.
 
