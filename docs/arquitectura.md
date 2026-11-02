@@ -48,6 +48,12 @@ pero exige que la infraestructura propuesta sea AWS. Las dependencias actuales
 de Cloudflare, OpenAI directo y el servidor personal de Chatwoot pertenecen a la
 demo; no se presentan como cumplimiento de esa infraestructura objetivo.
 
+El número de WhatsApp utilizado es un número TEST asociado a un portafolio
+comercial activo de Meta. La instancia de Chatwoot y el dominio/endpoint público
+son de propiedad personal y se facilitan para ejecutar la prueba; no pertenecen
+a Liberty Latin America. El endpoint público dirige las peticiones al backend
+que ejecuta el evaluador en su entorno local emulado.
+
 ### 1.1. Alcance comercial y supuestos
 
 La unidad financiera de la demo es una obligación asociada a un servicio contratado. Una persona puede tener hogar, telefonía y televisión, con saldos independientes. La central web muestra una fila por obligación, pero conserva una sola identidad y contacto por persona. El agente gestiona una obligación a la vez para que una negociación o comprobante no se aplique a otro servicio.

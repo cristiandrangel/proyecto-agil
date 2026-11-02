@@ -36,6 +36,7 @@ El lanzador instala también las bases de datos y los servicios auxiliares. No n
 ## Supuestos y alcance de la demo
 
 - **Integraciones reales:** WhatsApp/Meta, Chatwoot y OpenAI. El agente, sus herramientas, las bases y Langfuse ejecutan código funcional.
+- **Recursos personales para la prueba:** el número de WhatsApp es un número TEST asociado a un portafolio comercial activo de Meta. La instancia de Chatwoot y el dominio/endpoint público son de propiedad personal y se facilitan para esta demo; no pertenecen a Liberty Latin America.
 - **Cartera ficticia:** la central representa la integración con un ERP o sistema financiero. Hay 13 personas y 14 deudas iniciales, en USD; se gestiona una deuda a la vez.
 - **Pagos simulados:** no se cobra dinero real. Se liquida la obligación mediante pago completo o acuerdo con condonación; no hay cuotas ni abonos parciales. La política de negociación es demostrativa, no una política atribuida a LLA.
 - **PIN estático de prueba: `2468` para todos los clientes ficticios.** Escríbelo únicamente cuando el agente lo pida. En producción se sustituiría por OTP u otro mecanismo de autenticación aprobado por la empresa. No es la contraseña de ninguna interfaz.
