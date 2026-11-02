@@ -1,7 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from central.auth import CentralError, customer_id, operator, role
-from central.models import Agreement, CentralEvent, Customer, Debt, PaymentOrder
+from central.models import Agreement, CentralEvent, Customer, Debt, PaymentOrder, utcnow
 
 
 def customer_view(person):
@@ -22,7 +22,65 @@ def customer_view(person):
     }
 
 
-def debt_view(debt, person=None):
+def active_agreements(db, debt_ids):
+    """Project current terms in one query; never mint orders or expose payment secrets."""
+    if not debt_ids:
+        return {}
+    now = utcnow()
+    rows = db.execute(
+        select(Agreement, PaymentOrder)
+        .join(Debt, Debt.id == Agreement.debt_id)
+        .outerjoin(
+            PaymentOrder,
+            and_(
+                PaymentOrder.agreement_id == Agreement.id,
+                PaymentOrder.debt_id == Debt.id,
+                PaymentOrder.customer_id == Debt.customer_id,
+                PaymentOrder.base_version == Debt.version,
+                PaymentOrder.base_cents == Debt.balance_cents,
+                PaymentOrder.payable_cents == Agreement.offer_cents,
+                PaymentOrder.discount_cents == Agreement.expected_discount_cents,
+                PaymentOrder.status == "vigente",
+                PaymentOrder.expires_at > now,
+            ),
+        )
+        .where(
+            Debt.id.in_(debt_ids),
+            Debt.debt_status == "pendiente",
+            Debt.balance_cents > 0,
+            Agreement.customer_id == Debt.customer_id,
+            Agreement.debt_version == Debt.version,
+            Agreement.base_cents == Debt.balance_cents,
+            Agreement.status.in_(["propuesto", "aceptado"]),
+            Agreement.expires_at > now,
+        )
+        .order_by(
+            (Agreement.status == "aceptado").desc(),
+            Agreement.quoted_at.desc(),
+            Agreement.id.desc(),
+            PaymentOrder.expires_at.desc(),
+            PaymentOrder.id.desc(),
+        )
+    )
+    result = {}
+    for agreement, order in rows:
+        if agreement.debt_id in result:
+            continue
+        result[agreement.debt_id] = {
+            "agreement_id": str(agreement.id),
+            "status": agreement.status,
+            "base_cents": agreement.base_cents,
+            "offer_cents": agreement.offer_cents,
+            "discount_cents": agreement.expected_discount_cents,
+            "currency": "USD",
+            "expected_version": agreement.debt_version,
+            "expires_at": agreement.expires_at.isoformat(),
+            "order_id": str(order.id) if order and agreement.status == "aceptado" else None,
+        }
+    return result
+
+
+def debt_view(debt, person=None, active_agreement=None):
     fields = (
         "id",
         "customer_id",
@@ -40,6 +98,7 @@ def debt_view(debt, person=None):
     for field in ("id", "customer_id", "due_date"):
         result[field] = str(result[field])
     result["currency"] = "USD"
+    result["active_agreement"] = active_agreement
     if person:
         result["customer"] = customer_view(person)
         result.update({key: value for key, value in result["customer"].items() if key != "id"})

@@ -1,6 +1,23 @@
 # Proyecto Ágil
 
-Demo de cobranza por WhatsApp con cartera editable y pagos simulados en USD. Esta guía permite recorrer las funciones; el estado comprobado y los límites de la entrega están en [evaluación](docs/evaluacion.md). No se mueve dinero real.
+Prototipo de un asistente de cobranza por WhatsApp para consultar deudas, negociar
+acuerdos, verificar pagos y pasar la atención a una persona cuando corresponde.
+La central de cartera conserva la autoridad financiera; el agente conversa y
+solicita operaciones sujetas a sus permisos y reglas.
+
+Este repositorio contiene el backend y worker conversacional, la central de
+cartera y pago, la interfaz de campañas, persistencia, observabilidad, pruebas,
+evals y scripts de entrega. El [PRD](specs/prd.md) describe el producto,
+[la arquitectura de servicios](#arquitectura-y-planes-futuros) muestra sus
+componentes y [la evaluación](docs/evaluacion.md) registra lo comprobado y lo pendiente.
+
+La demo usa personas y deudas ficticias en USD. **PIN ficticio: `2468` para todos
+los clientes**; se escribe en WhatsApp solo cuando se solicita, y es distinto de
+las contraseñas de las interfaces. El canal autorizado usa **WhatsApp/Chatwoot
+reales e inferencia de OpenAI**. Los demás destinos de campaña simulan el envío,
+los pagos siempre son simulados y el laboratorio EC2 local con Floci emula AWS.
+**No se mueve dinero real ni se ha desplegado una instancia AWS real.** Esta
+guía permite instalar y recorrer esa demo.
 
 ## 1. Instalar y abrir las interfaces
 
@@ -11,6 +28,20 @@ compartido; no contrata una instancia AWS. El arranque admite Docker Desktop con
 Linux containers en Windows, macOS y Linux, además de Docker Engine Linux, en
 amd64 y arm64. Python y SSH se ejecutan en un contenedor auxiliar. Los requisitos
 de recursos y el alcance de la validación están en [EC2 emulada](docs/emulacion-ec2.md).
+
+Si vas a descargar el repositorio público por primera vez, clónalo y entra en
+su carpeta (los mismos comandos sirven en terminal de Linux/macOS, PowerShell o CMD):
+
+```bash
+git clone https://github.com/cristiandrangel/proyecto-agil.git
+cd proyecto-agil
+```
+
+Git se necesita para clonar; si recibes un ZIP completo, extráelo y abre esa
+carpeta. No necesitas instalar Python ni SSH en el anfitrión: el lanzador los
+ejecuta en su contenedor auxiliar. El repositorio público no incluye las
+integraciones privadas; obtén `.env.entrega` de quien entrega la prueba antes
+de continuar con el recorrido real.
 
 1. Abre la carpeta del repositorio y coloca el archivo privado entregado como
    `.env.entrega`, junto a este README. Contiene las integraciones y accesos de
@@ -292,6 +323,26 @@ Comprueba este caso fuera del brazo estático del PIN y con la conversación en
 2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente `No, quiero gestionar CC 10000002` para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.
 3. Selecciona hogar: debe mostrar USD 200. Las deudas de Ana no pasan a ser de Bruno ni siguen como selección activa.
 4. Para volver a Ana, repite **Cambiar cliente**, `CC 10000001`, confirmación y PIN. Cambiar titular siempre exige validación nueva.
+
+**Retomar un acuerdo después de salir:** haz esta variante antes de pagar y
+mientras el acuerdo siga vigente. Con Bruno hogar USD 200, negocia y confirma en
+otro mensaje una cotización de USD 190 (USD 10 condonados si se aplica ese pago).
+Sin pagar, pide cerrar sesión, identifica Ana con su PIN y vuelve a Bruno con
+una autenticación nueva. Pide `Quiero retomar mi acuerdo de hogar` y selecciona
+ese servicio. Debe recuperar las condiciones de central y volver a compartir el
+enlace original si su orden sigue vigente: sin renegociar, reducir otra vez ni
+crear un acuerdo u orden por el simple hecho de consultarlos. La lista de deudas
+informa del acuerdo, pero no selecciona un servicio ni crea el enlace por sí sola.
+
+Si solo habías recibido la cotización, debe presentarla de nuevo y pedir
+aceptación en otro mensaje antes de obtener la orden. Salir o cambiar titular
+revoca el acceso, **no borra el acuerdo financiero**. El tiempo sigue corriendo:
+no se renueva su vencimiento al volver. Si venció o cambió la deuda, no debe
+prometer las condiciones anteriores. Si el acuerdo aún está vigente pero ya no
+tiene orden reutilizable, debe explicarlo y ofrecer atención humana. Aceptarlo o
+retomarlo no aplica todavía la condonación; solo el pago aprobado en central
+liquida la deuda. Este resultado se verifica automáticamente en PostgreSQL; el
+recorrido WhatsApp de esta recuperación queda pendiente de ejecución del evaluador.
 
 Para comprobar un candidato equivocado, responde **no** a su pista antes de confirmar el candidato y entrar en la fase PIN y proporciona luego el documento correcto. El agente debe interpretar el rechazo con su memoria y usar `manage_identity`; esa herramienta no valida un PIN ni concede acceso financiero. Para un documento inexistente, usa un tipo/número ficticio que no esté en la tabla: no debe inventar una coincidencia ni revelar deudas. Un único PIN incorrecto debe impedir el acceso; deja la prueba de **tres errores** para el final.
 
@@ -801,7 +852,7 @@ como aprobados los resultados de los diagnósticos anteriores.
 
 ### Pruebas deterministas y límites de evidencia
 
-La última suite Docker completa registrada aprobó **431 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026**, en **44,26 segundos**. Incluye el catálogo y runner de evals, los contratos de portabilidad y los límites de contexto actualizados; no hace inferencia ni envía mensajes. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. El evento de devolución se comprueba en orden, una vez por caso y recuperable tras un reinicio; la migración `backend_0006` conserva los casos existentes y se verificó en downgrade/upgrade con paridad de modelos. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
+La última suite Docker completa registrada aprobó **447 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026**, en **51,93 segundos**. Incluye recuperación de acuerdos tras cerrar sesión, cambiar de titular y validar de nuevo, aislamiento, vencimientos, versiones, saldo, órdenes no reutilizables y consulta batch sin N+1. Incluye el catálogo y runner de evals, los contratos de portabilidad y los límites de contexto actualizados; no hace inferencia ni envía mensajes. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. El evento de devolución se comprueba en orden, una vez por caso y recuperable tras un reinicio; la migración `backend_0006` conserva los casos existentes y se verificó en downgrade/upgrade con paridad de modelos. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
 
 El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
 
@@ -883,6 +934,7 @@ se distingue en [evaluación](docs/evaluacion.md).
 | Autenticación | La confirmación natural pasa por el agente. El PIN se intercepta fuera del LLM; tras agotamiento, el agente explica y ofrece opciones sin buscar otro titular automáticamente. |
 | Conversación | El prompt exige cordialidad, alcance exclusivo de cobranza y resistencia a instrucciones ajenas; conduce hacia el pago y permite cerrar sesión mediante revocación del backend. |
 | Negociación | Propuestas 95 % → 80 % según la oferta vigente, condonación condicionada explícita, confirmación posterior y comprobante pedido junto al enlace. |
+| Acuerdos al volver | Tras PIN nuevo, consulta condiciones vigentes en central y recupera referencias al seleccionar; reutiliza la orden aceptada válida sin crear otra ni extender plazos. Una propuesta sigue necesitando confirmación posterior. |
 | Comprobantes | Una referencia ilegible no se inventa. Tras una búsqueda por referencia fallida, consulta la misma deuda autenticada sin referencia antes de escalar; confirma únicamente el registro financiero del sistema. |
 | Atención humana | `open` suspende al bot; el diálogo público se guarda de forma pasiva. El retorno comprobado a `pending` incorpora un evento a la memoria antes de la nueva consulta. |
 | Observabilidad | Inputs/outputs, estados, generaciones, herramientas, medios y entregas correlacionadas; los secretos y PIN siguen excluidos. Los errores históricos permanecen visibles. |
@@ -1010,8 +1062,8 @@ Ante una confirmación clara, el modelo puede pedir `manage_identity` con `{"act
 |---|---|---|
 | `locate_customer` | Buscar persona; devolver nombre enmascarado y documento completo de la demo | `phone_e164` o `document_type` + `document_number`; los campos no usados van en `null` |
 | `manage_identity` | Confirmar/rechazar candidato o cambiar de persona; sin autorizar cartera | `action`, con los tres valores del ejemplo |
-| `list_debts` | Consultar cartera de la persona autenticada | `service_type`, o `null` sin filtro |
-| `select_debt` | Elegir una deuda de esa cartera | `debt_id` |
+| `list_debts` | Consultar cartera y acuerdos vigentes de la persona autenticada, sin seleccionar | `service_type`, o `null` sin filtro |
+| `select_debt` | Elegir una deuda y recuperar su acuerdo y enlace vigente reutilizable | `debt_id` |
 | `create_full_payment` | Crear enlace por el saldo vigente, sin descuento | `debt_id` |
 | `quote_agreement` | Cotizar oferta de al menos el 80 %, sin aceptarla | `debt_id`, `offer_amount_usd` |
 | `accept_agreement` | Aceptar propuesta previa en otro mensaje y obtener enlace | `agreement_id` |
@@ -1022,11 +1074,58 @@ Los campos anulables siguen presentes en el esquema estricto, con valor `null` c
 
 ### Arquitectura y planes futuros
 
-Una sola máquina ejecuta backend/worker, central y PostgreSQL separados para cartera y memoria, además de Langfuse. La central es el único escritor financiero. Chatwoot, Meta y OpenAI son externos. El túnel opcional de Compose mantiene el hostname con un único equipo activo; cambiar de equipo requiere trasladar los datos por separado.
+El despliegue público de la demo ejecuta **12 contenedores de aplicación en una
+única EC2 emulada**: seis del producto (`backend`, `worker`, `central`,
+`central-db`, `memory-db`, `cloudflared`) y seis de Langfuse (web, worker,
+PostgreSQL, ClickHouse, Redis y MinIO). Floci, el motor de emulación, el invitado
+y los auxiliares de acceso añaden contenedores de infraestructura fuera de ese
+conteo. Chatwoot/Meta y OpenAI son servicios externos.
+
+```mermaid
+flowchart LR
+    CW["Chatwoot / WhatsApp · externo"]
+    AI["OpenAI · externo"]
+    subgraph EC2["Una EC2 emulada · 12 contenedores de aplicación"]
+        CF["cloudflared · entrada HTTPS"]
+        BE["backend · webhook y portales"]
+        MD[("memory-db · cola, memoria y operación")]
+        WO["worker · LangGraph y tools"]
+        CE["central · API financiera"]
+        CD[("central-db · cartera y pagos")]
+        subgraph LF["Langfuse · 6 contenedores"]
+            LW["web · interfaz e ingesta de trazas"]
+            LK["worker"]
+            LP[("PostgreSQL")]
+            LC[("ClickHouse")]
+            LRED[("Redis")]
+            LM[("MinIO · medios")]
+        end
+        CF --> BE
+        BE --> MD
+        MD <--> WO
+        BE --> CE
+        WO --> CE
+        CE --> CD
+        BE -. "trazas" .-> LW
+        WO -. "trazas" .-> LW
+    end
+    CW -- "webhook" --> CF
+    WO -- "respuestas y derivación" --> CW
+    WO <--> AI
+```
+
+El backend recibe eventos y sirve los portales; el worker consume trabajos y
+ejecuta el agente. Ambos usan la API de central para las operaciones financieras:
+**la central es el único escritor de `central-db`**. `memory-db` conserva la cola,
+los checkpoints y el estado operativo. Langfuse recoge la observabilidad y los
+medios. El túnel mantiene el hostname con un único equipo de aplicación activo;
+cambiar de equipo requiere detener el conector anterior y preparar la instalación
+sin copiar datos privados de estudio.
 
 **No se ha desplegado en AWS.** Floci ya permite crear un invitado Linux por
-`RunInstances` y ejecutar dentro los once servicios del perfil limpio. Se
-comprobaron salud, límites efectivos de 4 CPU/16 GiB y persistencia PostgreSQL
+`RunInstances` y ejecutar los servicios en su Docker interno. El perfil local sin
+túnel tiene once; la demo pública añade `cloudflared`, hasta los doce del diagrama.
+Se comprobaron salud, límites efectivos de 4 CPU/16 GiB y persistencia PostgreSQL
 después de Stop/Start. Es un contenedor privilegiado con Docker propio y kernel
 compartido; no acredita una VM AWS, EBS, rendimiento ni backup/restauración real.
 El perfil antiguo de smoke de APIs sigue separado. El dominio y WhatsApp ya

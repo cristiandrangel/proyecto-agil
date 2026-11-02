@@ -19,6 +19,7 @@ class Identity:
         }
         self.selections = []
         self.management = []
+        self.debt_result = None
 
     def snapshot(self, _):
         return self.data.copy()
@@ -26,7 +27,7 @@ class Identity:
     async def select_debt(self, thread, debt):
         self.selections.append((thread, debt))
         self.data["selected_debt_id"] = debt
-        return {"id": debt}
+        return self.debt_result or {"id": debt}
 
     async def manage(self, thread, action):
         self.management.append((thread, action))
@@ -291,3 +292,36 @@ async def test_handoff_blocks_further_financial_tools_in_same_turn():
     assert tool.catalog() == []
     with pytest.raises(DomainError):
         await tool.execute("list_debts", {"service_type": None})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,has_order,phase", [
+    ("propuesto", False, "confirm_agreement"),
+    ("aceptado", True, "await_payment"),
+    ("aceptado", False, "discuss_payment"),
+])
+async def test_select_recovers_authorized_agreement_after_identity_change(status, has_order, phase):
+    tool = runtime()
+    await tool.execute("manage_identity", {"action": "change_customer"})
+    # A subsequent PIN has authenticated the intended owner with fresh authority.
+    tool.identity.data.update(verified=True, grant_token="fresh-server-grant")
+    agreement_id, order_id, debt_id = str(uuid4()), str(uuid4()), str(uuid4())
+    tool.identity.debt_result = {
+        "id": debt_id,
+        "active_agreement": {
+            "agreement_id": agreement_id,
+            "status": status,
+            "order_id": order_id if has_order else None,
+            "offer_cents": 19000,
+        },
+    }
+    await tool.execute("list_debts", {"service_type": None})
+    assert tool.identity.data["selected_debt_id"] is None
+    assert tool.pending_agreement_id is None and tool.active_order_id is None
+    result = await tool.execute("select_debt", {"debt_id": debt_id})
+    assert tool.pending_agreement_id == agreement_id
+    assert tool.active_order_id == (order_id if has_order else None)
+    assert tool.phase == phase
+    assert result.get("payment_link") == (f"[[PAYMENT:{order_id}]]" if has_order else None)
+    assert [method for method, _, _ in tool.central.calls] == ["GET"]
+    assert len(tool.catalog()) == 9

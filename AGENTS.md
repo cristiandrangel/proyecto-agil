@@ -10,6 +10,26 @@ la forma de arrancar y las verificaciones pendientes de este equipo. Es una nota
 privada ignorada; no publicarla ni copiar sus datos privados al repositorio.
 La guía del evaluador está en `README.md` y la evidencia pública en `docs/evaluacion.md`.
 
+## Instalación y acompañamiento del evaluador
+
+- Leer primero `README.md` y `docs/emulacion-ec2.md`: contienen requisitos,
+  clonación/ZIP, accesos, recorrido y límites reales de la entrega.
+- Para una instalación funcional nueva se necesita el archivo privado
+  `.env.entrega` proporcionado por quien entrega la prueba. No inventar claves,
+  credenciales ni contactos, ni publicar ese archivo.
+- Arrancar con `./emulate-ec2.sh up --delivery-file .env.entrega --public`, o
+  `.\emulate-ec2.cmd up --delivery-file .env.entrega --public` en Windows.
+  `start.sh` corresponde al desarrollo directo anterior, no a esta entrega.
+- Antes de activar el dominio, confirmar con el dueño del despliegue anterior
+  que su conector está detenido: solo un equipo de aplicación activo.
+- Para reanudar la misma instalación usar `up --public` sin volver a importar
+  la entrega. Conservar bases, presupuesto y configuración; no resetear ni
+  borrar volúmenes para resolver un problema de acceso.
+- Acompañar el recorrido desde el README. No lanzar campañas ni enviar mensajes
+  por iniciativa del agente; el operador debe iniciar esos pasos deliberadamente.
+- `.local/RETOMAR.md` es continuidad privada opcional de este equipo; un clon
+  nuevo funciona sin ella y no debe recibir sus datos de estudio.
+
 ## Estado y orden de trabajo
 
 1. La indicación posterior de Cristian del 31 de octubre de 2026 permite construir el PRD integral con el contexto disponible.
@@ -47,7 +67,8 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 - Citar las fuentes que influyen en cada sección.
 - Mantener trazabilidad entre PRD, especificación y criterios de evaluación.
 - Diseño de entrega: specs/001-cobranza-whatsapp/. Las tareas de implementación se marcan completas solo con código y verificación.
-- Entrega: lunes 2026-11-02 (America/Bogota), hora pendiente.
+- Hito interno de desarrollo: lunes 2026-11-02.
+- Entrega oficial confirmada: martes 2026-11-03, 23:59 Colombia (America/Bogota).
 - .specify/feature.json es estado local ignorado; seleccionar la feature con SPECIFY_FEATURE_DIRECTORY al retomar en otro checkout.
 
 ## Campañas de demo

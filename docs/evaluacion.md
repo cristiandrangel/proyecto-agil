@@ -2,6 +2,40 @@
 
 Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Recuperación de acuerdos tras autenticar de nuevo — 2 de noviembre
+
+Se detectó que la central conservaba un acuerdo aceptado, pero las consultas de
+deudas no lo incluían y seleccionar una deuda limpiaba las referencias locales.
+El agente podía afirmar que no había un acuerdo sin haber consultado ese dato.
+La lista y el detalle ahora proyectan el acuerdo vigente desde central y la
+selección recupera sus referencias y el enlace de una orden válida. La consulta
+se hace por página en una sola operación SQL adicional, sin acceso del backend
+a la base financiera. No publica capabilities ni tokens al modelo.
+
+Las comprobaciones de propietario, versión, saldo, vencimiento y estados se
+aplican al acuerdo y a su orden. Una nueva sesión no extiende plazos ni crea
+órdenes. Un acuerdo propuesto conserva la confirmación en otro mensaje; uno
+aceptado reutiliza su orden válida. Sin orden reutilizable, no se emite otra por
+volver a aceptar. La condonación permanece condicionada al pago aplicado.
+
+La suite completa Docker aislada con PostgreSQL 17 aprobó **447 pruebas, cero
+fallos y cero omitidas, en 51,93 segundos**. Los tres avisos de deprecación de
+Alembic corresponden a la configuración ya existente de migraciones. Ruff y la
+revisión de diferencias aprobaron. Las regresiones cubren logout, cambio a otro titular y regreso con PIN nuevo,
+aislamiento, estados vencidos o inconsistentes, recuperación en herramientas y
+pago con los importes originales. No se ha ejecutado este nuevo recorrido en
+WhatsApp ni una evaluación pagada del modelo para esta revisión.
+
+Se reconstruyeron y actualizaron únicamente central, backend y worker del
+invitado activo, conservando bases y conector. El endpoint real de deudas devolvió
+el acuerdo aceptado de USD 190 sobre USD 200 con su orden reutilizable. Esto
+acredita la consulta financiera, no la respuesta del modelo después de reautenticar.
+Los hashes de deudas, acuerdos, órdenes y liquidaciones, los recuentos de trabajos
+y salidas y el ledger de inferencia permanecieron iguales antes y después. Las
+fuentes desplegadas coinciden con el checkout; readiness público y salud de
+Langfuse devolvieron 200 y el preflight solo lectura aprobó sin inferencia ni
+escrituras en el canal.
+
 ## Portabilidad, evals y contexto — revisión del 2 de noviembre
 
 - **431 pruebas aprobadas, cero fallos y cero omitidas, en 44,26 segundos** en

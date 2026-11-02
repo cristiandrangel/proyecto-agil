@@ -10,6 +10,7 @@ from central.auth import check_pin
 from central.config import Settings
 from central.main import create_app
 from central.models import (
+    Agreement,
     Base,
     CommandResult,
     Customer,
@@ -21,7 +22,7 @@ from central.models import (
 )
 from central.seed import fixture_id, seed
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select, text
+from sqlalchemy import create_engine, event, func, select, text
 from sqlalchemy.engine import make_url
 
 
@@ -740,3 +741,166 @@ def test_global_catalogs_are_operator_only_complete_sorted_and_minimal(central):
         "document_types": ["CC", "PAS"],
     }
     assert "30000001" not in response.text and "Zulma" not in response.text
+
+
+
+def recovered_quote(client, grant, *, accept=True):
+    value = client.post(
+        "/internal/v1/agreements/quote", headers=headers(grant, "recover-quote"),
+        json={"debt_id": str(fixture_id("bruno-hogar")), "expected_version": 1,
+              "offer_amount_usd": "190", "source_message_id": "original-quote"},
+    )
+    assert value.status_code == 200, value.text
+    quoted = value.json()
+    if not accept:
+        return quoted, None
+    response = client.post(
+        f"/internal/v1/agreements/{quoted['id']}/accept",
+        headers=headers(grant, "recover-accept"),
+        json={"expected_version": 1, "source_message_id": "later-confirmation"},
+    )
+    assert response.status_code == 200, response.text
+    return quoted, response.json()
+
+
+@pytest.mark.parametrize("accepted", [False, True])
+def test_agreement_recovered_after_logout_switch_and_reauthentication(central, accepted):
+    client, app = central
+    binding = str(uuid.uuid4())
+    grant = auth(client, "10000002", binding)
+    quoted, original_order = recovered_quote(client, grant, accept=accepted)
+    response = client.post(
+        "/internal/v1/identity/revoke", headers=headers(key="recover-logout"),
+        json={"binding_ref": binding},
+    )
+    assert response.status_code == 200
+    assert client.get("/internal/v1/debts", headers=headers(grant)).status_code == 401
+    ana = auth(client, binding=binding)
+    ana_debts = client.get("/internal/v1/debts", headers=headers(ana)).json()["items"]
+    assert all(debt["active_agreement"] is None for debt in ana_debts)
+    assert client.get(
+        f"/internal/v1/debts/{fixture_id('bruno-hogar')}", headers=headers(ana)
+    ).status_code == 404
+    fresh = auth(client, "10000002", binding)
+    detail = client.get(
+        f"/internal/v1/debts/{fixture_id('bruno-hogar')}", headers=headers(fresh)
+    )
+    recovered = detail.json()["active_agreement"]
+    assert recovered["agreement_id"] == quoted["id"]
+    assert recovered["status"] == ("aceptado" if accepted else "propuesto")
+    assert recovered["offer_cents"] == 19000 and recovered["discount_cents"] == 1000
+    assert recovered["expires_at"] == quoted["expires_at"]
+    assert recovered["order_id"] == (original_order["id"] if accepted else None)
+    listed = client.get("/internal/v1/debts", headers=headers(fresh))
+    assert listed.json()["items"][0]["active_agreement"] == recovered
+    for response in (detail, listed):
+        assert all(secret not in response.text for secret in ("capability", "token_nonce", "grant"))
+    # Reads do not create orders, alter the balance, or extend the quote.
+    with app.state.session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(PaymentOrder)) == int(accepted)
+        assert db.get(Debt, fixture_id("bruno-hogar")).balance_cents == 20000
+    if not accepted:
+        same_message = client.post(
+            f"/internal/v1/agreements/{quoted['id']}/accept",
+            headers=headers(fresh, "recover-too-early"),
+            json={"expected_version": 1, "source_message_id": "original-quote"},
+        )
+        assert same_message.status_code == 409
+        later = client.post(
+            f"/internal/v1/agreements/{quoted['id']}/accept",
+            headers=headers(fresh, "recover-later"),
+            json={"expected_version": 1, "source_message_id": "fresh-confirmation"},
+        )
+        assert later.status_code == 200
+    else:
+        # The recovered reference pays the original terms, without another discount.
+        receipt = pay(client, original_order)
+        assert receipt.status_code == 200
+        assert receipt.json()["received_cents"] == 19000
+        assert receipt.json()["forgiven_cents"] == 1000
+        assert client.get(
+            f"/internal/v1/debts/{fixture_id('bruno-hogar')}", headers=headers(fresh)
+        ).json()["active_agreement"] is None
+
+
+@pytest.mark.parametrize("invalid", ["expiry", "version", "balance", "owner", "status"])
+def test_recovery_omits_ineligible_agreements(central, invalid):
+    client, app = central
+    grant = auth(client, "10000002")
+    quoted, _ = recovered_quote(client, grant)
+    with app.state.session_factory.begin() as db:
+        agreement = db.get(Agreement, uuid.UUID(quoted["id"]))
+        if invalid == "expiry":
+            agreement.expires_at = utcnow() - timedelta(seconds=1)
+        elif invalid == "version":
+            agreement.debt_version += 1
+        elif invalid == "balance":
+            db.get(Debt, fixture_id("bruno-hogar")).balance_cents += 1
+        elif invalid == "owner":
+            agreement.customer_id = fixture_id("ana")
+        else:
+            agreement.status = "cumplido"
+    assert client.get("/internal/v1/debts", headers=headers(grant)).json()["items"][0][
+        "active_agreement"
+    ] is None
+
+
+@pytest.mark.parametrize("invalid", ["expiry", "owner", "version", "balance", "status"])
+def test_recovery_never_reuses_invalid_order_or_replaces_it(central, invalid):
+    client, app = central
+    grant = auth(client, "10000002")
+    quoted, value = recovered_quote(client, grant)
+    with app.state.session_factory.begin() as db:
+        saved = db.get(PaymentOrder, uuid.UUID(value["id"]))
+        if invalid == "expiry":
+            saved.expires_at = utcnow() - timedelta(seconds=1)
+        elif invalid == "owner":
+            saved.customer_id = fixture_id("ana")
+        elif invalid == "version":
+            saved.base_version += 1
+        elif invalid == "balance":
+            saved.base_cents += 1
+            saved.discount_cents += 1
+        else:
+            saved.status = "vencida"
+    recovered = client.get("/internal/v1/debts", headers=headers(grant)).json()["items"][0][
+        "active_agreement"
+    ]
+    assert recovered["status"] == "aceptado" and recovered["order_id"] is None
+    response = client.post(
+        f"/internal/v1/agreements/{quoted['id']}/accept",
+        headers=headers(grant, "no-replacement"),
+        json={"expected_version": 1, "source_message_id": "fresh-confirmation"},
+    )
+    assert response.status_code == 410
+    with app.state.session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(PaymentOrder)) == 1
+
+
+
+def test_listing_batches_agreement_lookup_and_prefers_accepted_terms(central):
+    client, app = central
+    grant = auth(client, "10000002")
+    quoted, _ = recovered_quote(client, grant)
+    # A later proposal must not hide a still valid accepted agreement.
+    response = client.post(
+        "/internal/v1/agreements/quote", headers=headers(grant, "later-proposal"),
+        json={"debt_id": str(fixture_id("bruno-hogar")), "expected_version": 1,
+              "offer_amount_usd": "180", "source_message_id": "new-offer"},
+    )
+    assert response.status_code == 200
+    queries = []
+
+    def capture(_conn, _cursor, statement, _parameters, _context, _many):
+        if statement.lstrip().upper().startswith("SELECT"):
+            queries.append(statement)
+
+    event.listen(app.state.engine, "before_cursor_execute", capture)
+    try:
+        result = client.get("/internal/v1/debts", headers=headers(operator=True))
+    finally:
+        event.remove(app.state.engine, "before_cursor_execute", capture)
+    assert result.status_code == 200 and len(result.json()["items"]) == 14
+    assert len(queries) == 3  # Count, page, and one agreement/order projection for the page.
+    bruno = next(d for d in result.json()["items"] if d["id"] == str(fixture_id("bruno-hogar")))
+    assert bruno["active_agreement"]["agreement_id"] == quoted["id"]

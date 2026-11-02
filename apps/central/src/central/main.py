@@ -266,10 +266,12 @@ def create_app(settings: Settings | None = None):
             query.order_by(Customer.display_name, Debt.id)
             .offset((page - 1) * page_size)
             .limit(page_size)
-        )
+        ).all()
+        agreements = debts.active_agreements(db, [debt.id for debt, _ in rows])
         return {
             "items": [
-                debts.debt_view(debt, person if actor == "operator" else None)
+                debts.debt_view(debt, person if actor == "operator" else None,
+                                agreements.get(debt.id))
                 for debt, person in rows
             ],
             "total": total,
@@ -281,7 +283,7 @@ def create_app(settings: Settings | None = None):
     def detail_debt(request: Request, debt_id: uuid.UUID, db: Session = Depends(database)):
         debt = debts.get_debt(request, db, debt_id)
         person = db.get(Customer, debt.customer_id) if role(request) == "operator" else None
-        return debts.debt_view(debt, person)
+        return debts.debt_view(debt, person, debts.active_agreements(db, [debt.id]).get(debt.id))
 
     @app.patch(prefix + "/customers/{ident}")
     def edit_customer(

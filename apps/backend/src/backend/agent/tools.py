@@ -60,10 +60,10 @@ TOOL_SCHEMAS = [
         ]}},
     ),
     _schema(
-        "list_debts", "Consulta las deudas del registro autenticado.", {"service_type": OPTIONAL}
+        "list_debts", "Consulta deudas y acuerdos vigentes del registro autenticado, sin seleccionar ni crear órdenes.", {"service_type": OPTIONAL}
     ),
     _schema(
-        "select_debt", "Selecciona una única deuda autorizada para gestionar.", {"debt_id": TEXT}
+        "select_debt", "Selecciona una deuda autorizada y recupera su acuerdo vigente y enlace reutilizable, si existen.", {"debt_id": TEXT}
     ),
     _schema(
         "create_full_payment", "Crea enlace por saldo vigente sin descuento.", {"debt_id": TEXT}
@@ -185,6 +185,15 @@ class ToolRuntime:
             result = await self.identity.select_debt(self.event.thread_id, args["debt_id"])
             self.pending_agreement_id = self.active_order_id = None
             self.phase = "discuss_payment"
+            agreement = result.get("active_agreement")
+            if agreement:
+                self.pending_agreement_id = agreement["agreement_id"]
+                if agreement["status"] == "propuesto":
+                    self.phase = "confirm_agreement"
+                elif agreement["status"] == "aceptado" and agreement.get("order_id"):
+                    self.active_order_id = agreement["order_id"]
+                    self.phase = "await_payment"
+                    result["payment_link"] = f"[[PAYMENT:{self.active_order_id}]]"
             return result
         debt_id = args.get("debt_id") or snapshot["selected_debt_id"]
         if not debt_id or str(snapshot["selected_debt_id"]) != str(debt_id):

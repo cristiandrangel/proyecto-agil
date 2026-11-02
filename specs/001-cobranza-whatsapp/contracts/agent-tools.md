@@ -19,10 +19,10 @@ ejecución, aunque el modelo solicite una herramienta no autorizada.
 | locate_customer | phone_e164 o document_type + document_number, excluyentes | Sin requerir PIN; localiza solo por celular o identificación. Devuelve candidate_reference y, en esta demo, pista con nombre enmascarado y tipo/número de documento completos antes del PIN, nunca saldos; registra candidato y confirmación pendiente. Buscar otro registro revoca el contexto anterior antes de continuar |
 | manage_identity | action: confirm_candidate, reject_candidate o change_customer | confirm_candidate activa awaiting_pin con contador local cero y solicitud fija de PIN, terminando el bucle sin otra inferencia; reject_candidate rechaza el candidato y change_customer revoca contexto. El backend valida el estado y aplica la transición; nunca concede sesión financiera ni valida un PIN |
 | list_debts | filtro de servicio opcional | Sesión vigente; devuelve solo servicios autorizados con saldo, mora y estado |
-| select_debt | debt_id | Debe pertenecer al cliente; registra una única selección activa por thread; permite gestionar deudas sucesivamente, sin agregarlas ni borrar órdenes previas |
+| select_debt | debt_id | Debe pertenecer al cliente; registra una única selección activa por thread y recupera active_agreement desde central; hidrata referencias y reutiliza el marcador de la orden válida si está aceptado, sin crear otra orden ni ampliar vencimientos |
 | create_full_payment | debt_id | Deuda seleccionada; consulta versión actual y crea orden por saldo sin descuento |
 | quote_agreement | debt_id, offer_amount_usd string | Valida oferta en central; devuelve condiciones o requires_human; sin condonar |
-| accept_agreement | agreement_id | Condiciones previas y mensaje posterior de conformidad; crea orden por oferta autorizada |
+| accept_agreement | agreement_id | Condiciones previas, incluidas las recuperadas al seleccionar, y mensaje posterior de conformidad; crea orden por oferta autorizada solo si está propuesto; uno aceptado solo devuelve su orden válida existente |
 | verify_payment | debt_id, payment_reference opcional | Consulta real a central y propiedad; devuelve aplicado/ausente/pendiente, importes y saldo |
 | handoff_human | reason, offer_amount_usd opcional, summary | Motivo validado; caso durable, nota privada y open; nunca devuelve secretos |
 
@@ -169,3 +169,16 @@ El reset borra memoria local y actualiza el corte de eventos, sin modificar esa 
 ni el historial externo de Chatwoot. Los logs y metadatos de sesión usan referencias
 opacas. La captura de contenido autorizada conserva identificadores personales,
 argumentos y resultados en Langfuse privado; no incluye credenciales ni grants.
+
+Las consultas de lista/detalle incluyen `active_agreement` nullable con identificador,
+estado, base, oferta, condonación condicionada, versión, vencimiento y `order_id`
+nullable. Central valida titular, versión/saldo de deuda y vigencia; la lista usa
+una consulta batch por página y no selecciona ni crea órdenes. El backend nunca
+consulta directamente la base central. Salir, cambiar titular o perder contexto
+no cancela los acuerdos financieros: su recuperación exige autenticar de nuevo.
+Un campo omitido no demuestra ausencia; `null` describe la vigencia actual,
+no la inexistencia histórica. No se exponen capabilities ni enlaces firmados
+al modelo; `select_debt` devuelve el marcador `[[PAYMENT:orderUUID]]` para una
+orden válida, que la entrega resuelve fuera del modelo. Una propuesta recuperada
+requiere confirmación en un mensaje posterior; un acuerdo aceptado sin orden
+reutilizable no se renueva automáticamente.

@@ -187,11 +187,20 @@ def accept(request, db, agreement_id, body, key):
     if agreement.status == "aceptado":
         order = db.scalar(
             select(PaymentOrder).where(
-                PaymentOrder.agreement_id == agreement.id, PaymentOrder.status == "vigente"
+                PaymentOrder.agreement_id == agreement.id,
+                PaymentOrder.customer_id == debt.customer_id,
+                PaymentOrder.debt_id == debt.id,
+                PaymentOrder.base_version == debt.version,
+                PaymentOrder.base_cents == debt.balance_cents,
+                PaymentOrder.payable_cents == agreement.offer_cents,
+                PaymentOrder.discount_cents == agreement.expected_discount_cents,
+                PaymentOrder.status == "vigente",
+                PaymentOrder.expires_at > utcnow(),
             )
         )
         if order:
             return order_view(request.app.state.settings, order, db)
+        raise CentralError("order_expired", "No reusable payment order for this agreement", 410)
     if agreement.status != "propuesto":
         raise CentralError("agreement_state_conflict", "Agreement cannot be accepted", 409)
     agreement.status = "aceptado"
