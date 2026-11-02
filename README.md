@@ -465,6 +465,31 @@ continuar. Después se interpreta la imagen, el agente verifica el pago, consult
 la cartera, redacta su respuesta y la encola para enviar. La generación de visión
 bajo `media_normalize` es distinta de las generaciones del agente principal.
 
+### Paso a paso: identity_gate
+
+`identity_gate` registra el resultado del control de autenticación del backend,
+antes de procesar medios o ejecutar el agente. El estado de identidad determina
+si el mensaje debe atenderse por la rama estática de PIN. Fuera de `awaiting_pin`,
+el mensaje continúa hacia el agente; sin autenticar solo dispone de operaciones
+permitidas antes del login. La puerta no autentica por una afirmación del LLM.
+
+- `challenge_state`: fase del desafío; `verified` indica validación completada.
+- `verified`: si la sesión financiera está validada y vigente en ese momento.
+- `auth_failures`: intentos fallidos acumulados del desafío actual.
+- `selected_debt_id`: referencia de la única deuda elegida, si ya existe.
+- `handled`: si la rama estática resolvió el turno. `false` permite continuar al
+  procesamiento de medios/agente; no implica que la identidad sea inválida.
+- `response`: respuesta fija cuando el turno queda atendido por esa rama.
+- `agent_message`: texto seguro que recibe el recorrido del agente; un PIN correcto
+  se sustituye por `identity_verified`, nunca por el código tecleado.
+
+En la captura del comprobante, `verified=true`, `challenge_state=verified`,
+`auth_failures=0`, `handled=false` y `response=null`: la identidad ya estaba validada
+y el mensaje con imagen pudo continuar a `media_normalize`. Los primeros fallos
+de PIN se resuelven sin LLM; el tercero devuelve `auth_attempts_exhausted` sin
+autorización y el agente orienta la continuación. Los permisos financieros se
+comprueban también al ejecutar herramientas, aunque esta rama deje pasar el mensaje.
+
 ### Recorrido guiado de las trazas del test
 
 **Punto de reanudación:** el recorrido visual se pospuso para la siguiente sesión;
