@@ -7,6 +7,36 @@ El stack incluye backend, worker, central, dos PostgreSQL y los almacenes de
 Langfuse. Una máquina mínima no se considera capacidad demostrada; medir RAM,
 disco, CPU y latencia con el stack completo antes de elegir el tamaño definitivo.
 
+## Referencia de coste y entrega emulada
+
+Consulta de precios del 2 de noviembre de 2026: Linux/Unix On-Demand en
+US East (Northern Virginia), según la [tabla oficial T3](https://aws.amazon.com/ec2/instance-types/t3/).
+Los totales siguientes son cálculos con 730 horas/mes, sin descuentos ni impuestos.
+
+| Instancia | vCPU / RAM | USD/hora | 10 horas | 730 horas |
+|---|---|---|---|---|
+| t3.large | 2 / 8 GiB | 0,0835 | 0,84 | 60,96 |
+| t3.xlarge | 4 / 16 GiB | 0,1670 | 1,67 | 121,91 |
+| t3.2xlarge | 8 / 32 GiB | 0,3341 | 3,34 | 243,89 |
+
+Son precios de cómputo base; almacenamiento, tráfico, direcciones públicas y posibles
+créditos de CPU adicionales se evalúan aparte. La [guía Compose de Langfuse](https://langfuse.com/self-hosting/deployment/docker-compose)
+recomienda al menos 4 cores y 16 GiB para su despliegue en VM. t3.xlarge es por ello
+un candidato inicial para medir la demo completa, no capacidad garantizada ni elección
+aprobada para producción. Una medición puntual local de los doce contenedores observó
+aproximadamente 2,7 GiB de memoria reportada por Docker; no prueba picos de arranque,
+compilación, ingestión ni comportamiento bajo un límite de memoria menor.
+
+Como referencia de [EBS gp3](https://aws.amazon.com/ebs/pricing/), a USD 0,08 por
+GB-mes, 100 GB representan USD 8/mes adicionales. El cómputo On-Demand se factura
+hasta detener o terminar la instancia; los volúmenes conservados siguen facturándose.
+Las llamadas de IA y el canal se presupuestan por separado.
+
+La emulación local prevista utiliza recursos del equipo evaluador y no contrata
+una EC2 real. El objetivo discutido es ensayar el despliegue ejecutable del stack,
+además del smoke de APIs ya existente. Aún no se implementó ni verificó ese arranque
+dentro de una instancia emulada; no presentarlo como resultado ya conseguido.
+
 ## Preparar el host y la persistencia
 
 Crear manualmente una EC2 Linux con Docker Engine y Compose v2 instalados; comprobar
