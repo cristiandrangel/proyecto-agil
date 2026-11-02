@@ -230,7 +230,7 @@ instalación nueva; ese modo por sí solo no permite el recorrido WhatsApp.</p>
 <h3 id="13-iniciar-sesión-en-langfuse">1.3. Iniciar sesión en Langfuse</h3>
 <p>En otra pestaña, abre el valor de <code>LANGFUSE_PUBLIC_URL</code>. Inicia sesión con <code>LANGFUSE_INIT_USER_EMAIL</code> y <code>LANGFUSE_INIT_USER_PASSWORD</code>, que están al final del <code>.env</code>, en <strong>ACCESOS WEB DEL EVALUADOR → Langfuse</strong>. Selecciona el proyecto <strong>Cobranza-Demo</strong>. La sección 7 explica cómo revisar las trazas de cada mensaje.</p>
 <h2 id="2-reconocer-los-datos-de-prueba">2. Reconocer los datos de prueba</h2>
-<p><strong>PIN ficticio: <code>2468</code> para todos los clientes.</strong> En WhatsApp puedes indicar el tipo y número de documento con lenguaje natural: <code>10000002 cédula</code>, <code>mi cédula es 10.000.002</code> o <code>CC 10000002</code>. El agente debe separar ambos datos, usar el código canónico y quitar los separadores de agrupación claros, conservando los dígitos y ceros iniciales. No necesitas conocer códigos internos. Si falta un dato o el formato es ambiguo, debe aclararlo. Fuera de la fase de PIN, un número aislado también llega al agente y puede interpretarse como identificación; no existe un filtro global que lo trate como PIN.</p>
+<p>Vuelve a la pestaña de la <strong>central de cobranza</strong> y revisa los clientes cargados. En el recorrido principal usarás a <strong>Ana Martínez López</strong>, que tiene dos servicios pendientes. Los demás clientes permiten probar las variantes más adelante.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -267,7 +267,8 @@ instalación nueva; ese modo por sí solo no permite el recorrido WhatsApp.</p>
 </tr>
 </tbody>
 </table></div>
-<p>Todos los nombres y documentos de esta cartera son ficticios. Cada fila representa una deuda de un servicio; nombre y teléfono se comparten entre las deudas de una persona. Los mensajes de WhatsApp que aparecen a continuación son <strong>ejemplos orientativos</strong>: el modelo puede responder con otra redacción. Evalúa la acción y sus datos, no una frase exacta.</p>
+<p>Comprueba que Ana aparece en dos filas: hogar y telefonía. Cada fila es una deuda de un servicio, y ambas comparten el mismo contacto. Todos los nombres y documentos son ficticios.</p>
+<p><strong>Ten a mano el PIN de prueba: <code>2468</code>.</strong> Lo usarás más adelante, cuando el agente lo solicite por WhatsApp. Por ahora no necesitas escribirle ni modificar datos; continúa con la sección 3 para configurar tu contacto e iniciar la demo.</p>
 <h2 id="3-camino-principal-campaña-pago-íntegro-y-acuerdo">3. Camino principal: campaña, pago íntegro y acuerdo</h2>
 <blockquote>
 <p><strong>Aquí comienza la demo.</strong> Ya instalaste el sistema, abriste la central, Chatwoot y Langfuse, y conoces los datos de prueba. Ahora actuarás como operador para lanzar la campaña y como cliente desde tu WhatsApp. El primer paso es asociar tu número a Ana.</p>
@@ -465,7 +466,7 @@ Comprueba este caso fuera del brazo estático del PIN y con la conversación en
 <code>pending</code>; si quedó bajo control humano, devuélvela explícitamente como indica 4.5.</p>
 <ol>
 <li>En la conversación de Ana, envía <code>Cambiar cliente</code>. El agente debe entender la intención, solicitar la transición con <code>manage_identity</code> y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de <code>awaiting_pin</code>; durante esa fase todos los mensajes se tratan como intentos de autenticación.</li>
-<li>Escribe <code>CC 10000002</code>. Confirma la pista de Bruno y escribe <code>2468</code> cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente <code>No, quiero gestionar CC 10000002</code> para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.</li>
+<li>Escribe <code>CC 10000002</code>. También puedes decir <code>10000002 cédula</code> o <code>mi cédula es 10.000.002</code>: el agente debe reconocer que te refieres al mismo documento. Confirma la pista de Bruno y escribe <code>2468</code> cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente <code>No, quiero gestionar CC 10000002</code> para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.</li>
 <li>Selecciona hogar: debe mostrar USD 200. Las deudas de Ana no pasan a ser de Bruno ni siguen como selección activa.</li>
 <li>Para volver a Ana, repite <strong>Cambiar cliente</strong>, <code>CC 10000001</code>, confirmación y PIN. Cambiar titular siempre exige validación nueva.</li>
 </ol>

@@ -171,7 +171,7 @@ En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LA
 
 ## 2. Reconocer los datos de prueba
 
-**PIN ficticio: `2468` para todos los clientes.** En WhatsApp puedes indicar el tipo y número de documento con lenguaje natural: `10000002 cédula`, `mi cédula es 10.000.002` o `CC 10000002`. El agente debe separar ambos datos, usar el código canónico y quitar los separadores de agrupación claros, conservando los dígitos y ceros iniciales. No necesitas conocer códigos internos. Si falta un dato o el formato es ambiguo, debe aclararlo. Fuera de la fase de PIN, un número aislado también llega al agente y puede interpretarse como identificación; no existe un filtro global que lo trate como PIN.
+Vuelve a la pestaña de la **central de cobranza** y revisa los clientes cargados. En el recorrido principal usarás a **Ana Martínez López**, que tiene dos servicios pendientes. Los demás clientes permiten probar las variantes más adelante.
 
 | Persona ficticia | Documento | Situación inicial |
 |---|---|---|
@@ -181,7 +181,9 @@ En otra pestaña, abre el valor de `LANGFUSE_PUBLIC_URL`. Inicia sesión con `LA
 | Diego Castro Ruiz | CC `10000004` | Hogar: USD 85, mora 65 días, versión 2. |
 | Nueve personas de límites de mora | CC `20000000 + días` | Televisión: USD 100; mora 0, 29, 30, 59, 60, 89, 90, 119 o 120 días. Ejemplo: `20000120`. |
 
-Todos los nombres y documentos de esta cartera son ficticios. Cada fila representa una deuda de un servicio; nombre y teléfono se comparten entre las deudas de una persona. Los mensajes de WhatsApp que aparecen a continuación son **ejemplos orientativos**: el modelo puede responder con otra redacción. Evalúa la acción y sus datos, no una frase exacta.
+Comprueba que Ana aparece en dos filas: hogar y telefonía. Cada fila es una deuda de un servicio, y ambas comparten el mismo contacto. Todos los nombres y documentos son ficticios.
+
+**Ten a mano el PIN de prueba: `2468`.** Lo usarás más adelante, cuando el agente lo solicite por WhatsApp. Por ahora no necesitas escribirle ni modificar datos; continúa con la sección 3 para configurar tu contacto e iniciar la demo.
 
 ## 3. Camino principal: campaña, pago íntegro y acuerdo
 
@@ -344,7 +346,7 @@ Comprueba este caso fuera del brazo estático del PIN y con la conversación en
 `pending`; si quedó bajo control humano, devuélvela explícitamente como indica 4.5.
 
 1. En la conversación de Ana, envía `Cambiar cliente`. El agente debe entender la intención, solicitar la transición con `manage_identity` y pedir otra identificación tras la revocación de la autorización anterior por el backend. Pide el cambio fuera de `awaiting_pin`; durante esa fase todos los mensajes se tratan como intentos de autenticación.
-2. Escribe `CC 10000002`. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente `No, quiero gestionar CC 10000002` para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.
+2. Escribe `CC 10000002`. También puedes decir `10000002 cédula` o `mi cédula es 10.000.002`: el agente debe reconocer que te refieres al mismo documento. Confirma la pista de Bruno y escribe `2468` cuando solicite el PIN. Si estás en la confirmación del candidato anterior y todavía no entraste a la fase PIN, puedes escribir directamente `No, quiero gestionar CC 10000002` para rechazarlo e identificar a Bruno. Todos los clientes del fixture comparten el PIN de demo; cambia el documento para elegir otro titular.
 3. Selecciona hogar: debe mostrar USD 200. Las deudas de Ana no pasan a ser de Bruno ni siguen como selección activa.
 4. Para volver a Ana, repite **Cambiar cliente**, `CC 10000001`, confirmación y PIN. Cambiar titular siempre exige validación nueva.
 
