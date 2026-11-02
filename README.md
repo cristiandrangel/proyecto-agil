@@ -122,9 +122,13 @@ interna de su instalación y no se utiliza como archivo de entrega.
 
    | Interfaz | Dirección | Credenciales del `.env` privado |
    |---|---|---|
-   | Central de cobranza | `PUBLIC_BASE_URL` + `/central` | `OPERATOR_USERNAME`, `OPERATOR_PASSWORD` |
-   | Chatwoot de pruebas | `CHATWOOT_UI_URL` | `CHATWOOT_UI_EMAIL`, `CHATWOOT_UI_PASSWORD` |
-   | Langfuse | `LANGFUSE_PUBLIC_URL` | `LANGFUSE_INIT_USER_EMAIL`, `LANGFUSE_INIT_USER_PASSWORD` |
+   | Central de cobranza | [https://cobranza.agenx-dev-test.work/central](https://cobranza.agenx-dev-test.work/central) | `OPERATOR_USERNAME`, `OPERATOR_PASSWORD` |
+   | Chatwoot de pruebas | [https://chatwoot.agenxai.co](https://chatwoot.agenxai.co) | `CHATWOOT_UI_EMAIL`, `CHATWOOT_UI_PASSWORD` |
+   | Langfuse | [http://localhost:13000](http://localhost:13000) | `LANGFUSE_INIT_USER_EMAIL`, `LANGFUSE_INIT_USER_PASSWORD` |
+
+   Abre Langfuse desde el mismo computador donde levantaste la demo: `localhost`
+   se refiere a ese equipo. Las tres direcciones también figuran al final del
+   archivo privado de accesos.
 
 La central es [cobranza.agenx-dev-test.work/central](https://cobranza.agenx-dev-test.work/central)
 y Langfuse está en [localhost:13000](http://localhost:13000). Usa el origen HTTPS
