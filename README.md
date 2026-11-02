@@ -431,7 +431,7 @@ Haz esta revisión **al terminar el recorrido funcional**, incluidas las variant
 de la sección 4 y la persistencia de la sección 8 si las ejecutaste. Conserva
 Chatwoot y la central abiertos para comparar cada resultado con su traza.
 
-1. Entra con las credenciales indicadas en la sección 1. Selecciona el proyecto y el horario de la prueba.
+1. Entra con las credenciales indicadas en la sección 1. Selecciona el proyecto y el horario de la prueba. Si retomas otro día, amplía el intervalo para incluir la fecha de la ejecución; el filtro de hoy no mostrará las trazas de ayer. Comprueba también la zona horaria mostrada por la interfaz.
 2. Filtra observaciones raíz (`isRootObservation:true`) y nombre **`conversation`**. Si el refresco está en **Off**, espera la exportación y pulsa **Refresh**; puedes seleccionar actualización periódica.
 3. Abre la fila del mensaje y expande **agent → llm → Input / Output**. Debes poder inspeccionar el contexto realmente enviado y la respuesta disponible del modelo.
 4. Abre **tool.<nombre> → Input / Output** para argumentos y resultados; por ejemplo `tool.verify_payment` en la verificación del recibo. Revisa también los estados anterior y posterior.
