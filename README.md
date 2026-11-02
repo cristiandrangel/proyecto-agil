@@ -204,33 +204,41 @@ No cambies contacto ni filtros después de previsualizar. Si lo haces, vuelve a 
 3. Pulsa **Guardar campaña**. Aún no hay envío. Después pulsa **Lanzar secuencia** una vez.
 4. Observa el progreso. El panel consulta cada tres segundos mientras está visible; **Actualizar** consulta inmediatamente.
 
-**Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Comprueba que la plantilla llegue a tu WhatsApp. En el siguiente paso verás el envío desde Chatwoot.
+**Debes ver:** procesamiento secuencial hasta 12/12, un envío real para Ana y 11 simulados, si no hay exclusiones o errores. Los simulados no envían mensajes externos ni consumen IA. Comprueba si la plantilla llega a tu WhatsApp. Si no llega, utiliza la alternativa siguiente y continúa el recorrido.
 
 **Enviado al canal** significa aceptación de la API, no entrega o lectura de WhatsApp. **Procesamiento finalizado** tampoco significa que todos recibieron el mensaje. Un resultado **Sin confirmación** requiere revisión: no repitas la campaña para compensarlo. Las cuotas se explican en la sección 10; no hace falta volver a lanzar una plantilla para cada variante conversacional.
 
-### 3.4. Ver el mensaje enviado en Chatwoot
+**Si no recibes la plantilla, puedes continuar la demo.** La campaña muestra cómo activar conversaciones a partir de un segmento de la cartera. Es una estrategia de contacto inicial; la entrega final del mensaje depende también de Meta y puede no producirse para algunos destinatarios. Que no llegue la plantilla no impide probar la atención del agente.
 
-**Con la campaña enviada y el mensaje recibido en WhatsApp**, abre Chatwoot para observar el mismo envío desde la atención al cliente. Conserva abierta la pestaña de campaña de la central.
+1. Desde tu WhatsApp, abre un chat con el **número TEST facilitado para la prueba**.
+2. Escribe `Hola, quiero revisar mi deuda`.
+3. Continúa en la sección 3.4 para localizar esa conversación en Chatwoot y, después, en la 3.5 para seguir con la respuesta del agente. Como ya enviaste el saludo, no hace falta repetirlo.
+
+Conserva el resultado real del envío de campaña: iniciar tú la conversación permite probar el agente, pero no convierte un envío fallido en entregado. Si tampoco responde a tu mensaje directo, revisa **El bot no responde** en la sección 10.
+
+### 3.4. Ver la conversación en Chatwoot
+
+**Después de lanzar la campaña**, abre Chatwoot para ver la conversación desde la atención al cliente. Puedes haber recibido la plantilla o haber escrito tú directamente al número TEST. Conserva abierta la pestaña de campaña de la central.
 
 1. Al final del `.env`, en **ACCESOS WEB DEL EVALUADOR → Chatwoot**, localiza `CHATWOOT_UI_URL`, `CHATWOOT_UI_EMAIL` y `CHATWOOT_UI_PASSWORD`.
 2. Abre [Chatwoot](https://chatwoot.agenxai.co) en **otra pestaña**; su dirección también figura en `CHATWOOT_UI_URL`. Conserva abierta la central. Si el navegador ya tiene otra cuenta de Chatwoot iniciada, usa una ventana privada para entrar como evaluador.
 3. En el formulario de acceso, introduce el valor de `CHATWOOT_UI_EMAIL` como correo y el de `CHATWOOT_UI_PASSWORD` como contraseña. Copia solo los valores, sin el nombre de las variables, `=` ni las comillas delimitadoras. Inicia sesión.
 4. Comprueba que estás usando el usuario **Evaluador Cobranza** y que aparece el canal **Test Agenx WhatsApp** en el menú lateral.
 5. Abre ese canal y pulsa el icono de filtros junto al título **Conversaciones**. En **Estado → Igual a**, incluye **Pendientes** y pulsa **Aplicar filtros**. Puedes mantener también **Abiertas**, como en la captura, para ver tanto conversaciones del bot como las transferidas a humanos. Después selecciona la pestaña **Todos**, en lugar de **Mías**, para incluir las conversaciones que aún no tienes asignadas.
-6. Abre la conversación que corresponde a tu WhatsApp. Comprueba que aparece la misma plantilla que acabas de recibir en el teléfono.
+6. Abre la conversación que corresponde a tu WhatsApp. Si recibiste la plantilla, comprueba que aparece el mismo texto enviado. Si utilizaste la entrada directa, busca tu saludo y la respuesta del agente; la plantilla no es un requisito para continuar.
 7. Déjala bajo control de **Alex TEST**. No pulses **Tomar el control** durante el recorrido del bot: al pasar a `open`, la conversación queda para atención humana.
 
 La captura muestra el filtro con **Abiertas** y **Pendientes** seleccionadas. Tras aplicarlo, recuerda pasar de **Mías** a **Todos**:
 
 ![Chatwoot: filtro Estado igual a Abiertas y Pendientes, y botón Aplicar filtros](docs/imagenes/chatwoot-filtros-conversaciones.png)
 
-Mantén esta pestaña abierta: a continuación responderás desde WhatsApp y verás aquí tu mensaje y la respuesta del agente. La campaña ya fue enviada; continúa en esa misma conversación.
+Mantén esta pestaña abierta para observar los mensajes de WhatsApp y las respuestas del agente. Continúa en esa misma conversación, tanto si empezó con la plantilla como si escribiste tú primero.
 
 ### 3.5. Responder, autenticar y elegir hogar
 
-**Antes de responder:** debes haber recibido la plantilla en WhatsApp y tener abierta su conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Conserva también abierta la pestaña de campaña de la central.
+**Antes de continuar:** ten abierta tu conversación en Chatwoot, dentro de **Test Agenx WhatsApp**, con **Pendientes** incluido en el filtro y la pestaña **Todos** seleccionada. Puede haberse iniciado con la plantilla o con tu mensaje directo. Conserva también abierta la pestaña de campaña de la central.
 
-1. Desde tu **WhatsApp**, responde a la plantilla con `Hola, quiero revisar mi deuda`. Si la plantilla muestra el botón **Explícame más**, puedes pulsarlo una vez en lugar de escribir ese mensaje; no necesitas hacer ambas cosas.
+1. Desde tu **WhatsApp**, responde a la plantilla con `Hola, quiero revisar mi deuda`. Si muestra el botón **Explícame más**, puedes pulsarlo una vez en lugar de escribir. Si ya enviaste el saludo directamente porque la plantilla no llegó, pasa al siguiente paso y revisa la respuesta; no vuelvas a enviarlo.
 2. Espera la respuesta y comprueba en Chatwoot tanto tu mensaje entrante como la salida del bot. En este primer intercambio, verifica que el agente se presenta como Alex, explica el contexto de cobranza y la necesidad de autenticarte antes de dar detalles, y muestra una pista con el nombre enmascarado y el documento completo si encontró un registro. La redacción es generada por el modelo y puede variar. **Revisa esta apertura antes de continuar; todavía no envíes el PIN.**
 3. Si muestra una pista de identidad, confírmala solo si corresponde al registro de Ana. Puedes responder **sí** o **dale** cuando quede claro que aceptas esa pista; el agente debe interpretar la respuesta y avanzar a solicitar el PIN. Si tu respuesta es ambigua, debe pedir aclaración. Si pide documento o la búsqueda por teléfono no encuentra el registro, escribe `CC 10000001` y confirma la pista correcta.
 4. Tras confirmar el candidato, el sistema entra en la fase estática de autenticación y solicita el PIN con una respuesta fija. Escribe **2468**, en un mensaje de texto independiente. Durante esa fase cada mensaje se evalúa como intento de autenticación: no se envía al modelo.
@@ -285,6 +293,8 @@ No restaures todavía ni lances otra campaña: telefonía ya pertenece a la mism
 7. En la central, las dos deudas de Ana deben estar liquidadas. El acuerdo aceptado solo liquidó al aprobarse el pago.
 
 ### 3.9. Contrastar las métricas antes del corte
+
+Los valores de campaña esperados a continuación corresponden al camino con envío real aceptado. Si iniciaste la conversación directamente porque falló la plantilla, los pagos pueden completarse, pero su atribución y la contactabilidad de esa campaña pueden diferir. Revisa los resultados registrados sin marcar el envío como exitoso por haber conversado después.
 
 Vuelve a la **pestaña que conserva el panel de esta campaña**, pulsa **Actualizar** y espera la conciliación de eventos si el pago acaba de aplicarse.
 
@@ -629,7 +639,7 @@ En Windows, sustituye `./emulate-ec2.sh` por `.\emulate-ec2.cmd` con los mismos 
 | `origin_denied` al ingresar | Abre el origen HTTPS de `PUBLIC_BASE_URL`; no sustituyas el acceso por un puerto local. |
 | Credenciales rechazadas | Usa los valores del entorno **exportado de esta instalación**, al final de `.local/ec2-emulation/evaluator.env`; no el PIN ni credenciales de un Langfuse antiguo. |
 | No aparece el chat | Bandeja TEST, filtros **Pendientes + Abiertas** y pestaña **Todos**. |
-| La campaña terminó pero no llegó nada | Comprueba Live, autorización del destinatario en Meta y detalle de fallo/omisión/sin confirmación. Procesado no equivale a entregado. |
+| La campaña terminó pero no llegó nada | Revisa el resultado del envío. Para continuar la demo, escribe directamente al número TEST como indica la sección 3.3; no necesitas otra campaña. La entrega depende también de Meta. |
 | El bot no responde | Confirma `pending`, salud del worker, presupuesto, cuotas y que no esté esperando PIN. No relances una campaña para recuperar una respuesta. |
 | No se ven trazas | Abre Langfuse de esta instalación, proyecto y fecha correctos; refresca y busca el evento. La página puede funcionar aunque una exportación haya fallado. |
 | El enlace no permite pagar | Orden vencida, deuda modificada o pago ya aplicado. Consulta el estado; no edites saldo para simular una aprobación. |
