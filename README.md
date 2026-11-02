@@ -490,6 +490,29 @@ de PIN se resuelven sin LLM; el tercero devuelve `auth_attempts_exhausted` sin
 autorización y el agente orienta la continuación. Los permisos financieros se
 comprueban también al ejecutar herramientas, aunque esta rama deje pasar el mensaje.
 
+### Frecuencia del control y significado de delivery
+
+Los turnos que alcanzan el procesamiento normal del worker pasan por
+`identity_gate`, aunque la identidad ya esté validada. No exige introducir el PIN
+en cada mensaje ni consume inferencia. Eventos ignorados, duplicados, memoria humana
+pasiva o ejecuciones canceladas antes de ese punto pueden no tener esa observación.
+Sus campos describen el momento de aquella ejecución: una validación histórica no
+prueba que la sesión siga vigente hoy. Las tools vuelven a comprobar autorización.
+
+`response_enqueue` guarda una salida en la outbox persistente; `delivery` registra
+el intento posterior de ejecutarla contra Chatwoot, con el contenido, conversación
+destino y respuesta del canal. No llama al LLM. En el comprobante revisado figura
+`kind=message`, respuesta del canal con identificador y `status=sent`. Esto acredita
+aceptación del envío por la API; entrega y lectura WhatsApp requieren sus estados
+propios. En un handoff también hay salidas de nota privada, aviso público y cambio
+a `open`, que pueden producir varios `delivery` en un mismo turno.
+
+Una fila `delivery` en la tabla no representa otro mensaje entrante: es una operación
+de salida. Se relaciona por traza/evento con la ejecución original; los registros
+históricos pueden conservar otra raíz. `deferred` significa intento aplazado,
+`cancelled` salida cancelada, `failed` fallo y `uncertain` resultado incierto;
+no se debe interpretar una observación por intento como un mensaje enviado adicional.
+
 ### Recorrido guiado de las trazas del test
 
 **Punto de reanudación:** el recorrido visual se pospuso para la siguiente sesión;
