@@ -7,6 +7,7 @@ COPY apps ./apps
 COPY packages ./packages
 COPY migrations ./migrations
 COPY scripts ./scripts
+COPY evals ./evals
 RUN uv sync --frozen --all-packages --no-dev && python -c "import tiktoken; tiktoken.get_encoding('o200k_base')" && useradd --uid 10001 --create-home app && chown -R app:app /app
 USER app
 EXPOSE 8000

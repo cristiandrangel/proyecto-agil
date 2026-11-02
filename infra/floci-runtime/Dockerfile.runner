@@ -1,5 +1,7 @@
 # Control-plane helper only. The application runs in the EC2 guest's Docker engine.
-FROM docker:29-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
+FROM docker:29-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb
 RUN apk add --no-cache python3 py3-boto3 openssh-client git
-ENTRYPOINT ["python3", "-m", "scripts.ec2_emulation"]
+COPY runner-entrypoint.sh /usr/local/bin/agil-runner
+RUN sed -i 's/\r$//' /usr/local/bin/agil-runner && chmod 755 /usr/local/bin/agil-runner
+ENTRYPOINT ["/usr/local/bin/agil-runner"]
 CMD ["up"]

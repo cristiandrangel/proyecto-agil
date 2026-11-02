@@ -5,6 +5,6 @@ RUN apk add --no-cache openssh-server openssh-sftp-server bash curl python3 \
     && printf '\nPermitRootLogin prohibit-password\nPasswordAuthentication no\n' >> /etc/ssh/sshd_config
 COPY sshd-forwarding.conf /etc/ssh/sshd_config.d/00-agil-forwarding.conf
 COPY guest-entrypoint.sh /usr/local/bin/agil-guest-entrypoint
-RUN chmod 755 /usr/local/bin/agil-guest-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/agil-guest-entrypoint /etc/ssh/sshd_config.d/00-agil-forwarding.conf && chmod 755 /usr/local/bin/agil-guest-entrypoint
 ENTRYPOINT ["/usr/local/bin/agil-guest-entrypoint"]
 CMD ["tail", "-f", "/dev/null"]

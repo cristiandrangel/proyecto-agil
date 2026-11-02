@@ -7,9 +7,10 @@ Demo de cobranza por WhatsApp con cartera editable y pagos simulados en USD. Est
 La modalidad de entrega es **EC2 emulada con Floci**: la aplicación, las bases y
 Langfuse corren dentro de un invitado Linux con Docker propio. Chatwoot, Meta y
 OpenAI siguen siendo externos. El laboratorio usa contenedores con kernel
-compartido; no contrata una instancia AWS. Requiere Linux x86_64, Docker Engine
-con Compose v2, Bash e Internet. Los requisitos de memoria/disco y límites están
-en [EC2 emulada](docs/emulacion-ec2.md).
+compartido; no contrata una instancia AWS. El arranque admite Docker Desktop con
+Linux containers en Windows, macOS y Linux, además de Docker Engine Linux, en
+amd64 y arm64. Python y SSH se ejecutan en un contenedor auxiliar. Los requisitos
+de recursos y el alcance de la validación están en [EC2 emulada](docs/emulacion-ec2.md).
 
 1. Abre la carpeta del repositorio y coloca el archivo privado entregado como
    `.env.entrega`, junto a este README. Contiene las integraciones y accesos de
@@ -19,18 +20,25 @@ en [EC2 emulada](docs/emulacion-ec2.md).
    detenido. El hostname se conserva; **solo debe haber un equipo de aplicación
    activo**. No copies volúmenes ni datos del desarrollador. El script genera
    secretos internos nuevos para tu instalación.
-3. Arranca:
+3. Con Docker iniciado, arranca desde la carpeta del repositorio. En Linux/macOS:
 
    ```bash
    chmod 600 .env.entrega
    ./emulate-ec2.sh up --delivery-file .env.entrega --public
    ```
 
+   En Windows, desde PowerShell o CMD:
+
+   ```powershell
+   .\emulate-ec2.cmd up --delivery-file .env.entrega --public
+   ```
+
 4. Espera a que termine. El primer arranque descarga imágenes, crea el invitado
    por la API EC2, prepara bases, migraciones, checkpoints y Langfuse, y comprueba
    las integraciones por lectura antes de abrir el túnel. Los fixtures se cargan
    solo si la base está vacía. Para reanudar esta misma instalación usa
-   `./emulate-ec2.sh up --public`: conserva configuración, pagos y memoria.
+   `./emulate-ec2.sh up --public` (Windows: `.\emulate-ec2.cmd up --public`):
+   conserva configuración, pagos y memoria.
 5. Abre las tres interfaces y conserva sus pestañas durante el recorrido:
 
    El entorno efectivo se exporta a **`.local/ec2-emulation/evaluator.env`**.
@@ -758,17 +766,44 @@ Para iniciar un reset por terminal se usa `python -m scripts.reset_demo --confir
 
 El presupuesto total de IA es **USD 5**, con corte local conservador en **USD 4,50**. Las reservas inciertas se conservan. El coste mostrado es estimado, no la factura del proveedor. Se comprobó `temperature=0` con `gpt-5.6-luna` y razonamiento `high`: la API lo rechazó como parámetro no soportado (HTTP 400). Se conserva `high` sin añadir ese parámetro; el refuerzo de alcance se hace en el prompt. Las simulaciones de campañas no consumen IA; las consultas conversacionales y los medios reales sí pueden hacerlo.
 
+El agente conserva la ventana de **20 mensajes visibles**, con grupos completos
+de llamadas y resultados de herramientas. El techo de entrada es **70.000 tokens
+por llamada** (`AI_MAX_INPUT_TOKENS`), incluyendo instrucciones, contexto,
+historial y catálogo; no se rellena hasta ese tamaño. La salida mantiene su
+límite de **4.096 tokens**. El historial persistido no se borra al seleccionar
+la ventana enviada al modelo.
+
 El relay tiene topes máximos de **60 peticiones/minuto**, **10 intentos de creación de contacto/día UTC** y **100 intentos de envío/día UTC**, persistentes; la configuración privada puede reducirlos. Plantillas y respuestas consumen envío; la nota privada y el aviso de una derivación también consumen intentos. Fallos o timeouts no reembolsan cuota. No repitas campañas inciertas ni hagas nuevos envíos solo para recuperar un panel cerrado. Un reset no reinicia esas cuotas.
 
 `CHATWOOT_BASE_URL` y `CHATWOOT_CONTACTS_BASE_URL` usan el relay acotado de pruebas, con su clave limitada. Los tokens amplios de usuario y AgentBot quedan en el entorno privado del propietario. El relay restringe cuenta, bandeja y operaciones; el login web de Chatwoot tiene permisos propios, delegados por su administrador. No se entrega una cuenta administrativa para este guion.
 
 La demo usa una plantilla ya aprobada. Crear nuevas plantillas programáticamente y esperar aprobación de Meta es una integración futura; el texto informativo de la página no representa esa función implementada.
 
+### Evals del comportamiento del agente
+
+El [catálogo de evals](evals/cases.json) contiene **50 escenarios ficticios** de
+seguridad, identidad, negociación, acuerdos, comprobantes y atención humana.
+Para validar el catálogo sin consumir IA, con la instalación ya arrancada:
+
+```bash
+./emulate-ec2.sh evals
+```
+
+En Windows: `.\emulate-ec2.cmd evals`. Ese comando comprueba los casos y los
+contratos; los resultados del modelo quedan como **no ejecutados**.
+
+Las ejecuciones con LLM real son explícitas y consumen el presupuesto existente.
+Evalúan una decisión por escenario con resultados de herramientas ficticios;
+no ejecutan herramientas ni envían mensajes. El reporte separa comprobaciones
+estructurales y revisión semántica humana. Los comandos, rúbricas y evidencia
+histórica están en [Evals reproducibles](docs/evals.md). La suite nueva no hereda
+como aprobados los resultados de los diagnósticos anteriores.
+
 ### Pruebas deterministas y límites de evidencia
 
-La última suite Docker completa registrada aprobó **377 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026 a las 03:48 UTC** —1 de noviembre, 22:48 en Bogotá—, en **46,35 segundos**. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. El evento de devolución se comprueba en orden, una vez por caso y recuperable tras un reinicio; la migración `backend_0006` conserva los casos existentes y se verificó en downgrade/upgrade con paridad de modelos. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
+La última suite Docker completa registrada aprobó **431 pruebas**, sin fallos ni omitidas, el **2 de noviembre de 2026**, en **44,26 segundos**. Incluye el catálogo y runner de evals, los contratos de portabilidad y los límites de contexto actualizados; no hace inferencia ni envía mensajes. Siete casos nuevos verifican el registro pasivo del diálogo humano y su recuperación en el estado sin activar al bot durante la pausa. Incluye confirmación mediante el agente, rama estática de PIN con tres intentos, transporte cifrado y respuesta del webhook sin consultar proveedores. También verifica los nombres de las nueve tools y los padres persistidos de las tres salidas del handoff. El evento de devolución se comprueba en orden, una vez por caso y recuperable tras un reinicio; la migración `backend_0006` conserva los casos existentes y se verificó en downgrade/upgrade con paridad de modelos. Ruff pasó. La migración `backend_0005` se comprobó además con PostgreSQL 17: upgrade sobre una fila existente, valor inicial cero, comparación con modelos, downgrade y nuevo upgrade.
 
-El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual de 377 casos ya verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
+El cambio de asteriscos a `•` se validó inicialmente con **40 pruebas enfocadas en 16,02 segundos**. Esa ejecución corresponde al formato anterior, que ocultaba también parte del documento. La suite actual verifica el documento completo con nombre enmascarado. La pista actual se contrastó también en el recorrido real documentado a continuación.
 
 Incluye PostgreSQL 17 real, migraciones y concurrencia financiera, aislamiento, identidad, campañas, webhooks/outbox, medios, dos turnos con checkpoint e inputs/outputs, SDK real con exportación en memoria, assets, fallos de telemetría y transporte S3 firmado. Los proveedores de inferencia y mensajería tienen dobles en esa batería. No acredita por sí sola el recorrido real con el evaluador.
 

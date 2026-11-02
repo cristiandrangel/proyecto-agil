@@ -1,0 +1,8 @@
+# Scripts transferred into Linux guests must remain executable with LF on Windows.
+*.sh text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Dockerfile* text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf

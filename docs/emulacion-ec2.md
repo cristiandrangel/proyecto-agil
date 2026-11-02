@@ -12,7 +12,7 @@ Docker del invitado.
 
 ```text
 Docker del equipo evaluador
-└─ engine aislado (Docker-in-Docker, 8 CPU / 24 GiB)
+└─ engine aislado (Docker-in-Docker, hasta 8 CPU / 24 GiB)
    ├─ Floci 2.4.0 (API EC2, estado propio)
    └─ Linux invitado creado por RunInstances (4 CPU / 16 GiB)
       └─ Docker Engine propio, socket Unix
@@ -36,25 +36,82 @@ En la imagen fijada, `t3.xlarge` no está en el catálogo completo de capacidade
 Floci acepta ese nombre pero no limita CPU/RAM. Este laboratorio solicita
 `t2.xlarge`, cuyo catálogo sí tiene 4 vCPU/16 GiB, y verifica los límites reales
 Docker. Es una elección para esta emulación; no dimensiona ni recomienda una
-familia AWS de producción. El engine exterior está limitado a 8 CPU/24 GiB.
+familia AWS de producción. El engine exterior tiene techo de 8 CPU (o las CPU disponibles si hay menos) y
+24 GiB. Son límites máximos de cgroup: no se reservan ni se consumen 24 GiB al
+arrancar. El invitado conserva su límite de 4 CPU/16 GiB.
 
 ## Requisitos y uso
 
-Probado en Linux x86_64 con Docker Engine, Docker Compose y Bash. Se necesita
-virtualización de contenedores privilegiados y acceso a Internet para imágenes y
-paquetes oficiales. Reservar al menos 24 GiB de RAM disponibles y 15 GiB de disco
-libres; la descarga y compilación consumen espacio adicional según la caché.
-No se borra caché ni recursos ajenos. No se garantiza Docker Desktop, macOS,
-Windows, rootless Docker ni ARM sin ensayo específico.
+El lanzador admite Docker Engine Linux y Docker Desktop con **Linux containers**,
+en daemons **amd64 y arm64**. En macOS (Intel/Apple Silicon) y Linux se usa Bash;
+en Windows se usa PowerShell o el wrapper `.cmd`. El equipo sólo necesita Docker
+con Compose v2: Python, Git cliente y SSH del control-plane viven en el runner.
+Puede usarse un checkout Git o el ZIP completo descargado de GitHub y extraído
+en una carpeta local. Para ZIP, `infra/public-source-manifest.txt` enumera las
+fuentes públicas transferibles; los archivos privados y los symlinks se excluyen
+también si aparecen en esa lista. No admite una carpeta de un daemon remoto.
 
-Desde la raíz del repositorio:
+Validado aquí: Linux x86_64 con Docker Engine. Los caminos Desktop, Windows y
+macOS se implementaron con pruebas de contratos y manifests multiarch; no se ha
+realizado una ejecución nativa en esos sistemas ni en hardware ARM. La selección
+ARM es nativa (catálogo `arm64` e imágenes multiarch), sin forzar emulación amd64.
+
+Preparación de Docker Desktop:
+
+1. Iniciar Docker Desktop y seleccionar Linux containers. El contexto activo local
+   se usa automáticamente; se admiten el socket Unix Desktop y el pipe Windows.
+2. Tener al menos 4 CPU visibles para el invitado de 4 vCPU. Como punto de partida
+   se recomiendan 12 GiB o más de RAM para Docker; no es un mínimo medido. `doctor`
+   informa la RAM visible y advierte si es inferior. El máximo exterior de 24 GiB
+   no obliga a asignar esa cantidad. Hace falta medir picos con el recorrido real.
+3. Dejar al menos 15 GiB libres en el checkout y espacio adicional en el disco de
+   la VM Docker para imágenes/volúmenes. `doctor` mide el filesystem del checkout;
+   revisar también el límite del disco virtual de Desktop.
+4. Permitir el bind de la carpeta del checkout si Desktop solicita compartirla.
+   Para Windows usar una carpeta NTFS local y el lanzador Windows, que protege el
+   archivo de entrega y `.local/ec2-emulation` con ACL del usuario actual.
+5. Permitir contenedores privilegiados y el acceso del runner al socket Docker.
+   Si Enhanced Container Isolation o una política corporativa los bloquea, el
+   administrador debe habilitar esta carga; el script no modifica esas políticas.
+   Rootless Docker no está soportado. No hace falta activar host networking.
+
+Los ajustes de recursos y carpetas están en la
+[guía oficial de Docker Desktop](https://docs.docker.com/desktop/settings-and-maintenance/settings/).
+En Windows con WSL2 la asignación de memoria se gestiona mediante la configuración
+WSL. ECI tiene [restricciones adicionales sobre sockets e imágenes locales](https://docs.docker.com/desktop/enterprise/hardened-desktop/enhanced-container-isolation/limitations/).
+
+Desde la raíz del repositorio, Linux/macOS:
 
 ```bash
+./emulate-ec2.sh doctor
 ./emulate-ec2.sh up
 ./emulate-ec2.sh status
 ./emulate-ec2.sh verify
 ./emulate-ec2.sh restart
 ```
+
+Windows, desde PowerShell o CMD:
+
+```powershell
+.\emulate-ec2.cmd doctor
+.\emulate-ec2.cmd up
+.\emulate-ec2.cmd status
+.\emulate-ec2.cmd verify
+```
+
+También puede ejecutarse `.\emulate-ec2.ps1` directamente si la política local
+permite scripts; `.cmd` usa PowerShell con política limitada a ese proceso, sin
+cambiar la configuración permanente del equipo. El wrapper acepta las mismas
+acciones y argumentos que Bash. Las rutas con espacios se pasan entre comillas;
+el archivo de entrega debe permanecer dentro del checkout. `--delivery-file` y
+su ruta deben ser argumentos separados.
+
+El runner usa `/workspace` como ruta interna y una red bridge dedicada. En Engine
+resuelve el socket del contexto Unix activo; en Desktop usa el socket del daemon
+Linux dentro de la VM, independiente del socket/pipe del cliente. Sólo para una
+instalación local no estándar puede indicarse `EC2_DOCKER_SOCKET` (ruta del socket
+visible para el daemon). No admite Docker remoto por TCP/SSH. No monta archivos
+`/etc/passwd` ni `/etc/group` del equipo ni usa `--network host`.
 
 ### Entrega con todas las integraciones
 
@@ -70,6 +127,19 @@ Langfuse antes de crear las bases.
 chmod 600 .env.entrega
 ./emulate-ec2.sh up --delivery-file .env.entrega --public
 ```
+
+En Windows el equivalente completo es:
+
+```powershell
+.\emulate-ec2.cmd up --delivery-file .env.entrega --public
+```
+
+El lanzador Windows ajusta el ACL antes de leer la entrega; no interpreta los
+modos POSIX ficticios de un bind NTFS como protección. El entorno interno del
+invitado sigue usando permisos 0600. El dominio HTTPS y Chatwoot siguen siendo
+externos y requieren conectividad y credenciales del archivo privado; no se
+crean cuentas, dominios ni bandejas nuevas. El modo fixture local sirve para
+probar el arranque sin proveedores; la entrega completa usa el comando anterior.
 
 El orden es crear el invitado, generar su entorno interno, aplicar la lista
 permitida por stdin SSH, arrancar Compose y verificar salud. Después se ejecuta
@@ -88,7 +158,12 @@ Para reanudar la misma instalación:
 ```
 
 `stop` detiene la instancia por EC2 y conserva almacenamiento y configuración.
-`up` los recupera. Los logins iniciales de Langfuse no se cambian sobrescribiendo
+`up` los recupera. Si el engine exterior ya existe con la red anterior, el
+lanzador conecta la red de control mediante Docker API, sin recrear ese engine
+ni cambiar su volumen. Después puede reemplazar sólo el contenedor de forwards
+SSH; el conector público vive dentro del invitado. Esta transición está cubierta
+por contratos de comandos, pero no se ejecutó sobre la demo activa durante la
+adaptación de portabilidad. Los logins iniciales de Langfuse no se cambian sobrescribiendo
 `INIT_*` después de inicializar sus volúmenes: el provisionamiento rechaza ese
 cambio para evitar que el archivo muestre una contraseña que la base no usa.
 
@@ -109,12 +184,14 @@ presupuesto de una clave reutilizada debe descontar el consumo anterior antes de
 iniciar otra base vacía; crear una instalación no renueva el crédito de OpenAI.
 
 `up` crea el engine, arranca Floci, crea la instancia por EC2, transfiere solamente
-fuentes públicas de Git y prepara un `.env` nuevo desde `.env.example` con secretos
+fuentes públicas de Git o del manifiesto de la entrega ZIP y prepara un `.env` nuevo desde `.env.example` con secretos
 internos aleatorios. Reintentar conserva ese entorno, volúmenes y datos. No lee ni
 copia el `.env`, volúmenes ni conversaciones del propietario. El seed es
 idempotente y contiene clientes ficticios con contactos simulados.
 
-Las interfaces locales se alcanzan por forwards SSH que escuchan sólo en loopback:
+Las interfaces se publican sólo en loopback del equipo mediante un contenedor
+SSH en bridge. Dentro de su red Docker el forward escucha en la interfaz del
+contenedor; ningún puerto se publica en todas las interfaces del anfitrión:
 
 - Central sin proveedores: [localhost:18080/central](http://localhost:18080/central).
 - Langfuse: [localhost:13000](http://localhost:13000).
@@ -142,6 +219,24 @@ desde `localhost:19090`, con firmas preservadas al subirlos a MinIO interno.
 su volumen dedicado. Es destructivo para este laboratorio. No usa `docker prune`
 ni comandos contra los volúmenes de otros proyectos.
 
+## Prueba aislada de portabilidad
+
+```bash
+./emulate-ec2.sh smoke-portability
+# Windows: .\emulate-ec2.cmd smoke-portability
+./emulate-ec2.sh evals
+```
+
+`smoke-portability` crea red/contenedores/imagen con nombres únicos y puertos
+loopback aleatorios, comprueba tres forwards SSH y los elimina al terminar. No
+crea EC2, no lee `.env`/`.env.entrega`, no inicia cloudflared y no usa proveedores.
+La prueba en runner comprueba bridge y configuración de publicaciones; en Linux
+se verificaron además peticiones HTTP reales a los puertos loopback desde el
+host. No sustituye la validación del stack completo en cada sistema operativo.
+`evals` delega al backend del invitado existente; por defecto es offline. Las
+opciones se transmiten como argumentos literales y las pruebas pagadas exigen
+los flags explícitos documentados en [evals.md](evals.md).
+
 ## Qué comprueba la verificación
 
 `verify` comprueba el estado EC2, los servicios saludables, `/health`, `/ready`,
@@ -161,6 +256,12 @@ El reporte privado queda en `.local/ec2-emulation/verification.json`. Un perfil
 arrancado no debe presentarse como verificado antes de completar ese reporte.
 
 ## Persistencia y límites
+
+La adaptación Desktop se comprobó el 2026-11-02 mediante `doctor` real en el
+runner, contratos de socket/rutas con espacios, claves NTFS simuladas, catálogo
+ARM/CRLF y smoke aislado de bridge/SSH/puertos loopback en Linux amd64. La demo
+existente no se recreó para esta comprobación. No se afirma aceptación nativa en
+Windows/macOS/ARM hasta ejecutar allí `up`, `verify`, `restart` y el recorrido.
 
 Verificado el 2026-11-02 en Linux x86_64: once servicios saludables, fixtures
 limpios y persistencia PostgreSQL después de EC2 Stop/Start. También pasó el

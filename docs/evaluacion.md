@@ -2,6 +2,40 @@
 
 Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Portabilidad, evals y contexto — revisión del 2 de noviembre
+
+- **431 pruebas aprobadas, cero fallos y cero omitidas, en 44,26 segundos** en
+  la suite Docker aislada con PostgreSQL 17 y proveedores sustituidos por dobles.
+  La primera integración detectó que la imagen de pruebas no incluía los nuevos
+  lanzadores ni el catálogo; se corrigió su empaquetado y la ejecución posterior
+  aprobó toda la batería. Ruff, Bash y validación Compose también aprobaron.
+- Lanzadores Bash y Windows PowerShell/CMD, resolución del contexto Docker local,
+  red bridge, archivos con espacios/CRLF, claves SSH temporales, ACL de Windows y
+  selección de arquitectura del daemon implementados. Las once imágenes
+  revisadas ofrecen manifests amd64/arm64. Un ZIP sin `.git` conserva el archivo
+  público permitido y excluye los privados ficticios de la prueba de distribución.
+- Smoke Docker real y aislado del control-plane: tres forwards SSH, acceso HTTP
+  loopback desde el host y desde el runner; sin montar socket ni entorno privado
+  en el contenedor de túnel. Los fixtures de ese ensayo se eliminaron.
+- El lanzador nuevo reanudó el entorno completo existente sin recrear el engine
+  exterior. Los servicios quedaron saludables, los forwards de Langfuse y el
+  backend respondieron, y el preflight público aprobó sin inferencia ni mensajes.
+  Esto se comprobó en **Linux x86_64 con Docker Engine**. Windows, macOS y ARM
+  tienen implementación y comprobaciones de contratos/manifests, pero todavía
+  no una ejecución nativa completa en esos equipos.
+- [Evals reproducibles](evals.md): **50 snapshots ficticios** versionados,
+  validados offline y disponibles dentro del backend de la entrega. El runner
+  distingue checks estructurales de revisión semántica humana y utiliza el
+  ledger existente si se solicita inferencia. No se ejecutó el modelo con esta
+  suite nueva ni se le atribuyen los resultados históricos del prompt.
+- Por indicación de Cristian, la entrada del agente pasa a **70.000 tokens por
+  llamada**, manteniendo veinte mensajes visibles, grupos de herramientas
+  completos y salida de 4.096 tokens. Se aplicó a configuración de ejemplo,
+  entrega y backend/worker activos, conservando datos y conector. La lectura
+  actual del ledger observó un máximo de **7.257 tokens de entrada** y cero
+  trabajos con `context_limit`; no acredita que nunca se haya retirado historial
+  antes de inferir. No se hicieron llamadas pagadas para esta revisión.
+
 ## Entorno EC2 emulado
 
 El perfil [EC2 emulada](emulacion-ec2.md) creó un invitado Linux mediante

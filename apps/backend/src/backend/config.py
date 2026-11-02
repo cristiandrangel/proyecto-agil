@@ -40,7 +40,7 @@ class BackendSettings(BaseSettings):
     ai_local_spend_limit_usd: Decimal = Decimal("4.50")
     ai_max_concurrent_requests: int = 2
     ai_max_calls_per_turn: int = 5
-    ai_max_input_tokens: int = 12000
+    ai_max_input_tokens: int = 70000
     ai_max_output_tokens: int = 4096
     ai_vision_max_output_tokens: int = 400
     history_visible_messages: int = 20

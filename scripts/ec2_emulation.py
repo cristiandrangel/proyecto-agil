@@ -12,7 +12,9 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 import tarfile
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -28,6 +30,10 @@ FLOCI = "floci/floci:latest@sha256:5ee85db604c4aa74ac76e07ea5cc83086f37bb472bf3d
 PROJECT = "agil-ec2-emulation"
 GUEST_PROJECT = "agil-ec2-fixture"
 GUEST_CONTEXT = "/var/lib/docker/agil-ec2-context"
+CONTROL_HOST = os.environ.get("EC2_CONTROL_HOST", "127.0.0.1")
+CONTROL_NETWORK = os.environ.get("EC2_CONTROL_NETWORK", "agil-ec2-control")
+TUNNEL_NAME = "agil-ec2-tunnel"
+RUNNER_IMAGE = "agil-ec2-runner:local"
 COMPOSE = ["docker", "compose", "-p", PROJECT, "-f", str(ROOT / "infra/compose.floci-runtime.yaml")]
 
 
@@ -49,7 +55,7 @@ def ec2():
     # Hard-coded loopback endpoint and fictional credentials; no host AWS config.
     return boto3.client(
         "ec2",
-        endpoint_url="http://127.0.0.1:4567",
+        endpoint_url=f"http://{CONTROL_HOST}:{4566 if CONTROL_HOST == 'engine' else 4567}",
         aws_access_key_id="test",
         aws_secret_access_key="test",
         region_name="us-east-1",
@@ -67,28 +73,34 @@ def write_json(path, value):
 
 
 def ssh(command, *, input=None, capture=True, check=True):
-    return run(
-        [
-            "ssh",
-            "-i",
-            str(LOCAL / "id_ed25519"),
-            "-p",
-            "2244",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
-            "-o",
-            "UserKnownHostsFile=" + str(LOCAL / "known_hosts"),
-            "-o",
-            "ConnectTimeout=5",
-            "root@127.0.0.1",
-            command,
-        ],
-        input=input,
-        capture=capture,
-        check=check,
-    )
+    # Desktop/Windows bind mounts may expose mode 0777. OpenSSH requires a
+    # private POSIX key; keep a short-lived copy on the runner's Linux filesystem.
+    with tempfile.TemporaryDirectory(prefix="agil-ssh-") as directory:
+        key = Path(directory) / "id_ed25519"
+        key.write_bytes((LOCAL / "id_ed25519").read_bytes())
+        key.chmod(0o600)
+        return run(
+            [
+                "ssh",
+                "-i",
+                str(key),
+                "-p",
+                "2244",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-o",
+                "UserKnownHostsFile=" + str(LOCAL / "known_hosts"),
+                "-o",
+                "ConnectTimeout=5",
+                "root@" + CONTROL_HOST,
+                command,
+            ],
+            input=input,
+            capture=capture,
+            check=check,
+        )
 
 
 def compose(command, **kwargs):
@@ -111,57 +123,238 @@ def wait_for(action, timeout=180):
     raise RuntimeError("Timed out waiting for emulation readiness")
 
 
-def source_archive():
-    # Whitelist Git-tracked files plus only this implementation's uncommitted
-    # public files. Never traverses the working tree or includes private state.
-    files = set(run(["git", "-C", str(ROOT), "ls-files", "-z"]).stdout.decode().split("\0"))
-    files.update(str(p.relative_to(ROOT)) for p in (ROOT / "infra/floci-runtime").glob("*"))
+def validate_source_name(name):
+    # ZIP manifests use POSIX paths regardless of the evaluator's OS. Fail closed
+    # on absolute paths, drive names, traversal, aliases and Windows separators.
+    if (
+        not name
+        or name.startswith("/")
+        or "\\" in name
+        or ":" in name
+        or any(part in {"", ".", ".."} for part in name.split("/"))
+    ):
+        raise ValueError("Public source manifest contains an unsafe path")
+    return name
+
+
+def public_source_names():
+    result = run(["git", "-C", str(ROOT), "ls-files", "-z"], check=False)
+    files = set(result.stdout.decode().split("\0")) - {""} if result.returncode == 0 else set()
+    manifest = ROOT / "infra/public-source-manifest.txt"
+    if manifest.is_file() and not manifest.is_symlink():
+        files.update(
+            validate_source_name(line)
+            for line in manifest.read_text().splitlines()
+            if line and not line.startswith("#")
+        )
+    elif result.returncode != 0:
+        raise RuntimeError(
+            "ZIP delivery requires infra/public-source-manifest.txt; extract the complete release"
+        )
+    # Only explicit implementation files for an in-progress Git checkout.
     files.update(
-        [
+        {
             "scripts/ec2_emulation.py",
             "scripts/ec2_live_config.py",
             "infra/compose.floci-runtime.yaml",
-        ]
+        }
     )
+    return files
+
+
+def source_archive():
+    # Git-tracked paths are preferred; a versioned allowlist also supports ZIPs.
+    # Never recurse into a checkout or guess that arbitrary untracked files are public.
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as archive:
-        for name in sorted(files):
-            if not name or any(
-                part in {".git", ".local", ".venv", "references", "data", "uploads", "logs"}
-                for part in Path(name).parts
+        for name in sorted(public_source_names()):
+            validate_source_name(name)
+            parts = Path(name).parts
+            if any(
+                part.lower() in {".git", ".local", ".venv", "references", "data", "uploads", "logs"}
+                for part in parts
             ):
                 continue
-            if Path(name).name.startswith(".env") and name != ".env.example":
+            if Path(name).name.lower().startswith(".env") and name != ".env.example":
                 continue
-            if Path(name).suffix in {".pem", ".key", ".dump", ".sql"}:
+            if Path(name).suffix.lower() in {".pem", ".key", ".dump", ".sql"}:
                 continue
             path = ROOT / name
-            if path.is_file() and not path.is_symlink():
-                archive.add(path, arcname=name, recursive=False)
+            # Exclude symlinked files AND parent directories, including links back
+            # inside the checkout: the whitelist describes regular public files.
+            if any(
+                (ROOT.joinpath(*parts[:index])).is_symlink() for index in range(1, len(parts) + 1)
+            ):
+                continue
+            if path.is_file():
+                add_public_file(archive, path, name)
     return output.getvalue()
 
 
 def stage_guest_context(destination=GUEST_CONTEXT):
+    architecture = docker_architecture()
     # Only this public image build directory is copied to the isolated engine.
     run(COMPOSE + ["exec", "-T", "engine", "mkdir", "-p", destination])
     context = io.BytesIO()
     with tarfile.open(fileobj=context, mode="w") as tar:
-        for path in (ROOT / "infra/floci-runtime").iterdir():
-            if path.is_file():
-                tar.add(path, arcname=path.name)
+        for name in (
+            "Dockerfile.guest",
+            "guest-entrypoint.sh",
+            "sshd-forwarding.conf",
+            "image-catalog.yaml",
+        ):
+            path = ROOT / "infra/floci-runtime" / name
+            if path.is_symlink():
+                raise ValueError("Guest image context must contain regular public files")
+            add_public_file(tar, path, name, architecture=architecture)
     run(
         COMPOSE + ["exec", "-T", "engine", "tar", "xf", "-", "-C", destination],
         input=context.getvalue(),
     )
 
 
+def docker_architecture():
+    info = json.loads(run(["docker", "info", "--format", "{{json .}}"]).stdout)
+    architecture = {
+        "x86_64": "x86_64",
+        "amd64": "x86_64",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+    }.get(info.get("Architecture"))
+    if info.get("OSType") != "linux" or architecture is None:
+        raise RuntimeError("Use Linux containers on an amd64 or arm64 Docker Engine/Desktop")
+    return architecture
+
+
+def doctor():
+    """Read-only diagnostics; maximum cgroup limits are not reserved memory."""
+    import shutil
+
+    architecture = docker_architecture()
+    info = json.loads(run(["docker", "info", "--format", "{{json .}}"]).stdout)
+    if info.get("SecurityOptions") and any("rootless" in x for x in info["SecurityOptions"]):
+        raise RuntimeError("Nested privileged Docker requires rootful Engine or Docker Desktop")
+    if shutil.disk_usage(ROOT).free < 15 * 1024**3:
+        raise RuntimeError("Need 15 GiB free workspace disk; no unrelated resources will be pruned")
+    memory_gib = info["MemTotal"] / 1024**3
+    print(
+        f"Docker Linux {architecture}: {info['NCPU']} CPU, {memory_gib:.1f} GiB visible RAM",
+        flush=True,
+    )
+    if memory_gib < 12:
+        print(
+            "Limited RAM: start with 12+ GiB for Docker and monitor memory pressure (recommendation, not a measured minimum). 24 GiB is the outer limit, not a reservation.",
+            flush=True,
+        )
+    if info["NCPU"] < 4:
+        raise RuntimeError(
+            "Allocate at least 4 CPUs to Docker Desktop: the emulated t2.xlarge requires a 4-CPU quota"
+        )
+    os.environ["EC2_ENGINE_CPUS"] = str(min(8, info["NCPU"]))
+    print(
+        "Requires privileged containers; Desktop Enhanced Container Isolation must permit Docker-in-Docker. No host networking setting needed.",
+        flush=True,
+    )
+
+
+def add_public_file(archive, path, name, *, architecture=None):
+    data = path.read_bytes()
+    if path.suffix in {".sh", ".py", ".yaml", ".yml", ".toml"} or path.name.startswith(
+        "Dockerfile"
+    ):
+        data = data.replace(b"\r\n", b"\n")
+    if name == "image-catalog.yaml" and architecture:
+        data = data.replace(b"architecture: x86_64", ("architecture: " + architecture).encode())
+    entry = archive.gettarinfo(str(path), arcname=name)
+    entry.size = len(data)
+    # Git executable bits are not reliable on Windows checkouts.
+    if path.suffix == ".sh":
+        entry.mode = 0o755
+    archive.addfile(entry, io.BytesIO(data))
+
+
+def start_access_tunnel():
+    # Keys travel through the Docker API, not a host path or a shared secret volume.
+    command = [
+        "docker",
+        "create",
+        "--name",
+        TUNNEL_NAME,
+        "--label",
+        "io.proyecto-agil.emulation=tunnel",
+        "--restart",
+        "unless-stopped",
+        "--network",
+        CONTROL_NETWORK,
+    ]
+    for port in (18080, 13000, 19090):
+        command += ["-p", f"127.0.0.1:{port}:{port}"]
+    command += [
+        "--entrypoint",
+        "ssh",
+        RUNNER_IMAGE,
+        "-i",
+        "/run/id_ed25519",
+        "-p",
+        "2244",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "UserKnownHostsFile=/run/known_hosts",
+        "-o",
+        "ExitOnForwardFailure=yes",
+        "-o",
+        "ServerAliveInterval=15",
+        "-o",
+        "ServerAliveCountMax=3",
+        "-N",
+    ]
+    for local, remote in ((18080, 8080), (13000, 3000), (19090, 9090)):
+        command += ["-L", f"0.0.0.0:{local}:127.0.0.1:{remote}"]
+    command += ["root@" + CONTROL_HOST]
+    run(command)
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w") as tar:
+        for name in ("id_ed25519", "known_hosts"):
+            path = LOCAL / name
+            entry = tar.gettarinfo(str(path), arcname=name)
+            entry.mode = 0o600
+            tar.addfile(entry, io.BytesIO(path.read_bytes()))
+    run(["docker", "cp", "-", TUNNEL_NAME + ":/run"], input=output.getvalue())
+    run(["docker", "start", TUNNEL_NAME])
+
+
+def resume_outer_engine():
+    """Attach the control bridge without recreating a legacy engine/guest."""
+    result = run(COMPOSE + ["ps", "-aq", "engine"])
+    container = result.stdout.decode().strip()
+    if not container:
+        run(COMPOSE + ["up", "-d", "--wait", "engine"], capture=False)
+        return
+    info = json.loads(run(["docker", "inspect", container]).stdout)[0]
+    labels = info["Config"].get("Labels", {})
+    if (
+        labels.get("com.docker.compose.project") != PROJECT
+        or labels.get("com.docker.compose.service") != "engine"
+    ):
+        raise RuntimeError("Refusing to resume an engine outside this emulation project")
+    if not info["State"]["Running"]:
+        run(["docker", "start", container])
+    if CONTROL_NETWORK not in info.get("NetworkSettings", {}).get("Networks", {}):
+        run(["docker", "network", "connect", "--alias", "engine", CONTROL_NETWORK, container])
+    wait_for(lambda: engine("info"))
+
+
 def create():
+    doctor()
     LOCAL.mkdir(parents=True, exist_ok=True)
     LOCAL.chmod(0o700)
     if (LOCAL / "state.json").exists():
         # The outer engine may have stopped with the PC. Preserve its volume,
         # restart the existing emulator, then reconcile via EC2 lifecycle APIs.
-        run(COMPOSE + ["up", "-d", "--wait"], capture=False)
+        resume_outer_engine()
         stage_guest_context()
         emulator = json.loads(engine("inspect", "agil-floci").stdout)[0]
         # Compatibility with guests created before context moved to persistent storage.
@@ -187,11 +380,7 @@ def create():
             client.start_instances(InstanceIds=[instance])
         wait_for(lambda: ssh("docker info >/dev/null"), timeout=240)
         return
-    import shutil
-
-    if shutil.disk_usage(ROOT).free < 15 * 1024**3:
-        raise RuntimeError("Need at least 15 GiB free disk; never prune unrelated resources")
-    run(COMPOSE + ["up", "-d", "--wait"], capture=False)
+    run(COMPOSE + ["up", "-d", "--wait", "engine"], capture=False)
     engine("pull", FLOCI, capture=False)
     stage_guest_context()
     engine(
@@ -263,7 +452,7 @@ def create():
         MinCount=1,
         MaxCount=1,
         KeyName="agil-fixture-key",
-        UserData=(ROOT / "infra/floci-runtime/user-data.sh").read_text(),
+        UserData=(ROOT / "infra/floci-runtime/user-data.sh").read_text().replace("\r\n", "\n"),
         TagSpecifications=[
             {"ResourceType": "instance", "Tags": [{"Key": "Name", "Value": GUEST_PROJECT}]}
         ],
@@ -483,7 +672,9 @@ def access():
     state()
     # Alpine ships SSH forwarding disabled. The same public configuration is in
     # the image recipe; deploy it over SSH for an existing guest on upgrade.
-    forwarding = (ROOT / "infra/floci-runtime/sshd-forwarding.conf").read_bytes()
+    forwarding = (
+        (ROOT / "infra/floci-runtime/sshd-forwarding.conf").read_bytes().replace(b"\r\n", b"\n")
+    )
     ssh(
         'cat > /etc/ssh/sshd_config.d/00-agil-forwarding.conf && /usr/sbin/sshd -t && kill -HUP "$(cat /run/sshd.pid)"',
         input=forwarding,
@@ -494,67 +685,11 @@ def access():
     destination = LOCAL / "evaluator.env"
     destination.write_bytes(result.stdout)
     destination.chmod(0o600)
-    tunnel = run(["docker", "inspect", "agil-ec2-tunnel"], check=False)
-    if tunnel.returncode == 0:
-        existing = json.loads(tunnel.stdout)[0]
-        if existing["Config"].get("Labels", {}).get("io.proyecto-agil.emulation") != "tunnel":
-            raise RuntimeError("Tunnel name belongs to another container")
-        if not existing["State"]["Running"]:
-            run(["docker", "rm", "agil-ec2-tunnel"])
-            tunnel = None
-    if tunnel is None or tunnel.returncode != 0:
-        run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                "agil-ec2-tunnel",
-                "--label",
-                "io.proyecto-agil.emulation=tunnel",
-                "--restart",
-                "unless-stopped",
-                "--network",
-                "host",
-                "--user",
-                str(os.getuid()) + ":" + str(os.getgid()),
-                "--mount",
-                "type=bind,src=" + str(LOCAL) + ",dst=" + str(LOCAL) + ",readonly",
-                "--mount",
-                "type=bind,src=/etc/passwd,dst=/etc/passwd,readonly",
-                "--mount",
-                "type=bind,src=/etc/group,dst=/etc/group,readonly",
-                "--entrypoint",
-                "ssh",
-                "agil-ec2-runner:local",
-                "-i",
-                str(LOCAL / "id_ed25519"),
-                "-p",
-                "2244",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "StrictHostKeyChecking=yes",
-                "-o",
-                "UserKnownHostsFile=" + str(LOCAL / "known_hosts"),
-                "-o",
-                "ExitOnForwardFailure=yes",
-                "-o",
-                "ServerAliveInterval=15",
-                "-o",
-                "ServerAliveCountMax=3",
-                "-N",
-                "-L",
-                "127.0.0.1:18080:127.0.0.1:8080",
-                "-L",
-                "127.0.0.1:13000:127.0.0.1:3000",
-                "-L",
-                "127.0.0.1:19090:127.0.0.1:9090",
-                "root@127.0.0.1",
-            ]
-        )
+    start_access_tunnel()
+    # Probe from the runner's bridge network; published host ports still bind loopback.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    for url in ["http://127.0.0.1:18080/login", "http://127.0.0.1:13000/api/public/health"]:
+    for path in ["18080/login", "13000/api/public/health"]:
+        url = "http://" + TUNNEL_NAME + ":" + path
 
         def reachable(url=url):
             with opener.open(url, timeout=5) as response:
@@ -581,6 +716,15 @@ def access():
     print("Private fixture credentials: " + str(destination))
 
 
+def evals(arguments):
+    """Forward explicit evaluator options to the existing guest backend."""
+    state()
+    command = "exec -T backend python -m scripts.run_evals"
+    if arguments:
+        command += " " + shlex.join(arguments)
+    compose(command, capture=False)
+
+
 def status():
     run(COMPOSE + ["ps"], capture=False)
     if (LOCAL / "state.json").exists():
@@ -590,7 +734,11 @@ def status():
 
 def load_delivery(delivery_file):
     path = Path(delivery_file)
-    if not path.is_file() or path.is_symlink() or path.stat().st_mode & 0o077:
+    if (
+        not path.is_file()
+        or path.is_symlink()
+        or (path.stat().st_mode & 0o077 and os.environ.get("EC2_WINDOWS_ACL") != "checked")
+    ):
         raise ValueError("Delivery file must be a regular private file with mode 0600")
     if path.resolve() == (ROOT / ".env").resolve():
         raise ValueError("The owner environment is not a delivery integration file")
@@ -708,12 +856,12 @@ def up(delivery_file=None, *, public=False):
 
 
 def close_access():
-    existing = run(["docker", "inspect", "agil-ec2-tunnel"], check=False)
+    existing = run(["docker", "inspect", TUNNEL_NAME], check=False)
     if existing.returncode == 0:
         info = json.loads(existing.stdout)[0]
         if info["Config"].get("Labels", {}).get("io.proyecto-agil.emulation") != "tunnel":
             raise RuntimeError("Refusing to remove a container without this fixture label")
-        run(["docker", "rm", "-f", "agil-ec2-tunnel"])
+        run(["docker", "rm", "-f", "-v", TUNNEL_NAME])
 
 
 def cleanup():
@@ -732,10 +880,16 @@ def cleanup():
 
 
 def main():
+    if sys.argv[1:2] == ["evals"]:
+        evals(sys.argv[2:])
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
         choices=[
+            "evals",
+            "smoke-portability",
+            "doctor",
             "create",
             "bootstrap",
             "verify",
@@ -764,6 +918,11 @@ def main():
         parser.error("--public is only supported with up")
     if args.delivery_file and action not in {"up", "configure-live"}:
         parser.error("--delivery-file is only supported with up or configure-live")
+    if action == "smoke-portability":
+        from scripts.smoke_ec2_portability import main as smoke
+
+        smoke()
+        return
     if action == "configure-live":
         if not args.delivery_file:
             parser.error("configure-live requires --delivery-file explicitly")

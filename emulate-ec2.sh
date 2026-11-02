@@ -1,41 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_dir"
-
-if [[ "$(uname -s)" != Linux ]]; then
-  printf '%s\n' 'La entrega EC2 emulada está validada para Linux con Docker Engine.' >&2
-  exit 2
-fi
-if ! command -v docker >/dev/null 2>&1; then
-  printf '%s\n' 'Se requieren Docker Engine y Docker Compose v2.' >&2
-  exit 2
-fi
+command -v docker >/dev/null || { echo 'Instala Docker Desktop o Docker Engine y Compose v2.' >&2; exit 2; }
 docker compose version >/dev/null
-docker_endpoint="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
-if [[ "$docker_endpoint" != unix:///var/run/docker.sock || ! -S /var/run/docker.sock || -n "${DOCKER_HOST:-}" || -n "${DOCKER_CONTEXT:-}" ]]; then
-  printf '%s\n' 'Usa el contexto local de Docker Engine (unix:///var/run/docker.sock), sin DOCKER_HOST ni DOCKER_CONTEXT definidos.' >&2
-  exit 2
+engine_info="$(docker info --format '{{.OSType}}|{{.OperatingSystem}}')"
+[[ "$engine_info" == linux\|* ]] || { echo 'Activa Linux containers en Docker Desktop.' >&2; exit 2; }
+if [[ -n "${DOCKER_CONTEXT:-}" ]]; then
+  endpoint="$(docker context inspect "$DOCKER_CONTEXT" --format '{{.Endpoints.docker.Host}}')"
+else
+  endpoint="${DOCKER_HOST:-$(docker context inspect --format '{{.Endpoints.docker.Host}}')}"
 fi
-
-docker build -t agil-ec2-runner:local \
-  -f infra/floci-runtime/Dockerfile.runner infra/floci-runtime
-
-if [[ "$#" -eq 0 ]]; then
-  set -- up
+case "$endpoint" in
+  unix://*|npipe://*) ;;
+  *) echo 'Usa un contexto Docker local; SSH/TCP remoto no comparte este checkout.' >&2; exit 2 ;;
+esac
+# Desktop exposes this socket inside its Linux VM, independently of the client pipe/socket.
+if [[ "$engine_info" == *'Docker Desktop'* ]]; then
+  socket_source="${EC2_DOCKER_SOCKET:-/var/run/docker.sock}"
+elif [[ "$endpoint" == unix://* ]]; then
+  socket_source="${EC2_DOCKER_SOCKET:-${endpoint#unix://}}"
+else
+  echo 'Se requiere un contexto Docker local; SSH/TCP remotos no comparten la carpeta del repo.' >&2; exit 2
 fi
-
-# The helper controls only the dedicated outer Compose project. Floci receives
-# that project's isolated socket; neither Floci nor the guest sees the host socket.
-# Host identity files allow OpenSSH to resolve the invoking UID without root-owned
-# private files or additional Python/SSH/Git installations on the evaluator's PC.
-docker run --rm --network host \
-  --user "$(id -u):$(id -g)" \
-  --group-add "$(stat -c '%g' /var/run/docker.sock)" \
-  --mount "type=bind,src=$repo_dir,dst=$repo_dir" \
-  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
-  --mount type=bind,src=/etc/passwd,dst=/etc/passwd,readonly \
-  --mount type=bind,src=/etc/group,dst=/etc/group,readonly \
-  --workdir "$repo_dir" \
-  agil-ec2-runner:local "$@"
+network=agil-ec2-control
+if ! docker network inspect "$network" >/dev/null 2>&1; then
+  docker network create --label io.proyecto-agil.emulation=control "$network" >/dev/null
+elif [[ "$(docker network inspect --format '{{index .Labels "io.proyecto-agil.emulation"}}' "$network")" != control ]]; then
+  echo 'El nombre de red agil-ec2-control pertenece a otro recurso; no se modificó.' >&2; exit 2
+fi
+docker build -t agil-ec2-runner:local -f infra/floci-runtime/Dockerfile.runner infra/floci-runtime
+[[ "$#" -gt 0 ]] || set -- up
+args=("$@")
+for ((i=0; i<${#args[@]}; i++)); do
+  if [[ "${args[i]}" == --delivery-file ]]; then
+    ((i+1 < ${#args[@]})) || { echo '--delivery-file requiere una ruta.' >&2; exit 2; }
+    delivery="${args[i+1]}"
+    if [[ "$delivery" == /* ]]; then
+      [[ "$delivery" == "$repo_dir/"* ]] || { echo 'Guarda el archivo de entrega dentro del checkout.' >&2; exit 2; }
+      args[i+1]="/workspace/${delivery#"$repo_dir/"}"
+    fi
+  elif [[ "${args[i]}" == --delivery-file=* ]]; then
+    echo 'Pasa --delivery-file y su ruta como argumentos separados.' >&2; exit 2
+  fi
+done
+# No host networking, host identity files, host Python, SSH or Git installations.
+docker run --rm --network "$network" \
+  --env EC2_CONTROL_HOST=engine --env EC2_CONTROL_NETWORK="$network" \
+  --env EC2_HOST_UID="$(id -u)" --env EC2_HOST_GID="$(id -g)" \
+  --mount "type=bind,src=$repo_dir,dst=/workspace" \
+  --mount "type=bind,src=$socket_source,dst=/var/run/docker.sock" \
+  --workdir /workspace agil-ec2-runner:local "${args[@]}"

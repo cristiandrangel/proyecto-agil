@@ -4,7 +4,7 @@ services:
   engine:
     image: docker:29-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977
     privileged: true
-    cpus: 8
+    cpus: ${EC2_ENGINE_CPUS:-8}
     mem_limit: 24g
     environment:
       DOCKER_TLS_CERTDIR: ""
@@ -19,6 +19,14 @@ services:
       interval: 3s
       timeout: 3s
       retries: 40
+    networks:
+      control:
+        aliases: [engine]
     restart: unless-stopped
 volumes:
   engine_data:
+
+networks:
+  control:
+    external: true
+    name: ${EC2_CONTROL_NETWORK:-agil-ec2-control}
