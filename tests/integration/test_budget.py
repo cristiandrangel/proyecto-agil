@@ -69,18 +69,18 @@ def test_concurrent_budget_cutoff_is_atomic(budget_store):
     def attempt(_):
         barrier.wait()
         try:
-            return reserve(BudgetService(budget_store), "3.00").id
+            return reserve(BudgetService(budget_store, limit_usd="4.50"), "3.00").id
         except DomainError as error:
             return error.code
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         results = list(pool.map(attempt, range(6)))
     assert results.count("budget_exhausted") == 5
-    assert BudgetService(budget_store).summary()["charged_usd"] == Decimal("3")
+    assert BudgetService(budget_store, limit_usd="4.50").summary()["charged_usd"] == Decimal("3")
 
 
 def test_timeout_preserves_amount_and_expired_lease_only_releases_slot(budget_store):
-    service = BudgetService(budget_store)
+    service = BudgetService(budget_store, limit_usd="4.50")
     first = reserve(service, "2.00")
     second = reserve(service, "2.00")
     service.mark_uncertain(first.id)
@@ -153,7 +153,7 @@ def test_reset_does_not_erase_known_or_uncertain_consumption(budget_store):
 
 
 def test_underestimated_usage_is_recorded_and_blocks_future_calls(budget_store):
-    service = BudgetService(budget_store)
+    service = BudgetService(budget_store, limit_usd="4.50")
     reservation = reserve(service, "0.01")
     service.settle(
         reservation.id,

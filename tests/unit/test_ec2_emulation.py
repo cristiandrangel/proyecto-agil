@@ -79,7 +79,7 @@ def test_live_delivery_cannot_copy_internal_secrets_or_change_payment_mode(tmp_p
     for text in [
         "CENTRAL_DB_PASSWORD=forbidden\n",
         "DEMO_MODE=false\n",
-        "AI_LOCAL_SPEND_LIMIT_USD=5\n",
+        "AI_LOCAL_SPEND_LIMIT_USD=10.01\n",
         'OPENAI_API_KEY="secret-value\n',
     ]:
         with pytest.raises(ValueError) as error:

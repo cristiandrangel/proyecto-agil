@@ -64,8 +64,8 @@ total. Un límite insuficiente puede terminar la llamada sin texto final.
 ## R-04. Presupuesto y límites de la demo
 
 **Decisión:** ledger de gasto persistente con reservas atómicas para todas las
-modalidades, máximo dos inferencias concurrentes y corte local conservador en
-USD 4.50 frente al presupuesto total de USD 5. Reservar antes de cada solicitud,
+modalidades, máximo dos inferencias concurrentes y corte local en
+USD 10, igual al presupuesto total autorizado. Reservar antes de cada solicitud,
 liquidar con uso observado y conservar la reserva cuando se desconoce el resultado.
 Desactivar reintentos automáticos del SDK y limitar los reintentos propios.
 El reset de deudores nunca borra el ledger de consumo.

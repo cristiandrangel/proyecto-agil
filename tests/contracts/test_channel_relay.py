@@ -654,7 +654,9 @@ async def test_message_whitelist_open_control_and_open_only_status(tmp_path):
 @pytest.mark.asyncio
 async def test_template_matches_current_approved_catalog_and_has_no_parameter_override(tmp_path):
     app, upstream = build(tmp_path)
-    approved_text = "Hola. Tienes una factura pendiente.\nResponde para consultar las opciones de pago."
+    approved_text = (
+        "Hola. Tienes una factura pendiente.\nResponde para consultar las opciones de pago."
+    )
     upstream.template_components = [{"type": "BODY", "text": approved_text}]
     upstream.conversations[401]["can_reply"] = False
     path = f"/api/v1/accounts/{ACCOUNT}/conversations/401/messages"
@@ -686,18 +688,26 @@ async def test_template_matches_current_approved_catalog_and_has_no_parameter_ov
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("components", [
-    None,
-    [],
-    [{"type": "BODY", "text": "   "}],
-    [{"type": "BODY", "text": "Hola {{1}}"}],
-    [{"type": "BODY", "text": "x" * 20001}],
-    [{"type": "BODY", "text": "Uno"}, {"type": "BODY", "text": "Dos"}],
-])
+@pytest.mark.parametrize(
+    "components",
+    [
+        None,
+        [],
+        [{"type": "BODY", "text": "   "}],
+        [{"type": "BODY", "text": "Hola {{1}}"}],
+        [{"type": "BODY", "text": "x" * 20001}],
+        [{"type": "BODY", "text": "Uno"}, {"type": "BODY", "text": "Dos"}],
+    ],
+)
 async def test_template_without_one_static_body_never_sends_placeholder(tmp_path, components):
     app, upstream = build(tmp_path)
     upstream.template_components = components
-    params = {"name": "demo_notice", "language": "es", "category": "UTILITY", "processed_params": {}}
+    params = {
+        "name": "demo_notice",
+        "language": "es",
+        "category": "UTILITY",
+        "processed_params": {},
+    }
     async with client(app) as api:
         response = await api.post(
             f"/api/v1/accounts/{ACCOUNT}/conversations/401/messages",
@@ -916,3 +926,24 @@ async def test_new_conversation_canonical_source_must_already_belong_to_same_con
         assert response.json()["code"] == "channel_preparation_required"
         assert_private_absent(response)
     assert all(call.method == "GET" for call in upstream.calls)
+
+
+@pytest.mark.asyncio
+async def test_owner_can_raise_send_limit_without_resetting_consumed_attempts(tmp_path):
+    app, upstream = build(tmp_path, send_limit=1)
+    path = f"/api/v1/accounts/{ACCOUNT}/conversations/401/messages"
+    async with client(app) as api:
+        assert (await api.post(path, json=message())).status_code == 200
+        assert (await api.post(path, json=message())).status_code == 429
+    raised, _ = build(tmp_path, send_limit=2, upstream=upstream)
+    async with client(raised) as api:
+        assert (await api.post(path, json=message())).status_code == 200
+        response = await api.post(path, json=message())
+        assert response.status_code == 429
+        assert response.json()["code"] == "relay_send_limit"
+
+
+def test_owner_send_limit_remains_bounded(tmp_path):
+    build(tmp_path, send_limit=1000)
+    with pytest.raises(ValueError, match="1000 messages/day"):
+        build(tmp_path, send_limit=1001)

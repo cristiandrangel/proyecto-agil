@@ -64,8 +64,8 @@ def validate(values):
     if "APP_ENV" in values and values["APP_ENV"] != "production":
         raise ValueError("Live delivery requires APP_ENV=production")
     for key, maximum in [
-        ("AI_TOTAL_BUDGET_USD", Decimal("5")),
-        ("AI_LOCAL_SPEND_LIMIT_USD", Decimal("4.50")),
+        ("AI_TOTAL_BUDGET_USD", Decimal("10")),
+        ("AI_LOCAL_SPEND_LIMIT_USD", Decimal("10.00")),
     ]:
         if key in values:
             try:

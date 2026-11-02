@@ -378,9 +378,9 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, help="Write JSON plus Markdown; required for live, keep under .local/")
     args = parser.parse_args(argv)
     if args.live and (not args.allow_paid_inference or args.max_cost_usd is None
-                      or not args.max_cost_usd.is_finite() or not 0 < args.max_cost_usd <= Decimal("4.50")
+                      or not args.max_cost_usd.is_finite() or not 0 < args.max_cost_usd <= Decimal("10.00")
                       or args.output is None):
-        parser.error("Live requires --allow-paid-inference, --max-cost-usd (0,4.50] and --output")
+        parser.error("Live requires --allow-paid-inference, --max-cost-usd (0,10.00] and --output")
     try:
         cases = validate_catalog(json.loads(CATALOG.read_text(encoding="utf-8")))
         if set(args.case) - {case["id"] for case in cases}:

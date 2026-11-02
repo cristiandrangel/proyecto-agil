@@ -225,9 +225,9 @@ async def test_unknown_price_and_exhausted_budget_do_not_call_sdk(budget_store):
         modality="audio",
         model="fixture",
         price_version="fixture",
-        reserved_usd="4.5",
+        reserved_usd=inference.budget.limit_usd,
     )
-    inference.budget.settle_amount(paid.id, "4.5")
+    inference.budget.settle_amount(paid.id, inference.budget.limit_usd)
     inference.settings.openai_agent_model = "gpt-5.6-luna"
     with pytest.raises(DomainError) as error:
         await inference.response(event_id=uuid4(), input=[], instructions="fixture")

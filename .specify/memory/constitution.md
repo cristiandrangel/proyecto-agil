@@ -51,7 +51,7 @@ La implementación DEBE correlacionar campañas, personas, conversaciones, órde
 pagos y trazas de Langfuse. Debe medir contactabilidad por personas únicas y
 separar pago íntegro sin condonación de acuerdos con descuento, sus estados,
 solicitudes de asesor y escalados automáticos. El costo de inferencia DEBE incluir
-agente, audio, visión y reintentos. El presupuesto asignado a IA es USD 5; el plan
+agente, audio, visión y reintentos. El presupuesto asignado a IA es USD 10; el plan
 DEBE establecer controles de consumo y explicar sus límites.
 
 ### VI. Datos ficticios y secretos privados

@@ -53,8 +53,8 @@ concurrencia, contratos y aislamiento; guion de integración con servicios reale
 p50/p95 en texto/audio/imagen. El timeout de integración se valida en preflight;
 no se promete capacidad comercial. Dos slots de trabajo y dos inferencias máximas
 simultáneas, con una sola ejecución por thread_id/source_id literal.
-**Constraints**: USD fijo; una deuda por contrato; 80% mínimo; presupuesto IA USD 5
-con corte local conservador 4.50; cinco llamadas del agente por turno; sin OTP,
+**Constraints**: USD fijo; una deuda por contrato; 80% mínimo; presupuesto IA USD 10
+con corte local 10.00; cinco llamadas del agente por turno; sin OTP,
 dinero real, ERP completo, IaC o migración a otros servicios en esta entrega.
 **Scale/Scope**: Fixtures pequeños, evaluador y número habilitado de prueba;
 31 casos AC y seis recorridos. Se dimensiona la EC2 con observabilidad incluida.
@@ -277,7 +277,7 @@ Ledger operativo compartido entre workers y modalidades, con reserva antes de ll
 settlement de uso y reservas conservadas ante timeout incierto. Dos inferencias globales,
 12 000 tokens de entrada, 4096 de salida total del agente, 400 de extracción visual y reintentos
 explícitos; todas las cifras son configurables. Los modelos sin tarifa configurada se
-rechazan. Límite local 4.50 y margen frente a USD 5; no se promete factura exacta.
+rechazan. Límite local de USD 10; no se promete factura exacta.
 
 Audio e imágenes: hasta 5 MiB, audio 60 segundos, una imagen de hasta 2048 px por lado
 como normalización de demo y mensaje acompañante conservado. Varias imágenes se

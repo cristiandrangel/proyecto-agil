@@ -16,6 +16,7 @@ services:
       CHATWOOT_RELAY_INBOX_ID: ${CHATWOOT_RELAY_INBOX_ID:?Set the test inbox}
       CHATWOOT_UPSTREAM_AUTH_SCHEME: ${CHATWOOT_UPSTREAM_AUTH_SCHEME:-api_access_token}
       CHATWOOT_RELAY_QUOTA_PATH: /var/lib/channel-relay/quota.sqlite3
+      CHATWOOT_RELAY_SENDS_PER_DAY: ${CHATWOOT_RELAY_SENDS_PER_DAY:-1000}
     volumes:
       - relay_quota:/var/lib/channel-relay
     networks:

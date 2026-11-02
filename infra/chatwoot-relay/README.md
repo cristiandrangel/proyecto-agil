@@ -37,8 +37,12 @@ Una plantilla aprobada permite iniciar comunicación fuera de la ventana de text
 La revalidación y la escritura son llamadas HTTP separadas: los cambios de estado
 hechos por operadores externos no forman una transacción con el relay.
 
-Límites globales: 60 solicitudes/minuto en memoria, 10 intentos de crear contactos
-por día y 100 intentos de enviar mensajes por día. Las cuotas diarias son separadas,
+Límites globales: 60 solicitudes/minuto en memoria y 10 intentos de crear contactos
+por día. El envío permite 1.000 intentos/día, configurable por el dueño
+mediante `CHATWOOT_RELAY_SENDS_PER_DAY` hasta ese máximo. La cuota se comparte
+entre los equipos que usan el mismo relay de pruebas. Es un límite de este relay, no una cuota impuesta por Meta ni el
+presupuesto de inferencia. Cambiarlo conserva los intentos consumidos del día.
+Las cuotas diarias son separadas,
 persisten en `relay_quota` y conservan intentos fallidos o inciertos. No se reintentan
 POST automáticamente. Los contactos admiten cuerpos JSON de hasta 2 KiB; los
 mensajes hasta 20.000 caracteres y 256 KiB de JSON, incluyendo escape Unicode.

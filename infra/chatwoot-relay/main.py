@@ -47,7 +47,7 @@ class RelaySettings(BaseSettings):
     chatwoot_relay_quota_path: str = "/var/lib/channel-relay/quota.sqlite3"
     chatwoot_relay_requests_per_minute: int = 60
     chatwoot_relay_creates_per_day: int = 10
-    chatwoot_relay_sends_per_day: int = 100
+    chatwoot_relay_sends_per_day: int = 1000
     chatwoot_upstream_auth_scheme: Literal["api_access_token", "bearer"] = "api_access_token"
 
     @field_validator("chatwoot_upstream_base_url")
@@ -73,10 +73,10 @@ class RelaySettings(BaseSettings):
         if (
             not 1 <= self.chatwoot_relay_requests_per_minute <= 60
             or not 1 <= self.chatwoot_relay_creates_per_day <= 10
-            or not 1 <= self.chatwoot_relay_sends_per_day <= 100
+            or not 1 <= self.chatwoot_relay_sends_per_day <= 1000
         ):
             raise ValueError(
-                "Relay caps are 60 requests/minute, 10 contacts/day and 100 messages/day"
+                "Relay caps are 60 requests/minute, 10 contacts/day and 1000 messages/day"
             )
         relay, user = (
             self.chatwoot_relay_shared_token.get_secret_value(),

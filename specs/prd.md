@@ -497,7 +497,7 @@ Estas métricas complementan el embudo comercial y se observan mediante trazas y
 | Escalamiento | Se derivan todos los casos obligatorios y se respeta el control pending existente |
 | Experiencia | La revisión humana valida claridad, siguiente paso y explicación del resultado en cada recorrido crítico |
 | Desempeño | Medir latencia p50/p95 por texto, audio e imagen; fijar objetivos después del benchmark |
-| Costo | Contabilizar agente, audio, visión y reintentos por turno y recorrido frente al presupuesto de USD 5 |
+| Costo | Contabilizar agente, audio, visión y reintentos por turno y recorrido frente al presupuesto de USD 10 |
 | Operación | Detectar errores, reintentos y pendientes; registrar tiempo bajo atención humana |
 
 El impacto en retención de clientes telco es una hipótesis de piloto, no un resultado atribuible al prototipo. [G §03, C, P §10]
@@ -641,7 +641,7 @@ La separación lógica se conserva dentro de la máquina: conexión al sistema c
 | D-02 | Detalle de facturas en una evolución | La especificación usa saldo agregado por contrato/servicio | Mantener una fila por deuda de servicio en la demo | Después del MVP |
 | D-03 | Catálogo concreto de fixtures | La especificación exige documentos inequívocamente ficticios y USD fijo | Definir valores semilla al implementar; sin documentos reales | Implementación de seeds |
 | D-04 | Hora límite y eventual sustentación | Entrega lunes 2026-11-02; hora y sustentación por confirmar | Organizar trabajo para el lunes sin inventar una hora | Antes de la entrega |
-| D-05 | Acceso efectivo a modelos y verificación del control de USD 5 | Modelos y reservas de gasto definidos en el plan, configurables | Probar permisos, calidad y consumo con entorno privado; sin asumir acceso por documentación | Integración y preflight |
+| D-05 | Acceso efectivo a modelos y verificación del control de USD 10 | Modelos y reservas de gasto definidos en el plan, configurables | Probar permisos, calidad y consumo con entorno privado; sin asumir acceso por documentación | Integración y preflight |
 | D-06 | Forma real de identidad recibida del canal | Fallback de identificación ficticia y PIN definido en la especificación | Verificar teléfono/BSUID del payload y derivar si no se logra autenticar | Integración Chatwoot |
 | D-07 | Publicación HTTPS y uso del bot | Entrada temporal; reverse proxy existente; endpoint AWS | Elegir según disponibilidad y documentar restauración/exclusividad | Antes de demo WhatsApp |
 | D-08 | Tamaño, región, disco y red de la única EC2; alcance verificable de Floci | Dimensionar el stack completo y documentar APIs de infraestructura emuladas | Una máquina con Docker Compose y almacenamiento persistente; segmentación en otros servicios fuera del alcance inicial | Diseño y medición previa al despliegue |

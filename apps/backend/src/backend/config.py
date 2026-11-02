@@ -36,8 +36,8 @@ class BackendSettings(BaseSettings):
     openai_transcription_model: str = "gpt-transcribe"
     openai_timeout_seconds: int = 45
     openai_max_retries: int = 0
-    ai_total_budget_usd: Decimal = Decimal("5.00")
-    ai_local_spend_limit_usd: Decimal = Decimal("4.50")
+    ai_total_budget_usd: Decimal = Decimal("10.00")
+    ai_local_spend_limit_usd: Decimal = Decimal("10.00")
     ai_max_concurrent_requests: int = 2
     ai_max_calls_per_turn: int = 5
     ai_max_input_tokens: int = 70000
@@ -90,8 +90,8 @@ class BackendSettings(BaseSettings):
 
     @model_validator(mode="after")
     def enforce_limits(self):
-        if not Decimal("0") < self.ai_local_spend_limit_usd <= self.ai_total_budget_usd <= Decimal("5"):
-            raise ValueError("El presupuesto local debe ser positivo, <= total y <= USD 5")
+        if not Decimal("0") < self.ai_local_spend_limit_usd <= self.ai_total_budget_usd <= Decimal("10"):
+            raise ValueError("El presupuesto local debe ser positivo, <= total y <= USD 10")
         if not 1 <= self.ai_max_concurrent_requests <= 2 or not 1 <= self.ai_max_calls_per_turn <= 5:
             raise ValueError("Máximo dos inferencias simultáneas y cinco llamadas por turno")
         if self.app_env == "production":

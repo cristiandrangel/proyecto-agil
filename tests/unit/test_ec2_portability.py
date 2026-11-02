@@ -280,6 +280,10 @@ def test_first_launch_requests_an_instance_compatible_with_native_image(
 ):
     from types import SimpleNamespace
 
+    userdata = tmp_path / "infra/floci-runtime/user-data.sh"
+    userdata.parent.mkdir(parents=True)
+    userdata.write_text("#!/bin/sh\ntrue\n")
+    monkeypatch.setattr(ec2, "ROOT", tmp_path)
     local = tmp_path / "local"
     local.mkdir()
     (local / "id_ed25519").write_text("fixture-private")

@@ -299,7 +299,7 @@ Los IDs conservan la numeración del PRD; no se crea un segundo catálogo parale
   ilustrativa, diez destinatarios enviados y cuatro personas que responden producen
   40% de contactabilidad aunque una de ellas envíe cinco mensajes.
 - **SC-07**: La evaluación registra el consumo de agente, audio, imagen y reintentos
-  frente a USD 5 y detiene nuevas llamadas cuando su control local agota el presupuesto.
+  frente a USD 10 y detiene nuevas llamadas cuando su control local agota el presupuesto.
 - **SC-08**: Los 31 casos AC-01 a AC-31 del PRD tienen resultado y evidencia antes
   de declarar la entrega verificada; ningún resultado se presupone por documentarlo.
 

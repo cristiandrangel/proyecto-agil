@@ -20,12 +20,12 @@ def usd(value) -> Decimal:
 
 
 class BudgetService:
-    def __init__(self, session_factory=None, *, limit_usd="4.50", max_active_calls=2):
+    def __init__(self, session_factory=None, *, limit_usd="10.00", max_active_calls=2):
         self.sessions = session_factory or get_session_factory()
         self.limit_usd = usd(limit_usd)
         self.max_active_calls = max_active_calls
-        if self.limit_usd > Decimal("4.50") or max_active_calls > 2 or max_active_calls < 1:
-            raise ValueError("The local safety cap is USD 4.50 and two concurrent calls")
+        if self.limit_usd > Decimal("10.00") or max_active_calls > 2 or max_active_calls < 1:
+            raise ValueError("The local safety cap is USD 10 and two concurrent calls")
 
     @staticmethod
     def _lock(session):

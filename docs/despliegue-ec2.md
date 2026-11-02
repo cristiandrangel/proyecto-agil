@@ -99,7 +99,7 @@ secretos propios y ejecutar `chmod 600 .env`. No copiar la base de trabajo del
 propietario, dumps, historial de conversaciones ni sus credenciales. El evaluador
 puede usar sus propias claves de OpenAI y Chatwoot; todos los clientes ficticios
 empiezan en modo `simulated`, y habilita su propio contacto desde la central.
-Una instalación vacía no demuestra que una clave compartida tenga USD 5 disponibles:
+Una instalación vacía no demuestra que una clave compartida tenga USD 10 disponibles:
 el límite local sólo conoce el consumo registrado por este despliegue.
 
 Valores públicos para este perfil:

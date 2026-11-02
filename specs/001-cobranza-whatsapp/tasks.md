@@ -36,7 +36,7 @@ los fallos de las pruebas de riesgo antes de la implementación que validan.
 - [x] T010 Implementar outbox con destino account/inbox/conversation copiado del evento o binding de campaña, pending y revisión revalidados, cancelación y envío incierto sin repetición ciega en apps/backend/src/backend/persistence/outbox.py (FR-06, FR-07, FR-12, FR-18; AC-18, AC-19, AC-21, AC-22).
 - [x] T011 Implementar autenticación por rol de servicio, grants y cliente HTTP central sin acceso directo a cartera en apps/central/src/central/auth.py y apps/backend/src/backend/integrations/central.py (FR-03, FR-08, FR-09; AC-03, AC-13).
 - [x] T012 [P] Escribir pruebas de reservas concurrentes, timeout y reset que conserva consumo en tests/integration/test_budget.py (FR-19, FR-20; AC-24).
-- [x] T013 Implementar ledger/reservas de gasto, concurrencia global y corte 4.50 en apps/backend/src/backend/services/budget.py; no borrar al reset (FR-19; AC-24).
+- [x] T013 Implementar ledger/reservas de gasto, concurrencia global y corte 10.00 en apps/backend/src/backend/services/budget.py; no borrar al reset (FR-19; AC-24).
 - [x] T014 Configurar cliente OpenAI con modelos del plan, tarifas, timeout y retries explícitos en apps/backend/src/backend/integrations/openai.py (FR-10, FR-11, FR-19; AC-22, AC-24).
 - [x] T015 Implementar redacción de secretos, correlación, health y readiness en apps/backend/src/backend/integrations/observability.py y main.py; smoke básico en scripts/preflight.py (FR-19, FR-20; AC-01, AC-24).
 

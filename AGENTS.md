@@ -94,7 +94,7 @@ usa Chatwoot real. Las simulaciones se muestran aparte de los KPI reales.
 ## Inferencia
 
 Agente principal: gpt-5.6-luna con reasoning.effort=high. La salida total inicial
-es 4096 tokens e incluye razonamiento. El presupuesto total de IA sigue en USD 5.
+es 4096 tokens e incluye razonamiento. El presupuesto de IA es USD 10 por instrucción posterior de Cristian.
 
 ## Memoria e identificación
 
