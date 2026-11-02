@@ -13,6 +13,7 @@
 .dockerignore
 .env.example
 .gitattributes
+.github/workflows/documentation.yml
 .gitignore
 .specify/.gitignore
 .specify/init-options.json
@@ -102,6 +103,9 @@ docs/emulacion-ec2.md
 docs/evals.md
 docs/evaluacion.md
 docs/imagenes/chatwoot-filtros-conversaciones.png
+docs/site/arquitectura.html
+docs/site/assets/liberty-latin-america.png
+docs/site/index.html
 docs/spec-kit.md
 emulate-ec2.cmd
 emulate-ec2.ps1
@@ -147,8 +151,12 @@ promptprd.md
 pyproject.toml
 scripts/__init__.py
 scripts/bootstrap.py
+scripts/build_docs_site.py
 scripts/configure_env.py
 scripts/demo_message.py
+scripts/docs-site/README.md
+scripts/docs-site/style.css
+scripts/docs-site/viewer.js
 scripts/ec2_emulation.py
 scripts/ec2_live_config.py
 scripts/preflight.py

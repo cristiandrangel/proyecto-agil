@@ -59,6 +59,11 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 
 ## Documentación
 
+- Las fuentes de contenido son README.md y docs/arquitectura.md. Los HTML de
+  docs/site se generan con scripts/build_docs_site.py; no editar su contenido
+  manualmente. Regenerarlos al cambiar las fuentes. El workflow de documentación
+  también genera y publica solo docs/site en GitHub Pages.
+
 - El README es la entrada del evaluador: producto y capacidades, instalación,
   recorrido con acciones/resultados, evidencia y ayuda operativa. Evitar acumular
   historia de correcciones o duplicar explicaciones internas extensas.

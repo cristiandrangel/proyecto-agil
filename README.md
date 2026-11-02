@@ -1,5 +1,7 @@
 # Proyecto Ágil
 
+**Documentación web:** [guía de la demo](https://cristiandrangel.github.io/proyecto-agil/) · [arquitectura con diagramas ampliables](https://cristiandrangel.github.io/proyecto-agil/arquitectura.html). Los Markdown de este repositorio siguen siendo las fuentes originales.
+
 **Un asistente de cobranza por WhatsApp que ayuda a consultar, negociar y pagar deudas, con atención humana cuando hace falta.**
 
 Gestionar una cartera grande exige contactar a muchas personas, entender su situación y dar seguimiento. Proyecto Ágil demuestra cómo un agente de IA puede asumir parte de esa conversación, mientras el equipo comercial conserva el control de las campañas y las excepciones. La central financiera valida cada operación: una respuesta del modelo no basta para conceder un descuento o declarar un pago.

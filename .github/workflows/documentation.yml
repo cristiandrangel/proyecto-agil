@@ -1,0 +1,58 @@
+name: Publish documentation
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - docs/arquitectura.md
+      - docs/imagenes/**
+      - docs/site/**
+      - scripts/build_docs_site.py
+      - scripts/docs-site/**
+      - .github/workflows/documentation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: documentation-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install document renderers
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: |
+          python -m pip install markdown-it-py==3.0.0
+          npm install --global @mermaid-js/mermaid-cli@11.16.0
+      - name: Generate standalone documents from Markdown
+        env:
+          MMDC_PUPPETEER_CONFIG: /tmp/puppeteer-docs.json
+        run: |
+          python -c 'import json, shutil; open("/tmp/puppeteer-docs.json", "w").write(json.dumps({"executablePath": shutil.which("google-chrome"), "args": ["--no-sandbox"]}))'
+          python scripts/build_docs_site.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
