@@ -2,6 +2,31 @@
 
 Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Revisión de instalación en otro equipo — 2 de noviembre
+
+Las 37 pruebas dirigidas de emulación, distribución y portabilidad aprobaron en
+0,77 segundos. El smoke aislado de Docker Linux verificó tres forwards SSH sobre
+bridge y publicación limitada a loopback, sin usar proveedores ni alterar la
+demo activa. Ese smoke corrió dentro del runner: no comprobó HTTP desde el
+loopback del anfitrión en esta repetición.
+
+El preflight de la Mac activa confirmó salud de backend/central, acceso de lectura
+a la bandeja TEST, modelos configurados y autenticación de Langfuse. No se llamó
+al modelo ni se enviaron mensajes desde esa comprobación. El README y la
+referencia de emulación distinguen ahora esos resultados de una aceptación
+completa de Windows y explican puertos, recursos y límites del diagnóstico.
+
+El lanzador aprobó **50 comprobaciones en Windows PowerShell 5.1 y 50 en
+PowerShell 7**, con rutas y permisos NTFS reales y Docker sustituido por un doble.
+La [ejecución CI aprobada](https://github.com/cristiandrangel/proyecto-agil/actions/runs/41550987285)
+corresponde al código `8358a13`. La ruta se extrajo a una función para probarla;
+no se acreditó un defecto previo de separadores. La primera publicación del
+workflow rechazó una expresión de shell; la siguiente ejecutó las comprobaciones
+pero conservó el código de una falla provocada. Se corrigió el harness y la
+corrida posterior aprobó. Ninguna de esas ejecuciones desplegó la demo ni acredita
+Docker Desktop completo en Windows. Estas comprobaciones son independientes de
+la suite de 453 pruebas y no deben sumarse como si fueran otra corrida integral.
+
 ## Mac ARM64, cuotas y presupuesto de evaluación — 2 de noviembre
 
 La revisión `1bc75ce` aprobó **453 pruebas, cero fallos y cero omitidas, en

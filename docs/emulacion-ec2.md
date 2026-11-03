@@ -52,16 +52,23 @@ en una carpeta local. Para ZIP, `infra/public-source-manifest.txt` enumera las
 fuentes públicas transferibles; los archivos privados y los symlinks se excluyen
 también si aparecen en esa lista. No admite una carpeta de un daemon remoto.
 
-Validado aquí: Linux x86_64 con Docker Engine. Los caminos Desktop, Windows y
-macOS se implementaron con pruebas de contratos y manifests multiarch; no se ha
-realizado una ejecución nativa en esos sistemas ni en hardware ARM. La selección
-ARM es nativa (catálogo `arm64` e imágenes multiarch), sin forzar emulación amd64.
+Validado aquí: entorno completo en Linux x86_64 con Docker Engine y arranque,
+integraciones y conversación real en un segundo equipo Mac ARM64 con Docker
+Desktop. No se acredita por ello todo el recorrido funcional de la Mac ni el
+stack completo en Windows. La selección ARM es nativa (catálogo `arm64` e
+imágenes multiarch), sin forzar emulación amd64.
+
+El lanzador aprobó 50 comprobaciones en cada uno de PowerShell 5.1 y 7 sobre
+Windows real: rutas, argumentos, rechazos y permisos NTFS. Docker se sustituyó
+por un doble; sigue pendiente ejecutar allí el stack completo con Docker Desktop.
+La regresión se repite con `./tests/infrastructure/windows-launcher.tests.ps1`
+y se automatiza en el workflow de portabilidad Windows.
 
 Preparación de Docker Desktop:
 
 1. Iniciar Docker Desktop y seleccionar Linux containers. El contexto activo local
    se usa automáticamente; se admiten el socket Unix Desktop y el pipe Windows.
-2. Tener al menos 4 CPU visibles para el invitado de 4 vCPU. Como punto de partida
+2. Tener al menos 4 CPU visibles para el conjunto de servicios. Como punto de partida
    se recomiendan 12 GiB o más de RAM para Docker; no es un mínimo medido. `doctor`
    informa la RAM visible y advierte si es inferior. El máximo exterior de 24 GiB
    no obliga a asignar esa cantidad. Hace falta medir picos con el recorrido real.
@@ -75,6 +82,17 @@ Preparación de Docker Desktop:
    Si Enhanced Container Isolation o una política corporativa los bloquea, el
    administrador debe habilitar esta carga; el script no modifica esas políticas.
    Rootless Docker no está soportado. No hace falta activar host networking.
+6. Mantener libres los puertos locales `2244`, `4567`, `13000`, `18080` y `19090`.
+   Si otro servicio ocupa uno, Docker rechazará el bind; identificarlo antes de
+   detenerlo y conservar sus datos. Usar una carpeta local fuera de unidades de
+   red o sincronización evita que permisos o disponibilidad dependan de ellas.
+
+`doctor` comprueba arquitectura del daemon, CPU, RAM visible, espacio libre del
+checkout y modo rootless. No comprueba el espacio libre interno del disco virtual
+de Desktop ni garantiza que un firewall, proxy o política corporativa permita
+esta carga. El preflight verifica salud y accesos de las integraciones por lectura;
+no demuestra entrega de WhatsApp ni una inferencia pagada. Si Meta no entrega la
+plantilla, se puede iniciar el chat directamente con el número TEST y continuar.
 
 Los ajustes de recursos y carpetas están en la
 [guía oficial de Docker Desktop](https://docs.docker.com/desktop/settings-and-maintenance/settings/).
@@ -262,8 +280,9 @@ arrancado no debe presentarse como verificado antes de completar ese reporte.
 La adaptación Desktop se comprobó el 2026-11-02 mediante `doctor` real en el
 runner, contratos de socket/rutas con espacios, claves NTFS simuladas, catálogo
 ARM/CRLF y smoke aislado de bridge/SSH/puertos loopback en Linux amd64. La demo
-existente no se recreó para esta comprobación. No se afirma aceptación nativa en
-Windows/macOS/ARM hasta ejecutar allí `up`, `verify`, `restart` y el recorrido.
+existente no se recreó para esa comprobación. Posteriormente se confirmó el
+arranque y la integración conversacional en Mac ARM64; la aceptación completa de
+cada plataforma exige también su recorrido funcional y la prueba de persistencia.
 
 Verificado el 2026-11-02 en Linux x86_64: once servicios saludables, fixtures
 limpios y persistencia PostgreSQL después de EC2 Stop/Start. También pasó el

@@ -37,7 +37,7 @@ Puedes usar **texto, notas de voz e imágenes** libremente durante la conversaci
 
 Necesitas Internet, Docker iniciado con **Compose v2 y Linux containers**, el archivo privado **`.env.entrega`** y tu WhatsApp autorizado como destinatario del número TEST cuando Meta lo requiera. No necesitas instalar Python ni SSH: el lanzador los ejecuta en un contenedor auxiliar.
 
-Usa una carpeta local. Se recomiendan al menos **4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres**, más el espacio de imágenes y datos. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.
+Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Se recomiendan al menos **4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres**, más el espacio de imágenes y datos en el disco virtual de Docker Desktop. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.
 
 Clona el repositorio o extrae el ZIP completo y abre su carpeta en una terminal:
 
@@ -265,6 +265,10 @@ Restaurar no borra el consumo de IA, las trazas de Langfuse ni el historial visi
 
 | Qué ocurre | Cómo continuar |
 |---|---|
+| No encuentra el archivo de entrega | Comprueba que se llame exactamente `.env.entrega`, sin extensión `.txt`, y esté junto a este README. |
+| El lanzador dice `Permission denied` en macOS/Linux | Ejecuta `chmod +x emulate-ec2.sh` y repite el comando. |
+| Docker indica un puerto ocupado | Esta demo usa `2244`, `4567`, `13000`, `18080` y `19090`. Libera el puerto señalado sin borrar volúmenes. |
+| Docker se queda sin memoria o espacio | Revisa los recursos y el disco virtual de Docker Desktop, además del espacio libre del equipo. Reanuda con el mismo comando tras corregirlo. |
 | La central no abre o dice mantenimiento | Comprueba Docker y `status`; revisa el error de la terminal. |
 | Aparece `origin_denied` | Usa la URL HTTPS de la central de la sección 2, no su puerto local. |
 | No acepta las credenciales | Usa los accesos exportados de esta instalación, no el PIN ni los de un Langfuse antiguo. |
@@ -287,7 +291,7 @@ La [referencia de emulación](docs/emulacion-ec2.md) contiene el diagnóstico y 
 
 La última suite completa aprobó **453 pruebas, sin fallos ni omitidas**, el 2 de noviembre de 2026, en 52,08 segundos, con PostgreSQL real y proveedores simulados. Incluye las regresiones de arquitectura ARM/x86 y de cuotas y presupuesto. También se observaron recorridos con WhatsApp, OpenAI y Langfuse reales: autenticación, pagos simulados, negociación, audio, imágenes y atención humana.
 
-El entorno completo se comprobó en **Linux x86_64**. La validación en un segundo equipo Mac ARM64 está en curso; Windows y otros destinos aún requieren completar sus recorridos nativos. El lanzador selecciona `t2.xlarge` en x86_64 y `m6g.large` en ARM64. No se acredita un despliegue AWS real, carga masiva, alta disponibilidad ni cumplimiento de producción. El nuevo catálogo live de 50 evals y la recuperación de acuerdos por WhatsApp con la última corrección siguen pendientes de completar.
+El entorno completo se comprobó en **Linux x86_64**. En un segundo equipo **Mac ARM64** se confirmaron el arranque, las integraciones y el chat real; eso no acredita todas las variantes funcionales en esa plataforma. El lanzador aprobó 50 comprobaciones en cada uno de **PowerShell 5.1 y 7 sobre Windows real**, con permisos NTFS reales y Docker simulado; falta el recorrido completo con Docker Desktop en Windows. El lanzador selecciona `t2.xlarge` en x86_64 y `m6g.large` en ARM64. No se acredita un despliegue AWS real, carga masiva, alta disponibilidad ni cumplimiento de producción. El nuevo catálogo live de 50 evals y la recuperación de acuerdos por WhatsApp con la última corrección siguen pendientes de completar.
 
 Para repetir la suite sin usar proveedores ni volúmenes de la demo:
 

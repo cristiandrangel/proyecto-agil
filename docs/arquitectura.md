@@ -165,7 +165,7 @@ Los procesos se configuran con Docker Compose y persisten sus datos en volúmene
 
 El lanzador prepara un Docker Engine aislado. Floci recibe operaciones de control compatibles con EC2, crea el invitado Linux y ejecuta su inicialización (`UserData`). Dentro de ese invitado se transfieren las fuentes permitidas y se ejecutan migraciones, datos iniciales y Compose. El reinicio ejercita la parada y arranque por la API emulada y la persistencia del stack.
 
-La imagen del invitado contiene Docker y SSH. El lanzador selecciona un tipo compatible con la arquitectura nativa de Docker: `t2.xlarge` (4 CPU/16 GiB) en x86_64 y `m6g.large` (2 CPU/8 GiB) en ARM64, incluidos Mac con Apple Silicon. La verificación compara los límites Docker y cgroup con el tipo solicitado. Los límites x86 se comprobaron en ejecución completa; el recorrido completo ARM64 continúa en validación. Esa elección responde al catálogo de Floci y no recomienda una familia EC2 para producción. El motor exterior tiene un techo de hasta 8 CPU y 24 GiB, sin reservar toda esa memoria al iniciar.
+La imagen del invitado contiene Docker y SSH. El lanzador selecciona un tipo compatible con la arquitectura nativa de Docker: `t2.xlarge` (4 CPU/16 GiB) en x86_64 y `m6g.large` (2 CPU/8 GiB) en ARM64, incluidos Mac con Apple Silicon. La verificación compara los límites Docker y cgroup con el tipo solicitado. El entorno completo se ejecutó en Linux x86_64; en un segundo equipo Mac ARM64 se comprobó el arranque del stack y la integración real de chat. Esa elección responde al catálogo de Floci y no recomienda una familia EC2 para producción. El motor exterior tiene un techo de hasta 8 CPU y 24 GiB, sin reservar toda esa memoria al iniciar.
 
 Floci permite probar el proceso de preparación y control de una instancia con la aplicación dentro. No genera por sí mismo la infraestructura como código de AWS, ni acredita políticas IAM, grupos de seguridad, disponibilidad, rendimiento de discos o comportamiento de una VM real. El invitado es un contenedor privilegiado que comparte el kernel Linux del entorno. En Docker Desktop, ese kernel lo proporciona la VM Linux de Desktop.
 
@@ -268,6 +268,14 @@ externo restringido a TEST; el relay no aparece como contenedor de la aplicació
 Una tool puede cambiar contexto local o pedir un handoff sin consultar central;
 el bucle del dibujo resume las herramientas financieras. Confirmar identidad termina el bucle y solicita el PIN de forma estática. Las ramas y sus precondiciones se desarrollan en la sección 4.
 
+El relay comparte sus cuotas entre los equipos de la prueba: 1.000 intentos de
+envío y 10 intentos de crear contactos por día UTC, con contadores diarios
+persistentes que incluyen intentos fallidos o inciertos. Reiniciar la aplicación,
+restaurar fixtures o cambiar de equipo no repone esas cuotas. El límite adicional
+de 60 peticiones por minuto se controla en memoria en el proceso del relay.
+Plantillas, respuestas y efectos de atención humana consumen intentos de envío;
+estas cuotas son independientes del presupuesto de IA y de las reglas de Meta.
+
 La aprobación del portal actualiza la deuda antes de recibir la captura. La
 imagen provoca una consulta, nunca autoriza un pago. El mensaje puede confirmar
 el registro financiero, no certificar que una imagen sea auténtica.
@@ -301,7 +309,7 @@ La central es una API HTTP con prefijo `/internal/v1`. Se autentica al consumido
 | `GET /payments/verify` | Deuda autorizada y referencia opcional → estado del pago | Confirmar contra registros financieros. |
 | `GET /events` | Cursor → eventos de negocio ordenados | Conciliar pagos/acuerdos con métricas de campañas. |
 
-Las escrituras llevan `Idempotency-Key` y las deudas usan versión esperada para detectar datos desactualizados. Los errores devuelven código, mensaje seguro y condición de reintento; una denegación de pertenencia no se convierte en un resultado vacío que el agente pueda interpretar como saldo cero.
+Los comandos financieros, la revocación de identidad y las ediciones llevan `Idempotency-Key`; la versión de deuda permite detectar condiciones desactualizadas. La localización crea candidatos temporales sin esa clave, y la verificación de PIN deduplica intentos por sesión y mensaje origen. Los errores devuelven código, mensaje seguro y condición de reintento; una denegación de pertenencia no se convierte en un resultado vacío que el agente pueda interpretar como saldo cero.
 
 Para conectar un ERP real se sustituye el adaptador financiero conservando esta semántica: identificación de cliente y obligación, lectura de saldo, aprobación comercial, creación de orden, aplicación/consulta de pago y eventos conciliables. Hay que acordar con su propietario quién escribe cada dato, cómo se autentica la integración y cómo se recuperan errores. No basta con copiar tablas ni dar acceso SQL libre al LLM.
 
@@ -863,7 +871,7 @@ flowchart TB
                 HUMAN["Chatwoot corporativo o adaptador de atención"]
                 DATA["PostgreSQL y Langfuse autoalojados"]
             end
-            NAT["Salida controlada mediante NAT"]
+            NAT["Salida a Internet mediante NAT"]
         end
         EBS["EBS cifrado y snapshots"]
         INFER["Bedrock: texto, tools y visión"]
@@ -878,12 +886,12 @@ flowchart TB
         DATA --- EBS
         PRODUCT --> INFER
         PRODUCT --> AUDIO
-        PRODUCT --> NAT
+        HUMAN --> NAT
         ADMIN -. "permisos y operación" .-> PRODUCT
         PRODUCT -. "salud y logs" .-> MON
     end
     USERS --> ALB
-    META <--> ALB
+    META -- "webhooks entrantes" --> ALB
     NAT --> META
 ```
 
@@ -893,17 +901,6 @@ solo desde el ALB; PostgreSQL y observabilidad permanecerían internos. La salid
 a Meta requiere NAT o una ruta corporativa equivalente. Las dependencias de AWS
 requieren conectividad por esa salida o endpoints privados configurados. Esto
 tiene coste adicional y **no elimina el punto único de fallo de una sola EC2**.
-
-| Decisión | Motivo y adaptación necesaria |
-|---|---|
-| EC2 + Docker Compose | Flexibilidad y menor cambio inicial del código. Requiere parches, dimensionamiento y operación del host; no aporta alta disponibilidad por sí sola. [EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) |
-| EBS cifrado | Separar datos de imágenes y conservarlos al sustituir procesos. Definir copias consistentes, retención y probar restauración; Stop/Start no demuestra recuperación de desastre. |
-| Route 53 + ALB/ACM | Sustituir la dependencia de Cloudflare por entrada HTTPS AWS con certificados y comprobación de targets. Requiere adaptar puertos/binds del perfil actual y configurar DNS. [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html) |
-| VPC, grupos de seguridad y NAT | Mantener el host sin entrada directa de Internet y permitir salida controlada. Su coste se incluye en el presupuesto del despliegue. [NAT](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) |
-| IAM + Secrets Manager + Session Manager | Rol mínimo del host, secretos fuera de Git y administración sin SSH abierto. Son integraciones pendientes, no propiedades verificadas por Floci. [Secretos](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html), [administración](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html) |
-| Bedrock y Transcribe | Proveer inferencia y transcripción desde AWS. Hay que adaptar clientes y validar tools, visión, idiomas, cuotas, región, coste y evals; cambiar solo una URL no acredita compatibilidad. [Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html), [Transcribe](https://docs.aws.amazon.com/transcribe/latest/dg/what-is.html) |
-| Chatwoot/atención en AWS | Trasladar el canal propio o conectar el sistema empresarial aprobado. El Chatwoot personal y relay actual no forman parte de la propuesta AWS; autoalojarlo exige añadir sus dependencias y medir recursos. |
-| CloudWatch + Langfuse | CloudWatch supervisaría infraestructura y alertas; Langfuse conservaría el detalle de turnos, modelos y herramientas. No son la misma vista de operación. |
 
 Los doce contenedores describen la **demo**, no un inventario ya construido de
 esta propuesta AWS: se elimina `cloudflared` y deben resolverse las dependencias
@@ -919,17 +916,16 @@ canal e inferencia. IaC queda como plan futuro, sin Terraform obligatorio.
 
 ### 8.1. Qué función cumple cada capa de AWS
 
-**Entrada.** Route 53 resolvería el dominio corporativo; ACM aportaría el certificado TLS y el Application Load Balancer (ALB) distribuiría HTTP/HTTPS según dominio o ruta hacia backend y atención humana. Los target groups se comprobarían con endpoints de salud adecuados. El ALB no ejecuta al agente ni autentica al cliente financiero. Esta elección facilita una entrada estable y separar targets posteriormente; añade coste y no hace redundante una única EC2. [Referencia ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html).
-
-**Red.** La VPC delimita la red. El ALB tendría entrada pública en dos zonas y la EC2 estaría en una subred privada, con reglas que admitan los puertos de aplicación desde el grupo del ALB. PostgreSQL no se publicaría. NAT permitiría conexiones salientes a Meta sin abrir conexiones entrantes directas al host; NAT no es un firewall de contenidos ni una lista de dominios permitidos. El filtrado de destinos requeriría controles adicionales. Los servicios AWS podrían usarse por endpoints privados cuando se configuren. [Referencia NAT](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html).
-
-**Cómputo y datos.** EC2 ejecutaría los contenedores propios. EBS cifrado conservaría volúmenes; las copias de bases y su restauración deben ser consistentes, no limitarse a «hay un snapshot». El tamaño final se decide midiendo memoria, CPU, disco y latencia del recorrido y del canal humano. El tipo emulado no determina el tipo que se debe comprar.
-
-**Identidad técnica y administración.** Un rol IAM permitiría al host acceder solo a los secretos y servicios requeridos. Secrets Manager sustituiría la distribución manual de claves para operación empresarial; Session Manager permitiría administrar sin publicar SSH. Aun así hay que adaptar la aplicación para cargar/rotar secretos y aplicar permisos; Floci no ha probado esos controles.
-
-**Inferencia.** El adaptador OpenAI se sustituiría por Bedrock para el modelo conversacional/visión y Transcribe para audio. El contrato interno debe preservar historial, tools, resultados, uso y errores. Converse ofrece mensajes y tool use, sujetos a capacidades del modelo elegido. Deben repetirse evals de extracción, negociación, identidad y seguridad; no se asume que los identificadores de modelo o parámetros actuales existan allí. [Referencia Converse](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html).
-
-**Operación.** CloudWatch recogería salud, recursos y alarmas; Langfuse seguiría registrando semántica del agente. El acceso a paneles operativos se restringiría por la red/acceso corporativo. El canal WhatsApp requiere Meta; la parte propia de Chatwoot o el adaptador empresarial residiría en AWS con sus dependencias. No se dejaría el servidor personal como componente de la propuesta empresarial.
+| Decisión | Motivo y adaptación necesaria |
+|---|---|
+| EC2 + Docker Compose | Iterar con flexibilidad y pocos cambios de despliegue. Requiere parches y operación del host; se dimensionaría midiendo CPU, memoria, disco y latencia, incluido el canal humano. El tipo emulado no determina el tipo real y una sola EC2 no aporta alta disponibilidad. [EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) |
+| EBS cifrado | Conservar datos separados de imágenes. Definir copias consistentes, retención y restauración probada; disponer de snapshots o completar Stop/Start no demuestra recuperación de desastre. |
+| Route 53 + ALB/ACM | Sustituir Cloudflare por DNS y entrada HTTPS AWS. Route 53 resolvería el dominio, ACM aportaría TLS y el ALB dirigiría peticiones por dominio/ruta a backend y atención humana, con comprobaciones de salud. Exige adaptar puertos/binds del perfil actual; el ALB no ejecuta el agente ni autentica al titular financiero. [ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html) |
+| VPC, grupos de seguridad y NAT | Aislar el host y permitir conexiones salientes sin publicarlo. NAT no filtra contenido ni impone una lista de dominios; restringir destinos requeriría controles adicionales. Los servicios AWS podrían alcanzarse por endpoints privados configurados. La red añade coste sin eliminar el punto único de fallo. [NAT](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) |
+| IAM + Secrets Manager + Session Manager | Rol mínimo para los servicios requeridos, secretos fuera de Git y administración sin SSH público. Hay que integrar carga/rotación de secretos y permisos; Floci no acredita esos controles. [Secretos](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html), [administración](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html) |
+| Bedrock y Transcribe | Sustituir OpenAI directo para conversación/visión y audio. El adaptador debe preservar historial, tools, resultados, uso y errores. Converse admite mensajes y tools según el modelo; hay que validar región, idiomas, visión, cuotas, coste y repetir evals de identidad, negociación y seguridad. Cambiar una URL no acredita compatibilidad de modelos o parámetros. [Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html), [Converse](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html), [Transcribe](https://docs.aws.amazon.com/transcribe/latest/dg/what-is.html) |
+| Chatwoot/atención en AWS | Trasladar el canal propio o conectar el sistema empresarial aprobado, con sus dependencias y recursos medidos. Meta sigue siendo externo; el Chatwoot personal y el relay de demo no forman parte del despliegue propuesto. |
+| CloudWatch + Langfuse | CloudWatch recogería salud, recursos y alarmas; Langfuse conservaría el detalle de turnos, modelos y herramientas. Los paneles tendrían acceso corporativo restringido. |
 
 ### 8.2. Secuencia de migración y criterios de aceptación
 
@@ -959,19 +955,21 @@ Estas opciones son planes de evolución, no requisitos añadidos a la prueba ni 
 
 ### 9.1. Pruebas de software
 
-La última suite completa se ejecutó el 2 de noviembre de 2026 tras ajustar la portabilidad y las cuotas: **453 pruebas aprobadas, cero fallos y cero omitidas, en 52,08 segundos**. La suite anterior de 447 corresponde a `45201b3`. Incluye PostgreSQL 17 real, migraciones, contratos de identidad, aislamiento por titular, concurrencia y transacciones financieras, campañas, cola/outbox, contexto del agente, medios y observabilidad. Inferencia y mensajería externas usan dobles en esa batería.
+La última suite completa se ejecutó el 2 de noviembre de 2026: **453 pruebas aprobadas, cero fallos y cero omitidas, en 52,08 segundos**. Incluye PostgreSQL 17 real, migraciones, contratos de identidad, aislamiento por titular, concurrencia y transacciones financieras, campañas, cola/outbox, contexto del agente, medios, observabilidad y regresiones de portabilidad, cuotas y presupuesto. Inferencia y mensajería externas usan dobles en esa batería.
 
-La recuperación de acuerdos se verificó para propuesta pendiente y aceptación, cambio de titular, nueva autenticación, caducidad, saldo/versión incompatibles y orden no reutilizable. La consulta agrupa datos sin una consulta adicional por cada deuda. También se comprobó su despliegue y una respuesta de la API con acuerdo válido. Falta repetir ese recorrido con WhatsApp y el LLM sobre la última corrección; no se renuevan vencimientos para aparentar éxito.
+Por separado, el lanzador Windows aprobó 50 comprobaciones en PowerShell 5.1 y otras 50 en PowerShell 7 sobre un ejecutor Windows real. Se ejercitaron rutas con espacios, argumentos, rechazo de contextos remotos y permisos NTFS; Docker se sustituyó por un doble. Esto verifica el lanzador y sus permisos, no el stack de Docker Desktop ni las integraciones completas en Windows.
+
+La recuperación de acuerdos se verificó para propuesta pendiente y aceptación, cambio de titular, nueva autenticación, caducidad, saldo/versión incompatibles y orden no reutilizable. La consulta agrupa datos sin una consulta adicional por cada deuda. También se comprobó su despliegue y una respuesta de la API con acuerdo válido. Falta repetir ese recorrido con WhatsApp y el LLM sobre la versión actual.
 
 Las migraciones de autenticación e historial humano se comprobaron sobre PostgreSQL, incluida conservación de datos y reversión/reaplicación en los casos ensayados. Las pruebas de telemetría verifican entradas/salidas, jerarquía, exclusión de secretos y restauración del contexto padre para efectos asíncronos.
 
 ### 9.2. Pruebas reales de integración
 
-En la Mac ARM64 se levantó el stack, se verificaron por lectura las integraciones y se observaron respuestas reales. Durante el chat se agotaron los 100 envíos diarios del relay compartido. Se amplió a 1.000 conservando el ledger; el siguiente mensaje se envió correctamente. El presupuesto local se ajustó a USD 10 sin reiniciar consumo ni conversaciones. Esto verifica esa integración en el segundo equipo, sin dar por completados todos los pagos y variantes nativos.
+En un segundo equipo Mac ARM64 se levantó el stack, se verificaron las integraciones por lectura y se observaron respuestas reales por WhatsApp. El operador confirmó el funcionamiento del chat y las integraciones. Esta evidencia acredita el arranque y esa integración nativa; no añade una repetición documentada de todos los pagos y variantes en Mac.
 
 Se observaron campañas por el número TEST de Meta, identificación, PIN, pago simulado completo, acuerdos, envío de capturas, transcripción, atención humana, retorno y persistencia en recorridos de desarrollo. La aplicación y Langfuse corrieron dentro del invitado creado por Floci, con acceso público a los portales y llamadas reales al proveedor de inferencia.
 
-La revisión de trazas incluyó imagen → inferencia → verificación financiera → consulta de cartera → respuesta encolada → envío. También se detectaron y corrigieron respuestas fuera de alcance, pérdida de contexto humano, lectura incorrecta de referencia y recuperación de acuerdos. Las trazas históricas conservan el comportamiento de su versión; no se reescriben para presentar todos los intentos como correctos.
+La revisión de trazas incluyó imagen → inferencia → verificación financiera → consulta de cartera → respuesta encolada → envío, además de casos de audio y retorno humano. Las trazas corresponden a la versión ejecutada y permiten contrastar decisiones con resultados financieros y de canal.
 
 Esta evidencia muestra escenarios concretos, no una prueba masiva ni un porcentaje universal de acierto. El cambio de documentación no implica una nueva ejecución de toda la suite o del canal.
 
@@ -985,7 +983,7 @@ El reporte diferencia comprobaciones estructurales —tool permitida, argumentos
 
 ### 9.4. Fronteras de la evidencia
 
-- Se ejecutó el entorno completo en Linux x86_64. Los lanzadores e imágenes para Windows/macOS/ARM tienen comprobaciones de contratos, pero falta ejecución nativa completa en esos destinos y una instalación independiente en un segundo equipo.
+- Se ejecutó el entorno completo en Linux x86_64 y se comprobó el stack y la integración real de chat en un segundo equipo Mac ARM64. En Windows se probó el lanzador con PowerShell y NTFS reales, pero falta el recorrido con Docker Desktop; los pagos y variantes no repetidos documentalmente en Mac conservan ese límite de evidencia.
 - Los pagos son simulados y el PIN es fijo; no hay procesamiento bancario, antifraude ni identidad de producción.
 - No se aprovisionó AWS real ni se verificaron carga masiva, alta disponibilidad, recuperación EBS, objetivos RTO/RPO o cumplimiento normativo.
 - El catálogo live nuevo y el recorrido actualizado de recuperación de acuerdos siguen pendientes en el alcance indicado.
@@ -1031,7 +1029,8 @@ El fixture contiene 13 personas y 14 deudas. Ana (`CC 10000001`) tiene hogar USD
 
 1. Abrir central, buscar Ana y editar su contacto compartido con el WhatsApp del evaluador, seleccionando Live. Mantener los demás simulados. Comprobar que ambas obligaciones comparten el contacto.
 2. Filtrar pendientes y previsualizar: con los datos iniciales hay doce personas y trece deudas pendientes; Ana aparece una vez con dos obligaciones. Guardar y lanzar una sola campaña. Resultado esperado: un envío real y once simulados, si no hay exclusiones o fallos.
-3. Responder por WhatsApp. El agente se presenta, contextualiza la gestión y busca por teléfono o pide documento. Confirmar la pista y escribir PIN cuando se solicite. Antes de validar no deben aparecer saldos.
+   Si Meta no entrega la plantilla, iniciar el chat directamente con el número TEST y continuar. Conservar el resultado original del envío: el chat directo no convierte un fallo en éxito y la atribución a la campaña puede diferir.
+3. Continuar por WhatsApp. El agente se presenta, contextualiza la gestión y busca por teléfono o pide documento. Confirmar la pista y escribir PIN cuando se solicite. Antes de validar no deben aparecer saldos.
 4. Seleccionar hogar, pedir pagar USD 100, abrir enlace y aprobar la simulación. La central debe mostrar hogar liquidada y telefonía pendiente. Enviar captura del recibo; el agente debe comprobar el pago mediante tool.
 5. Cambiar a telefonía con la misma sesión vigente, ofrecer USD 54, rechazar la propuesta de USD 57 y mantener USD 54. Confirmar la cotización en otro mensaje, aprobar pago y enviar recibo. Esperar USD 154 recibidos, USD 6 condonados y saldo cero para la cohorte real.
 6. Probar una nota de voz y cambiar a Bruno con nueva autenticación. Para recuperar un acuerdo, aceptarlo sin pagar, salir y volver antes de que venza; debe recuperar condiciones válidas sin renovarlas. Para probar el límite, usar una deuda pendiente y un pago del 80 %.

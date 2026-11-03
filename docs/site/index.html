@@ -59,7 +59,7 @@
 <h2 id="2-instalar-y-comenzar">2. Instalar y comenzar</h2>
 <h3 id="21-preparar-el-equipo">2.1. Preparar el equipo</h3>
 <p>Necesitas Internet, Docker iniciado con <strong>Compose v2 y Linux containers</strong>, el archivo privado <strong><code>.env.entrega</code></strong> y tu WhatsApp autorizado como destinatario del número TEST cuando Meta lo requiera. No necesitas instalar Python ni SSH: el lanzador los ejecuta en un contenedor auxiliar.</p>
-<p>Usa una carpeta local. Se recomiendan al menos <strong>4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres</strong>, más el espacio de imágenes y datos. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.</p>
+<p>Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Se recomiendan al menos <strong>4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres</strong>, más el espacio de imágenes y datos en el disco virtual de Docker Desktop. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.</p>
 <p>Clona el repositorio o extrae el ZIP completo y abre su carpeta en una terminal:</p>
 <pre><code class="language-bash">git clone https://github.com/cristiandrangel/proyecto-agil.git
 cd proyecto-agil
@@ -403,6 +403,22 @@ cd proyecto-agil
 </thead>
 <tbody>
 <tr>
+<td>No encuentra el archivo de entrega</td>
+<td>Comprueba que se llame exactamente <code>.env.entrega</code>, sin extensión <code>.txt</code>, y esté junto a este README.</td>
+</tr>
+<tr>
+<td>El lanzador dice <code>Permission denied</code> en macOS/Linux</td>
+<td>Ejecuta <code>chmod +x emulate-ec2.sh</code> y repite el comando.</td>
+</tr>
+<tr>
+<td>Docker indica un puerto ocupado</td>
+<td>Esta demo usa <code>2244</code>, <code>4567</code>, <code>13000</code>, <code>18080</code> y <code>19090</code>. Libera el puerto señalado sin borrar volúmenes.</td>
+</tr>
+<tr>
+<td>Docker se queda sin memoria o espacio</td>
+<td>Revisa los recursos y el disco virtual de Docker Desktop, además del espacio libre del equipo. Reanuda con el mismo comando tras corregirlo.</td>
+</tr>
+<tr>
 <td>La central no abre o dice mantenimiento</td>
 <td>Comprueba Docker y <code>status</code>; revisa el error de la terminal.</td>
 </tr>
@@ -449,7 +465,7 @@ cd proyecto-agil
 <li><strong><a href="https://github.com/cristiandrangel/proyecto-agil/blob/main/docs/evals.md">Evals</a>:</strong> catálogo de 50 escenarios, validación offline y ejecución con LLM. Los evals live consumen presupuesto y son explícitos; no sustituyen una prueba completa por WhatsApp.</li>
 </ul>
 <p>La última suite completa aprobó <strong>453 pruebas, sin fallos ni omitidas</strong>, el 2 de noviembre de 2026, en 52,08 segundos, con PostgreSQL real y proveedores simulados. Incluye las regresiones de arquitectura ARM/x86 y de cuotas y presupuesto. También se observaron recorridos con WhatsApp, OpenAI y Langfuse reales: autenticación, pagos simulados, negociación, audio, imágenes y atención humana.</p>
-<p>El entorno completo se comprobó en <strong>Linux x86_64</strong>. La validación en un segundo equipo Mac ARM64 está en curso; Windows y otros destinos aún requieren completar sus recorridos nativos. El lanzador selecciona <code>t2.xlarge</code> en x86_64 y <code>m6g.large</code> en ARM64. No se acredita un despliegue AWS real, carga masiva, alta disponibilidad ni cumplimiento de producción. El nuevo catálogo live de 50 evals y la recuperación de acuerdos por WhatsApp con la última corrección siguen pendientes de completar.</p>
+<p>El entorno completo se comprobó en <strong>Linux x86_64</strong>. En un segundo equipo <strong>Mac ARM64</strong> se confirmaron el arranque, las integraciones y el chat real; eso no acredita todas las variantes funcionales en esa plataforma. El lanzador aprobó 50 comprobaciones en cada uno de <strong>PowerShell 5.1 y 7 sobre Windows real</strong>, con permisos NTFS reales y Docker simulado; falta el recorrido completo con Docker Desktop en Windows. El lanzador selecciona <code>t2.xlarge</code> en x86_64 y <code>m6g.large</code> en ARM64. No se acredita un despliegue AWS real, carga masiva, alta disponibilidad ni cumplimiento de producción. El nuevo catálogo live de 50 evals y la recuperación de acuerdos por WhatsApp con la última corrección siguen pendientes de completar.</p>
 <p>Para repetir la suite sin usar proveedores ni volúmenes de la demo:</p>
 <pre><code class="language-bash">docker compose -p proyecto-agil-tests -f infra/compose.test.yaml up --build --abort-on-container-exit --exit-code-from tests
 docker compose -p proyecto-agil-tests -f infra/compose.test.yaml down
