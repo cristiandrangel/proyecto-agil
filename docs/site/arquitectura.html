@@ -884,6 +884,13 @@ no están automatizadas como cumplimiento normativo en el prototipo.</p>
 <p>Además de contactabilidad se medirían cobertura de la base, recaudo neto por asignado, porcentaje del saldo recuperado, condonación, coste por deuda liquidada, tiempo a pago, tasa de handoff, espera humana y calidad de atención. El coste incluiría inferencia, canal, infraestructura y trabajo humano. Una tasa de respuesta alta con poco recaudo puede revelar un problema de negociación, selección o proceso; no basta para afirmar éxito.</p>
 <p>La revisión diaria debe separar colas sin procesar, fallos de proveedores, salidas inciertas, presupuesto restante y casos humanos sin atender. Langfuse permite investigar ejemplos; el tablero comercial muestra resultados; alertas de infraestructura detectan disponibilidad. La demo aporta los registros y métricas principales, pero no una guardia operativa, un SLA ni todo ese sistema de alertas.</p>
 <h2 id="8-propuesta-de-infraestructura-aws">8. Propuesta de infraestructura AWS</h2>
+<p>Esta propuesta inicial se basa en la <strong>documentación pública de AWS consultada
+durante el diseño</strong>. Se revisaría al trabajar con el entorno real de producción
+y el equipo técnico de la compañía. La selección, configuración y dimensionamiento
+de los servicios podrían cambiar según los sistemas e integraciones existentes,
+la carga real, las políticas corporativas y los servicios, modelos, regiones y
+permisos a los que la empresa tenga acceso. Su definición final requiere esa
+validación en el contexto de la organización.</p>
 <p><strong>Propuesta para evaluación, no infraestructura aprovisionada ni una ampliación
 obligatoria del prototipo.</strong> Se conserva una EC2 para iterar rápido sobre la
 aplicación. La entrada, gestión e inferencia se adaptarían a servicios AWS.

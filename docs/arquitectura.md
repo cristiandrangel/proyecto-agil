@@ -863,6 +863,14 @@ La revisión diaria debe separar colas sin procesar, fallos de proveedores, sali
 
 ## 8. Propuesta de infraestructura AWS
 
+Esta propuesta inicial se basa en la **documentación pública de AWS consultada
+durante el diseño**. Se revisaría al trabajar con el entorno real de producción
+y el equipo técnico de la compañía. La selección, configuración y dimensionamiento
+de los servicios podrían cambiar según los sistemas e integraciones existentes,
+la carga real, las políticas corporativas y los servicios, modelos, regiones y
+permisos a los que la empresa tenga acceso. Su definición final requiere esa
+validación en el contexto de la organización.
+
 **Propuesta para evaluación, no infraestructura aprovisionada ni una ampliación
 obligatoria del prototipo.** Se conserva una EC2 para iterar rápido sobre la
 aplicación. La entrada, gestión e inferencia se adaptarían a servicios AWS.
