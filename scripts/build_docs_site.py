@@ -100,7 +100,10 @@ def build(source_path, filename, label, title, subtitle, svgs):
     # The README navigation row belongs to GitHub. A mailed attachment has its
     # own section index and must not depend on a second document being present.
     if source_path == ROOT / "README.md":
-        source = "\n".join(line for line in source.splitlines() if not line.startswith("[Guía web]("))
+        source = "\n".join(
+            line for line in source.splitlines()
+            if not line.startswith(("[Guía web](", "**Respaldo de la documentación:**"))
+        )
     tokens = md.parse(source)
     headings, counts = [], {}
     number = 0

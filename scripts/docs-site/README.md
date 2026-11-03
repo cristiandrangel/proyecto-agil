@@ -3,8 +3,9 @@
 Las fuentes de contenido siguen siendo `README.md` y `docs/arquitectura.md`.
 `build_docs_site.py` genera `docs/site/index.html` y `docs/site/arquitectura.html`,
 con CSS, JavaScript, imágenes y diagramas SVG incluidos. Cada documento se puede
-abrir sin conexión. La navegación entre documentos requiere guardar ambos en la
-misma carpeta; los enlaces al repositorio y a otros sitios requieren Internet.
+abrir sin conexión y por separado, sin archivos hermanos. Los enlaces al
+repositorio y a otros sitios requieren Internet. El README del repositorio
+incluye las URL publicadas y las rutas a las copias Markdown y HTML como respaldo.
 
 Requisitos de generación (no necesarios para ejecutar la demo): Python con
 `markdown-it-py==3.0.0`, Node.js, Mermaid CLI `11.16.0` y Chrome/Chromium.

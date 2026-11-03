@@ -6,6 +6,8 @@ Prototipo funcional para la prueba de AI Engineer de Liberty Latin America, prep
 
 [Guía web](https://cristiandrangel.github.io/proyecto-agil/) · [Arquitectura con diagramas ampliables](https://cristiandrangel.github.io/proyecto-agil/arquitectura.html) · [Arquitectura en Markdown](docs/arquitectura.md)
 
+**Respaldo de la documentación:** si GitHub Pages no está disponible, puedes leer esta guía directamente en el `README.md` del repositorio y el [documento de arquitectura en Markdown](docs/arquitectura.md). También están versionados los HTML completos: [descargar la guía](docs/site/index.html) y [descargar arquitectura](docs/site/arquitectura.html). Abre el archivo correspondiente en GitHub y pulsa **Download raw file**; una vez descargado, se abre en el navegador sin conexión, con sus imágenes y diagramas incluidos.
+
 ## 1. Qué vas a probar
 
 El recorrido empieza como operador en una central de deudores, continúa como cliente desde tu WhatsApp y termina revisando resultados y trazas. Estos son los sistemas que utilizarás:
