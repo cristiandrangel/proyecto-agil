@@ -8,6 +8,14 @@ function Invoke-Docker {
     & docker @args
     if ($LASTEXITCODE -ne 0) { throw "Docker failed (exit $LASTEXITCODE). See the diagnostic above." }
 }
+function ConvertTo-WorkspaceDeliveryPath([string] $checkout, [string] $hostFile) {
+    # PowerShell single-quoted strings use literal backslashes (no C-style escaping).
+    $prefix = $checkout.TrimEnd('\') + '\'
+    if (-not $hostFile.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Keep the private delivery file inside this checkout (normally .env.entrega).'
+    }
+    return '/workspace/' + $hostFile.Substring($prefix.Length).Replace('\','/')
+}
 function Protect-PrivatePath([string] $path) {
     # Windows bind mounts do not expose useful POSIX mode bits. Enforce NTFS ACLs
     # on the host before allowing the Linux helper to read private delivery files.
@@ -38,11 +46,10 @@ for ($i = 0; $i -lt $actions.Count; $i++) {
     if ($actions[$i] -eq '--delivery-file') {
         if ($i + 1 -ge $actions.Count) { throw '--delivery-file requires a path inside this checkout.' }
         $hostFile = (Resolve-Path -LiteralPath $actions[$i + 1]).Path
-        $prefix = $repo.TrimEnd('\') + '\'
-        if (-not $hostFile.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep the private delivery file inside this checkout (normally .env.entrega).' }
+        $containerFile = ConvertTo-WorkspaceDeliveryPath $repo $hostFile
         if ((Get-Item -LiteralPath $hostFile).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Delivery files must not be symlinks.' }
         Protect-PrivatePath $hostFile
-        $actions[$i + 1] = '/workspace/' + $hostFile.Substring($prefix.Length).Replace('\','/')
+        $actions[$i + 1] = $containerFile
     } elseif ($actions[$i].StartsWith('--delivery-file=')) {
         throw 'Pass --delivery-file and its path as separate arguments.'
     }

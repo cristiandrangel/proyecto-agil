@@ -1,0 +1,35 @@
+name: Windows launcher portability
+
+on:
+  push:
+    paths:
+      - emulate-ec2.ps1
+      - emulate-ec2.cmd
+      - .gitattributes
+      - tests/infrastructure/windows-launcher.tests.ps1
+      - .github/workflows/portability.yml
+  pull_request:
+    paths:
+      - emulate-ec2.ps1
+      - emulate-ec2.cmd
+      - .gitattributes
+      - tests/infrastructure/windows-launcher.tests.ps1
+      - .github/workflows/portability.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check launcher paths, argument forwarding and NTFS privacy
+        shell: ${{ matrix.shell }}
+        run: ./tests/infrastructure/windows-launcher.tests.ps1

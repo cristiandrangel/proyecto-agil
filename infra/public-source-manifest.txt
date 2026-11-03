@@ -14,6 +14,7 @@
 .env.example
 .gitattributes
 .github/workflows/documentation.yml
+.github/workflows/portability.yml
 .gitignore
 .specify/.gitignore
 .specify/init-options.json
@@ -188,6 +189,7 @@ tests/contracts/test_chatwoot.py
 tests/contracts/test_web_frontends.py
 tests/fixtures/agent-security-cases.json
 tests/infrastructure/test_ec2_env_codec.py
+tests/infrastructure/windows-launcher.tests.ps1
 tests/integration/test_backend_identity.py
 tests/integration/test_budget.py
 tests/integration/test_campaigns.py
