@@ -24,12 +24,12 @@ jobs:
   launcher:
     runs-on: windows-latest
     timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v4
-      - name: Check launcher paths, argument forwarding and NTFS privacy
-        shell: ${{ matrix.shell }}
+      - name: Windows PowerShell 5.1 paths, arguments and NTFS privacy
+        shell: powershell
+        run: ./tests/infrastructure/windows-launcher.tests.ps1
+      - name: PowerShell 7 paths, arguments and NTFS privacy
+        if: ${{ !cancelled() }}
+        shell: pwsh
         run: ./tests/infrastructure/windows-launcher.tests.ps1
