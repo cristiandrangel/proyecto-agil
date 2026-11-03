@@ -46,6 +46,7 @@ reinicia al instalar el prototipo en otro equipo.
 |---|---|---|
 | Cómputo | Stack Docker en invitado Linux creado por Floci | Una EC2 real como primer despliegue, sin Floci |
 | Canal | Meta y Chatwoot reales; solo bandeja TEST autorizada | Canal empresarial y atención humana operados en AWS |
+| Gestión de identidad | Localización y confirmación del titular, PIN fuera del LLM, sesión temporal, cierre y cambio de titular con nueva autenticación | OTP u otro mecanismo corporativo de identidad aprobado |
 | Entrada pública | Dominio fijo mediante Cloudflare Tunnel | Entrada y DNS de AWS, descritos en sección 8 |
 | Inferencia | API de OpenAI para agente, imágenes y audio | Adaptadores Bedrock y Transcribe para la propuesta AWS |
 | Finanzas | API propia, datos ficticios y pasarela simulada | Adaptadores a cartera y pasarela corporativas |

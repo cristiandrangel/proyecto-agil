@@ -13,12 +13,14 @@ El recorrido empieza como operador en una central de deudores, continúa como cl
 | Sistema | Para qué lo usarás | Dónde funciona |
 |---|---|---|
 | Central de deudores y campañas | Explorar cartera, segmentar, editar el contacto de prueba y lanzar una campaña. | Se levanta en tu equipo; tiene interfaz web. |
-| Agente de cobranza | Consultar deudas, pedir enlaces, negociar y solicitar un asesor mediante conversación natural. | Backend y worker locales, con inferencia real de OpenAI. |
+| Agente de cobranza | Gestionar identidad y autenticación, consultar deudas, pedir enlaces, negociar y solicitar un asesor mediante conversación natural. | Backend y worker locales, con inferencia real de OpenAI. |
 | Portal de pagos | Aprobar o rechazar pagos simulados y obtener comprobantes. | Se levanta en tu equipo; accedes desde el enlace del agente. |
 | Chatwoot | Observar la conversación, atender como asesor y devolver el control al bot. | Instancia existente, conectada a Meta. |
 | Langfuse | Revisar cada turno: modelos, herramientas, entradas, salidas, tiempos y consumo. | Se levanta en tu equipo; tiene interfaz web propia. |
 
 La **central de deudores representa la capa de datos y operaciones de cartera** que en una empresa podría estar en un ERP, CRM u otro sistema de información. En esta prueba utiliza datos ficticios; en una integración real se conectaría con el software que mantiene esa información. Forma parte del flujo integral del agente y es el **punto de inicio de su embudo de gestión**: desde la cartera, el operador selecciona un segmento e inicia el contacto por WhatsApp; cuando el cliente responde, el agente continúa la conversación hasta el pago, un acuerdo o la atención humana.
+
+La **gestión de identidad** incluye localizar al titular por teléfono o documento, confirmar a quién se desea atender y validar su PIN antes de consultar sus deudas. También permite cerrar sesión o cambiar de titular dentro de la misma conversación; gestionar a otra persona requiere una nueva autenticación.
 
 Puedes usar **texto, notas de voz e imágenes** libremente durante la conversación. Las frases del recorrido son ejemplos; no hace falta copiarlas exactamente. La excepción es el PIN: cuando lo solicite, envía únicamente sus dígitos como texto.
 
