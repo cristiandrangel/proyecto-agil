@@ -30,6 +30,7 @@ Puedes usar **texto, notas de voz e imágenes** libremente durante la conversaci
 - La campaña usa una plantilla ya aprobada. Solo el contacto que configures como **Live** recibe mensajes reales; los destinos ficticios simulan el envío.
 - El stack corre localmente en un invitado Linux creado por Floci. No hay una instancia contratada en AWS; la propuesta AWS está descrita en arquitectura.
 - Una instalación nueva carga los datos de prueba y genera sus secretos internos. El archivo privado aporta integraciones y accesos, sin copiar conversaciones ni bases del desarrollador.
+- El proyecto de pruebas de OpenAI Platform tiene un presupuesto de **USD 10**, configurado por el autor para la credencial entregada. El límite interno también es **USD 10** y una instalación nueva empieza con consumo local en **USD 0**. El contador de OpenAI es independiente y no se reinicia al cambiar de equipo.
 
 **Orden de lectura:** [instalar](#2-instalar-y-comenzar) → [hacer la demo](#3-recorrido-principal) → [explorar otras capacidades](#4-explora-otras-capacidades) → [comprobar resultados](#5-comprueba-los-resultados). La [ayuda operativa](#6-retomar-o-solucionar-un-problema) y la [documentación técnica](#7-documentación-y-validación) quedan al final para consultarlas cuando las necesites.
 

@@ -2,6 +2,27 @@
 
 Registro actualizado el **3 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Presupuesto de entrega y documentos independientes — 3 de noviembre
+
+Se verificaron `AI_TOTAL_BUDGET_USD=10.00` y `AI_LOCAL_SPEND_LIMIT_USD=10.00`
+en el ejemplo, la configuración privada y el archivo de entrega. Una regresión
+sobre PostgreSQL nuevo comprobó consumo cero, ninguna llamada activa, USD 10
+disponibles y rechazo de una reserva que exceda el tope. No se borró el ledger
+de las pruebas existentes ni se consultó la administración de OpenAI Platform:
+su presupuesto externo se documenta según la configuración indicada por el autor.
+
+La ejecución dirigida aprobó 51 pruebas en 2,80 segundos. Omitió la comprobación
+del códec Docker por no disponer de CLI Docker dentro del contenedor de tests;
+esa comprobación aprobó por separado en el anfitrión en 0,42 segundos. Se retiró
+únicamente el proyecto PostgreSQL desechable utilizado para esta verificación.
+
+Los dos HTML se abrieron por separado en carpetas temporales, con otro nombre
+y sin conexión. Se comprobaron imágenes embebidas, ausencia de enlaces a otros
+archivos del proyecto, descarga autónoma del propio HTML y reapertura después de
+eliminar el original. En arquitectura también se comprobó el visor de diagramas.
+Índices internos, zoom, cierre con Escape y diseño móvil aprobaron. No hubo
+inferencias pagadas, envíos por WhatsApp ni cambios en la aplicación desplegada.
+
 ## Referencia de recursos del equipo — 3 de noviembre
 
 El operador confirmó que la Mac usada en la prueba tiene 16 GB de RAM total y

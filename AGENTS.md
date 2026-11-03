@@ -63,6 +63,9 @@ especializados e infraestructura como código son planes futuros, no requisitos 
   docs/site se generan con scripts/build_docs_site.py; no editar su contenido
   manualmente. Regenerarlos al cambiar las fuentes. El workflow de documentación
   también genera y publica solo docs/site en GitHub Pages.
+- Los HTML se entregan por separado: cada uno debe abrir sin archivos hermanos,
+  imágenes o recursos externos. No enlazar otros HTML ni Markdown del proyecto;
+  conservar índices internos, referencias web y accesos a las interfaces.
 
 - El README es la entrada del evaluador: producto y capacidades, instalación,
   recorrido con acciones/resultados, evidencia y ayuda operativa. Evitar acumular

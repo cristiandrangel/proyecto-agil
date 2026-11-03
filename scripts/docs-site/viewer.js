@@ -18,6 +18,7 @@
   ['pointerup','pointercancel','lostpointercapture'].forEach(event=>viewport.addEventListener(event,e=>{pointers.delete(e.pointerId);last=pointers.size?measure():null;}));
   dialog.addEventListener('keydown',e=>{if(e.key==='+'||e.key==='='){zoom(1.25);e.preventDefault();}if(e.key==='-'){zoom(.8);e.preventDefault();}if(e.key==='0')fit();});
   $('#download-svg').onclick=()=>{const svg=$('svg',canvas).cloneNode(true);svg.setAttribute('xmlns','http://www.w3.org/2000/svg');const url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}));const a=document.createElement('a');a.href=url;a.download=active.id+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  document.querySelectorAll('[data-download-html]').forEach(button=>{button.onclick=()=>{const copy=document.documentElement.cloneNode(true);copy.querySelector('#diagram-viewer').removeAttribute('open');copy.querySelector('.canvas').replaceChildren();copy.querySelector('body').classList.remove('modal-open');const url=URL.createObjectURL(new Blob(['<!doctype html>\n',copy.outerHTML],{type:'text/html;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=button.dataset.downloadHtml;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};});
   window.addEventListener('resize',()=>{if(dialog.open)fit();});
   document.querySelectorAll('[data-print]').forEach(b=>b.onclick=()=>window.print());
   $('.mobile-index').onchange=e=>{if(e.target.value)location.hash=e.target.value;};

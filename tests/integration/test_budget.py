@@ -46,6 +46,21 @@ def reserve(service, amount="0.1", **kwargs):
     )
 
 
+def test_fresh_delivery_starts_at_zero_with_full_ten_dollar_local_budget(budget_store):
+    service = BudgetService(budget_store)
+    assert service.summary() == {
+        "charged_usd": Decimal("0"),
+        "remaining_usd": Decimal("10"),
+        "active_calls": 0,
+        "limit_usd": Decimal("10"),
+    }
+    reserve(service, "10.00")
+    assert service.summary()["remaining_usd"] == Decimal("0")
+    with pytest.raises(DomainError) as error:
+        reserve(service, "0.01")
+    assert error.value.code == "budget_exhausted"
+
+
 def test_concurrent_global_call_slots(budget_store):
     barrier = Barrier(8)
 

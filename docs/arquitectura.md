@@ -1,6 +1,6 @@
 # Proyecto Ágil: documento técnico de arquitectura
 
-**Autor:** Cristian Danilo Bolaños Rangel · **Revisión:** 2 de noviembre de 2026.
+**Autor:** Cristian Danilo Bolaños Rangel · **Revisión:** 3 de noviembre de 2026.
 
 Este documento describe de forma autocontenida el problema, la solución implementada, sus contratos de datos, ejecución, controles, operación y propuesta de infraestructura AWS. Incluye el procedimiento de demostración y distingue capacidades verificadas, simulaciones y trabajo pendiente. Su lectura no requiere abrir otros documentos del repositorio.
 
@@ -33,6 +33,14 @@ El prototipo usa datos ficticios, USD como única moneda, una deuda activa por
 conversación y pagos simulados. El PIN de demostración es `2468`; no es un OTP ni
 una autenticación de producción. La central simula el contrato de integración con
 un ERP o sistema financiero; no pretende reemplazarlo.
+
+La API key privada facilitada en `.env.entrega` corresponde al proyecto de
+pruebas de OpenAI Platform con un presupuesto de **USD 10**, configurado por el
+autor. La aplicación tiene además un límite interno independiente de **USD 10**.
+Una instalación nueva comienza con consumo local de **USD 0** y **USD 10
+disponibles**: se entregan código y configuración, sin bases ni contadores de las
+pruebas del desarrollador. El gasto que ya exista en OpenAI Platform no se
+reinicia al instalar el prototipo en otro equipo.
 
 | Área | Implementado en el prototipo | Propuesta o trabajo posterior |
 |---|---|---|
@@ -650,7 +658,9 @@ Toda edición de una deuda incrementa su versión e invalida condiciones previas
 
 ### 6.5. Control de gasto de inferencia
 
-El presupuesto nominal y el límite local de la demo son USD 10, con dos inferencias concurrentes. La configuración entregada puede reducir el límite según el presupuesto disponible; los cambios conservan el consumo ya registrado. Este control aplica a llamadas que pasan por esta aplicación; no impone por sí solo un tope contractual sobre la API key del proveedor ni cubre su uso desde otro sistema.
+El archivo de entrega fija `AI_TOTAL_BUDGET_USD=10.00` y `AI_LOCAL_SPEND_LIMIT_USD=10.00`, con dos inferencias concurrentes. En una base nueva no existen reservas: el consumo comprometido es cero y el saldo local es USD 10. El paquete no incluye bases, volúmenes ni el ledger del desarrollador. Reanudar una instalación existente conserva su consumo; no se borra para aparentar que está nueva.
+
+El presupuesto del proyecto en OpenAI Platform y este contador local son controles separados. El primero abarca el uso facturado al proyecto, incluso desde otras instalaciones; el segundo solo conoce llamadas que pasan por esta aplicación. En OpenAI, una alerta de gasto no detiene peticiones: para ese comportamiento debe estar activado el límite estricto del proyecto. Su configuración se administra en la plataforma y no puede deducirse del valor de la API key ni de las variables locales. [Control de gasto de OpenAI](https://developers.openai.com/api/docs/guides/spend-limits).
 
 Antes de llamar al proveedor, `BudgetService` reserva una estimación conservadora en `inference_reservation`. Un bloqueo transaccional global serializa la comprobación:
 

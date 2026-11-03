@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from markdown_it import MarkdownIt
 
@@ -24,6 +25,20 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/site"
 TEMPLATES = ROOT / "scripts/docs-site"
 REPO = "https://github.com/cristiandrangel/proyecto-agil"
+
+
+def project_document_link(href):
+    """Attachments retain section anchors and web references, never sibling files."""
+    if not href or href.startswith("#"):
+        return False
+    parsed = urlsplit(href)
+    if not parsed.scheme or parsed.scheme == "file":
+        return True
+    if parsed.hostname == "cristiandrangel.github.io":
+        return parsed.path == "/proyecto-agil" or parsed.path.startswith("/proyecto-agil/")
+    return parsed.hostname == "github.com" and parsed.path.startswith(
+        ("/cristiandrangel/proyecto-agil/blob/", "/cristiandrangel/proyecto-agil/raw/")
+    )
 
 
 def embedded(path):
@@ -81,7 +96,12 @@ def diagrams(sources):
 
 def build(source_path, filename, label, title, subtitle, svgs):
     md = MarkdownIt("commonmark", {"html": False}).enable("table")
-    tokens = md.parse(source_path.read_text())
+    source = source_path.read_text()
+    # The README navigation row belongs to GitHub. A mailed attachment has its
+    # own section index and must not depend on a second document being present.
+    if source_path == ROOT / "README.md":
+        source = "\n".join(line for line in source.splitlines() if not line.startswith("[Guía web]("))
+    tokens = md.parse(source)
     headings, counts = [], {}
     number = 0
     for i, token in enumerate(tokens):
@@ -111,19 +131,14 @@ def build(source_path, filename, label, title, subtitle, svgs):
             token.type = "html_block"
             token.tag = ""
             token.content = f'<figure class="diagram" id="diagrama-{number}"><div class="diagram-bar"><strong>{caption}</strong><button type="button" data-expand aria-label="Ampliar diagrama {number}">Ampliar ↗</button></div><div class="diagram-preview" data-expand>{svg}</div><div class="diagram-note">Abre para ampliar, desplazar o descargar el diagrama en SVG.</div></figure>'
+        hidden_links = []
         for child in token.children or []:
             if child.type == "link_open":
                 href = child.attrGet("href") or ""
-                if href and not href.startswith(("#", "https://", "http://", "mailto:")):
-                    path, _, anchor = href.partition("#")
-                    dest = (source_path.parent / path).resolve()
-                    if dest == ROOT / "docs/arquitectura.md":
-                        target = "arquitectura.html"
-                    elif dest == ROOT / "README.md":
-                        target = "index.html"
-                    else:
-                        target = REPO + "/blob/main/" + str(dest.relative_to(ROOT))
-                    child.attrSet("href", target + ("#" + anchor if anchor else ""))
+                hidden_links.append(project_document_link(href))
+                child.hidden = hidden_links[-1]
+            elif child.type == "link_close" and hidden_links:
+                child.hidden = hidden_links.pop()
             if child.type == "image":
                 path = (source_path.parent / child.attrGet("src")).resolve()
                 child.attrSet("src", embedded(path))
@@ -144,15 +159,13 @@ def build(source_path, filename, label, title, subtitle, svgs):
     logo = embedded(OUTPUT / "assets/liberty-latin-america.png")
     css = (TEMPLATES / "style.css").read_text()
     js = (TEMPLATES / "viewer.js").read_text()
-    nav = "".join(
-        f'<a class="button {"active" if name == filename else ""}" href="{name}" {"aria-current=page" if name == filename else ""}>{text}</a>'
-        for name, text in [("index.html", "Guía de la demo"), ("arquitectura.html", "Arquitectura")]
-    )
+    nav = f'<span class="button active" aria-current="page">{html.escape(label)}</span>'
+    download_name = "guia-proyecto-agil.html" if filename == "index.html" else "arquitectura.html"
     page = f'''<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="{html.escape(subtitle)}"><title>{label} · Proyecto Ágil · Cristian Bolaños</title><link rel="icon" href="{logo}"><style>{css}</style></head>
-<body><a class="skip" href="#contenido">Saltar al documento</a><header class="topbar"><a class="brand" href="index.html"><img src="{logo}" alt="Liberty Latin America"><span><strong>Proyecto Ágil</strong><small>AI Engineer · Prueba técnica</small></span></a><nav class="topnav" aria-label="Documentos">{nav}<a class="button repo-link" href="{REPO}">Repositorio ↗</a><button data-print>Imprimir</button></nav><div class="progress" aria-hidden="true"></div></header>
-<div class="layout"><aside class="sidebar"><span class="eyebrow">{label}</span><h2>En este documento</h2><nav aria-label="Índice de secciones">{toc}</nav><select class="mobile-index" aria-label="Ir a una sección"><option value="">Ir a una sección…</option>{options}</select><div class="sidebar-footer">Preparado por<br><b>Cristian Danilo<br>Bolaños Rangel</b><br>2 de noviembre de 2026<br><br>Propuesta del candidato para<br>Liberty Latin America.</div></aside>
-<main id="contenido"><section class="hero"><span class="eyebrow">Liberty Latin America / {label}</span><h1>{title}</h1><p>{subtitle}</p><div class="meta"><span><b>Cristian Danilo Bolaños Rangel</b></span><span>AI Engineer</span><span>Noviembre 2026</span></div><div class="hero-actions"><a class="button primary" href="#{headings[0][2]}">Comenzar lectura ↓</a><a class="button" href="{filename}" download>Descargar HTML</a></div></section><article>{content}</article><footer>Proyecto Ágil · Propuesta de Cristian Danilo Bolaños Rangel para la prueba técnica.<br>Identidad visual y logotipo de referencia: <a href="https://lla.com/">Liberty Latin America</a>. Esta es una entrega del candidato, no una publicación corporativa.<br>Contenido generado desde {source_path.relative_to(ROOT)}. Los diagramas y las imágenes están incluidos en este HTML para su lectura sin conexión.</footer></main></div>
+<body><a class="skip" href="#contenido">Saltar al documento</a><header class="topbar"><a class="brand" href="#contenido"><img src="{logo}" alt="Liberty Latin America"><span><strong>Proyecto Ágil</strong><small>AI Engineer · Prueba técnica</small></span></a><nav class="topnav" aria-label="Documento">{nav}<a class="button repo-link" href="{REPO}">Repositorio ↗</a><button data-print>Imprimir</button></nav><div class="progress" aria-hidden="true"></div></header>
+<div class="layout"><aside class="sidebar"><span class="eyebrow">{label}</span><h2>En este documento</h2><nav aria-label="Índice de secciones">{toc}</nav><select class="mobile-index" aria-label="Ir a una sección"><option value="">Ir a una sección…</option>{options}</select><div class="sidebar-footer">Preparado por<br><b>Cristian Danilo<br>Bolaños Rangel</b><br>3 de noviembre de 2026<br><br>Propuesta del candidato para<br>Liberty Latin America.</div></aside>
+<main id="contenido"><section class="hero"><span class="eyebrow">Liberty Latin America / {label}</span><h1>{title}</h1><p>{subtitle}</p><div class="meta"><span><b>Cristian Danilo Bolaños Rangel</b></span><span>AI Engineer</span><span>Noviembre 2026</span></div><div class="hero-actions"><a class="button primary" href="#{headings[0][2]}">Comenzar lectura ↓</a><button class="button" data-download-html="{download_name}">Descargar HTML</button></div></section><article>{content}</article><footer>Proyecto Ágil · Propuesta de Cristian Danilo Bolaños Rangel para la prueba técnica.<br>Identidad visual y logotipo de referencia: <a href="https://lla.com/">Liberty Latin America</a>. Esta es una entrega del candidato, no una publicación corporativa.<br>Documento autocontenido: los estilos, diagramas e imágenes están incluidos para su lectura sin conexión.</footer></main></div>
 <dialog id="diagram-viewer" aria-labelledby="viewer-title"><div class="viewer-head"><strong id="viewer-title">Diagrama</strong><div class="viewer-controls"><button id="zoom-out" aria-label="Alejar">−</button><span id="zoom-value" aria-live="polite">100%</span><button id="zoom-in" aria-label="Acercar">+</button><button id="fit">Ajustar</button><button id="actual-size">100%</button><button id="download-svg">SVG ↓</button><button id="close-viewer" aria-label="Cerrar diagrama">Cerrar ×</button></div></div><div class="viewport"><div class="canvas"></div></div><div class="viewer-foot">Arrastra para desplazarte · Rueda o pellizco para zoom · + / − para ampliar · Esc para cerrar</div></dialog><script>{js}</script></body></html>'''
     (OUTPUT / filename).write_text(page)
     print(f"{filename}: {number} diagrams, {len(headings)} sections, {len(page.encode()):,} bytes")
