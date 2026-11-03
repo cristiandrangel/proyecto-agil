@@ -4,7 +4,7 @@
 
 Este documento describe de forma autocontenida el problema, la solución implementada, sus contratos de datos, ejecución, controles, operación y propuesta de infraestructura AWS. Incluye el procedimiento de demostración y distingue capacidades verificadas, simulaciones y trabajo pendiente. Su lectura no requiere abrir otros documentos del repositorio.
 
-**Resumen de la solución.** Un operador selecciona una cohorte de cartera y envía una plantilla de WhatsApp. Un agente con inferencia real interpreta la respuesta, identifica al titular y, tras una validación externa al modelo, consulta y gestiona una obligación. Puede emitir un enlace de pago, negociar dentro de un límite autorizado o transferir a una persona. La central financiera conserva la autoridad para validar identidad, importes y liquidaciones. Cada turno queda instrumentado para inspeccionar sus decisiones y efectos.
+**Resumen de la solución.** Un operador selecciona una cohorte de cartera y envía una plantilla de WhatsApp. Un agente con inferencia real interpreta la respuesta, identifica al titular y, tras una validación externa al modelo, consulta y gestiona una obligación. Puede emitir un enlace de pago, negociar dentro de un límite autorizado o transferir a una persona. La central de deudores conserva la autoridad para validar identidad, importes y liquidaciones. Cada turno queda instrumentado para inspeccionar sus decisiones y efectos.
 
 **Contenido**
 
@@ -49,7 +49,7 @@ reinicia al instalar el prototipo en otro equipo.
 | Gestión de identidad | Localización y confirmación del titular, PIN fuera del LLM, sesión temporal, cierre y cambio de titular con nueva autenticación | OTP u otro mecanismo corporativo de identidad aprobado |
 | Entrada pública | Dominio fijo mediante Cloudflare Tunnel | Entrada y DNS de AWS, descritos en sección 8 |
 | Inferencia | API de OpenAI para agente, imágenes y audio | Adaptadores Bedrock y Transcribe para la propuesta AWS |
-| Finanzas | API propia, datos ficticios y pasarela simulada | Adaptadores a cartera y pasarela corporativas |
+| Finanzas | API de la central de deudores, datos ficticios y pasarela simulada | Adaptadores a cartera y pasarela corporativas |
 | Observabilidad | Langfuse autoalojado y trazas reales | Operación AWS, alertas, retención y accesos corporativos |
 
 **No se ha desplegado en AWS.** La guía permite ejecución local del prototipo,
@@ -71,7 +71,7 @@ El objetivo del piloto sería aumentar la capacidad de gestión y el recaudo net
 
 Los supuestos explícitos son:
 
-- Los datos maestros de identidad, servicio y saldo existen en un sistema corporativo; la API central de esta demo representa esa frontera.
+- Los datos maestros de identidad, servicio y saldo existen en un sistema corporativo; la API de la central de deudores de esta demo representa esa frontera.
 - La moneda es USD. El prototipo liquida íntegramente una obligación mediante pago completo o pago con condonación; no implementa abonos parciales, cuotas ni planes de financiación.
 - La política demostrativa permite cobrar al menos el 80 % del saldo y condonar la diferencia al aplicar el pago. No se atribuye esta política a LLA.
 - Las personas y documentos son ficticios. El mismo PIN `2468` facilita la evaluación; en producción debe sustituirse por OTP u otro mecanismo de identidad autorizado por la empresa.
@@ -85,7 +85,7 @@ Los supuestos explícitos son:
 | Operador comercial | Seleccionar segmento, revisar destinatarios, lanzar campaña y cerrar su periodo de medición. |
 | Cliente o persona que gestiona una deuda | Confirmar el titular, superar la validación, elegir servicio y aceptar condiciones de pago. |
 | Agente de IA | Interpretar intención, explicar datos comprobados, proponer acciones y solicitar herramientas permitidas. |
-| Central financiera | Autorizar consultas y aplicar reglas de dinero, vigencia, pertenencia y liquidación. |
+| Central de deudores | Autorizar consultas y aplicar reglas de dinero, vigencia, pertenencia y liquidación. |
 | Asesor humano | Atender excepciones, dialogar con el cliente y devolver explícitamente el control cuando corresponda. |
 | Operación técnica | Vigilar salud, cola, errores, presupuesto y telemetría; administrar despliegues y recuperación. |
 
@@ -126,7 +126,7 @@ flowchart TB
         BE["backend · webhook y portales"]
         MD[("memory-db · cola, memoria y operación")]
         WO["worker · LangGraph y tools"]
-        CE["central · API financiera"]
+        CE["central<br/>API de la central de deudores"]
         CD[("central-db · cartera y pagos")]
         subgraph LF["Langfuse · 6 contenedores"]
             LW["web · interfaz e ingesta de trazas"]
@@ -152,8 +152,8 @@ flowchart TB
 
 | Servicio Compose | Responsabilidad | Persistencia que utiliza |
 |---|---|---|
-| `backend` | FastAPI, webhook, login de operador, cartera, campañas y portal de pago | `memory-db`; finanzas por API central |
-| `worker` | Trabajos durables, medios, nodo LangGraph, tools y outbox | `memory-db`; finanzas por API central |
+| `backend` | FastAPI, webhook, login de operador, cartera, campañas y portal de pago | `memory-db`; finanzas por API de la central de deudores |
+| `worker` | Trabajos durables, medios, nodo LangGraph, tools y outbox | `memory-db`; finanzas por API de la central de deudores |
 | `central` | Identidad de cartera, deudas, cotizaciones, órdenes y aplicación del pago | `central-db`, su único escritor de aplicación |
 | `central-db` | PostgreSQL de clientes y operaciones financieras | Volumen `central_data` |
 | `memory-db` | PostgreSQL de operación, checkpoints, autenticación local y presupuesto | Volumen `memory_data` |
@@ -204,7 +204,7 @@ sequenceDiagram
     participant DB as PostgreSQL operativo
     participant WK as Worker y nodo LangGraph
     participant AI as OpenAI
-    participant CE as API central
+    participant CE as API de la central de deudores
 
     OP->>BE: Filtrar, previsualizar y lanzar campaña
     BE->>CE: Consultar cartera elegible
@@ -303,7 +303,7 @@ La plantilla se aprobó previamente como utilidad para este recordatorio transac
 
 ### 3.2. Contratos y frontera con sistemas corporativos
 
-La central es una API HTTP con prefijo `/internal/v1`. Se autentica al consumidor con credenciales de rol seleccionadas por el servidor: operador o agente. Las operaciones sobre cartera de una persona requieren además un grant de cliente válido. El modelo no recibe esas credenciales ni elige el encabezado de autorización.
+La API de la central de deudores expone operaciones HTTP con prefijo `/internal/v1`. Se autentica al consumidor con credenciales de rol seleccionadas por el servidor: operador o agente. Las operaciones sobre cartera de una persona requieren además un grant de cliente válido. El modelo no recibe esas credenciales ni elige el encabezado de autorización.
 
 | Operación del contrato actual | Datos y resultado | Uso |
 |---|---|---|
@@ -538,7 +538,7 @@ El bot debe usar esa continuidad y consultar el saldo actual. La frase del aseso
 | Gasto excesivo de inferencia | Reservas atómicas y ledger compartido; límite local conservador | No es un tope contractual del proveedor ni cubre consumo ajeno |
 | Caída de la máquina | Volúmenes persistentes y reinicio comprobado en emulación | Punto único de fallo; backup/restauración AWS aún no ensayados |
 
-La API central es la frontera de datos. El backend no consulta directamente su
+La API de la central de deudores es la frontera de datos. El backend no consulta directamente su
 SQL para servir al agente. Una persona tiene varias obligaciones, agrupadas por
 cliente; el documento y su tipo identifican al titular. La campaña deduplica por
 persona y conserva las deudas elegibles, evitando una plantilla por servicio.
@@ -1065,7 +1065,7 @@ Ante falta de respuesta, revisar primero worker, control `pending`, fase de PIN,
 | Una EC2 y Compose como primera etapa | Iterar y depurar el conjunto con pocas fronteras de despliegue. | Punto único de fallo y operación de host; separar servicios se evalúa con carga y disponibilidad. |
 | Backend y worker separados | Responder al webhook tras persistir, sin esperar al modelo. | Cola, leases y outbox añaden complejidad, necesaria para recuperarse de fallos. |
 | PostgreSQL para cola, memoria y ledger | Transacciones, unicidad y bloqueos con tecnología ya requerida. | Puede volverse cuello de botella; no se añadió Redis/SQS a la aplicación sin necesidad demostrada. |
-| API central como único escritor financiero | Sustituir el mock por un sistema real sin dar SQL al agente. | Más contratos HTTP y manejo de errores que una función que escriba directamente en tablas. |
+| API de la central de deudores como único escritor financiero | Sustituir el mock por un sistema real sin dar SQL al agente. | Más contratos HTTP y manejo de errores que una función que escriba directamente en tablas. |
 | Un nodo LangGraph y tools explícitas | Agencia conversacional con ciclo auditable, fácil de explicar. | No hay especialistas multiagente; dividirlos necesitaría evidencia de beneficio. |
 | PIN fuera del modelo | Control determinista de credenciales y permisos. | Fricción de formato durante el desafío; PIN fijo solo válido como simulación. |
 | Una deuda seleccionada | Evitar ambigüedad de cobro y recuperación de acuerdos. | Exige selección explícita; no hace pagos masivos por varias deudas. |

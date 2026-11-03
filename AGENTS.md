@@ -66,6 +66,8 @@ especializados e infraestructura como código son planes futuros, no requisitos 
 - Los HTML se entregan por separado: cada uno debe abrir sin archivos hermanos,
   imágenes o recursos externos. No enlazar otros HTML ni Markdown del proyecto;
   conservar índices internos, referencias web y accesos a las interfaces.
+- En la documentación, usar «API de la central de deudores» en lugar de «API
+  central» o «API financiera». Conservar los identificadores internos del código.
 
 - El README es la entrada del evaluador: producto y capacidades, instalación,
   recorrido con acciones/resultados, evidencia y ayuda operativa. Evitar acumular
