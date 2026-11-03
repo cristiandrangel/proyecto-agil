@@ -170,3 +170,6 @@ try {
     Remove-Variable AgilLauncherTestDocker -Scope Global
     Remove-Item -LiteralPath $script:fixture -Force -Recurse
 }
+# Reset the intentionally failed fake Docker exit code only after all assertions
+# and cleanup succeed. Any uncaught assertion or cleanup error still propagates.
+$global:LASTEXITCODE = 0
