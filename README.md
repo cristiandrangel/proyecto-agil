@@ -39,7 +39,13 @@ Puedes usar **texto, notas de voz e imágenes** libremente durante la conversaci
 
 Necesitas Internet, Docker iniciado con **Compose v2 y Linux containers**, el archivo privado **`.env.entrega`** y tu WhatsApp autorizado como destinatario del número TEST cuando Meta lo requiera. No necesitas instalar Python ni SSH: el lanzador los ejecuta en un contenedor auxiliar.
 
-Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Se recomiendan al menos **4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres**, más el espacio de imágenes y datos en el disco virtual de Docker Desktop. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.
+Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Como referencia:
+
+- **RAM:** la demo funcionó en una Mac con **16 GB de RAM total**, con aproximadamente **8 GiB visibles para Docker**. No se exige asignar 12 GiB a Docker; el equipo probado no establece un mínimo universal.
+- **CPU:** el lanzador pide al menos **4 CPU visibles para Docker**.
+- **Disco:** el lanzador comprueba **15 GiB libres en la carpeta de trabajo**; Docker Desktop necesita además espacio para imágenes y volúmenes en su disco virtual. Es espacio de almacenamiento, separado de la RAM.
+
+La instalación en esa Mac tardó aproximadamente **10 minutos**, según la prueba del operador. El tiempo puede variar con las descargas y el equipo. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.
 
 Clona el repositorio o extrae el ZIP completo y abre su carpeta en una terminal:
 

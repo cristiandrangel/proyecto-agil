@@ -68,10 +68,12 @@ Preparación de Docker Desktop:
 
 1. Iniciar Docker Desktop y seleccionar Linux containers. El contexto activo local
    se usa automáticamente; se admiten el socket Unix Desktop y el pipe Windows.
-2. Tener al menos 4 CPU visibles para el conjunto de servicios. Como punto de partida
-   se recomiendan 12 GiB o más de RAM para Docker; no es un mínimo medido. `doctor`
-   informa la RAM visible y advierte si es inferior. El máximo exterior de 24 GiB
-   no obliga a asignar esa cantidad. Hace falta medir picos con el recorrido real.
+2. Tener al menos 4 CPU visibles para el conjunto de servicios. Como referencia,
+   la demo funcionó en una Mac con 16 GB de RAM total y unos 8 GiB visibles para
+   Docker. No se exige asignar 12 GiB. `doctor` informa la RAM visible y advierte
+   si está por debajo de esa referencia, redondeando a GiB enteros para tolerar
+   la memoria usada por la VM. El máximo exterior de 24 GiB no obliga a asignar
+   esa cantidad. La prueba no establece un mínimo universal ni mide los picos.
 3. Dejar al menos 15 GiB libres en el checkout y espacio adicional en el disco de
    la VM Docker para imágenes/volúmenes. `doctor` mide el filesystem del checkout;
    revisar también el límite del disco virtual de Desktop.
@@ -93,6 +95,9 @@ de Desktop ni garantiza que un firewall, proxy o política corporativa permita
 esta carga. El preflight verifica salud y accesos de las integraciones por lectura;
 no demuestra entrega de WhatsApp ni una inferencia pagada. Si Meta no entrega la
 plantilla, se puede iniciar el chat directamente con el número TEST y continuar.
+
+El operador reportó unos 10 minutos de instalación en esa Mac. Es una observación
+de esa prueba, no un tiempo garantizado para otras redes, cachés o equipos.
 
 Los ajustes de recursos y carpetas están en la
 [guía oficial de Docker Desktop](https://docs.docker.com/desktop/settings-and-maintenance/settings/).

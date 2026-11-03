@@ -245,9 +245,11 @@ def doctor():
         f"Docker Linux {architecture}: {info['NCPU']} CPU, {memory_gib:.1f} GiB visible RAM",
         flush=True,
     )
-    if memory_gib < 12:
+    # Docker MemTotal excludes some VM overhead; compare whole GiB with the
+    # approximately 8 GiB observed on the working 16 GB Mac, not a hard minimum.
+    if round(memory_gib) < 8:
         print(
-            "Limited RAM: start with 12+ GiB for Docker and monitor memory pressure (recommendation, not a measured minimum). 24 GiB is the outer limit, not a reservation.",
+            "Limited RAM: the reference Mac had 16 GB total and about 8 GiB visible to Docker. Monitor memory pressure; this is not a measured minimum. 24 GiB is the outer limit, not a reservation.",
             flush=True,
         )
     if info["NCPU"] < 4:

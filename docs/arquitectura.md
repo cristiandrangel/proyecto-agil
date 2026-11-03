@@ -995,7 +995,7 @@ El reporte diferencia comprobaciones estructurales —tool permitida, argumentos
 
 Recibe el repositorio público o su ZIP completo, este documento y un archivo privado `.env.entrega` con integraciones acotadas y accesos. No se entregan volúmenes, conversaciones o trazas de estudio. Una instalación nueva crea secretos internos y carga datos ficticios si la base está vacía. El entorno efectivo se exporta a `.local/ec2-emulation/evaluator.env`, con los accesos web agrupados al final.
 
-El equipo necesita Docker con Compose v2, Linux containers, acceso al socket para el lanzador y permiso para contenedores privilegiados. Se recomiendan al menos 4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB de disco más espacio para imágenes/volúmenes; estos valores no son un mínimo validado en todos los sistemas. Python y SSH de control se ejecutan en un contenedor auxiliar. Rootless y daemons remotos no están soportados.
+El equipo necesita Docker con Compose v2, Linux containers, acceso al socket para el lanzador y permiso para contenedores privilegiados. La demo funcionó en una Mac con 16 GB de RAM total y aproximadamente 8 GiB visibles para Docker; no se exigen 12 GiB asignados. El operador reportó unos 10 minutos de instalación en esa prueba, sin establecer un mínimo universal de memoria ni un tiempo garantizado. El lanzador pide al menos 4 CPU visibles y comprueba 15 GiB de disco libre en la carpeta de trabajo, además del espacio necesario para imágenes y volúmenes en Docker Desktop. El almacenamiento es independiente de la RAM. Python y SSH de control se ejecutan en un contenedor auxiliar. Rootless y daemons remotos no están soportados.
 
 Con el repositorio extraído y `.env.entrega` en su raíz:
 

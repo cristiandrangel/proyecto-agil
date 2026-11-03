@@ -60,7 +60,13 @@
 <h2 id="2-instalar-y-comenzar">2. Instalar y comenzar</h2>
 <h3 id="21-preparar-el-equipo">2.1. Preparar el equipo</h3>
 <p>Necesitas Internet, Docker iniciado con <strong>Compose v2 y Linux containers</strong>, el archivo privado <strong><code>.env.entrega</code></strong> y tu WhatsApp autorizado como destinatario del número TEST cuando Meta lo requiera. No necesitas instalar Python ni SSH: el lanzador los ejecuta en un contenedor auxiliar.</p>
-<p>Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Se recomiendan al menos <strong>4 CPU, 12 GiB de RAM disponibles para Docker y 15 GiB libres</strong>, más el espacio de imágenes y datos en el disco virtual de Docker Desktop. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.</p>
+<p>Usa una carpeta local, fuera de unidades de red o carpetas sincronizadas. Como referencia:</p>
+<ul>
+<li><strong>RAM:</strong> la demo funcionó en una Mac con <strong>16 GB de RAM total</strong>, con aproximadamente <strong>8 GiB visibles para Docker</strong>. No se exige asignar 12 GiB a Docker; el equipo probado no establece un mínimo universal.</li>
+<li><strong>CPU:</strong> el lanzador pide al menos <strong>4 CPU visibles para Docker</strong>.</li>
+<li><strong>Disco:</strong> el lanzador comprueba <strong>15 GiB libres en la carpeta de trabajo</strong>; Docker Desktop necesita además espacio para imágenes y volúmenes en su disco virtual. Es espacio de almacenamiento, separado de la RAM.</li>
+</ul>
+<p>La instalación en esa Mac tardó aproximadamente <strong>10 minutos</strong>, según la prueba del operador. El tiempo puede variar con las descargas y el equipo. Docker debe permitir contenedores privilegiados y acceso al socket; rootless y daemons remotos no están soportados. La compatibilidad comprobada y sus límites figuran en la sección 7.</p>
 <p>Clona el repositorio o extrae el ZIP completo y abre su carpeta en una terminal:</p>
 <pre><code class="language-bash">git clone https://github.com/cristiandrangel/proyecto-agil.git
 cd proyecto-agil

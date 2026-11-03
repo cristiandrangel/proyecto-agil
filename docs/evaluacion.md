@@ -2,6 +2,20 @@
 
 Registro actualizado el **2 de noviembre de 2026**. El código está implementado; las afirmaciones siguientes distinguen pruebas deterministas, ejecución del runtime y recorridos con proveedores reales. Un doble de OpenAI o Chatwoot no demuestra esa integración.
 
+## Referencia de recursos del equipo — 3 de noviembre
+
+El operador confirmó que la Mac usada en la prueba tiene 16 GB de RAM total y
+reportó unos 10 minutos de instalación. Docker había informado aproximadamente
+7,8 GiB visibles. Esa ejecución respalda la referencia de unos 8 GiB para Docker;
+no establece un mínimo universal ni mide picos. Se retiró la recomendación anterior
+de 12 GiB y se separó explícitamente la memoria del espacio libre en disco.
+
+El diagnóstico de RAM sigue siendo informativo. Las 40 pruebas dirigidas de
+emulación, portabilidad y configuración aprobaron en 0,94 segundos, incluidos
+casos de 6, 7,8, 8 y 12 GiB. Se conserva la comprobación de disco y CPU; no se
+modificaron límites de contenedores ni la aplicación y no se repitió la suite
+integral de 453 pruebas por este cambio del diagnóstico.
+
 ## Revisión de instalación en otro equipo — 2 de noviembre
 
 Las 37 pruebas dirigidas de emulación, distribución y portabilidad aprobaron en

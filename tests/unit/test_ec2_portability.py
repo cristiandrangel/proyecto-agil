@@ -27,10 +27,16 @@ def test_daemon_architecture_not_host_uname(monkeypatch, architecture, expected)
     assert ec2.docker_architecture() == expected
 
 
-def test_low_desktop_memory_is_an_actionable_recommendation_not_a_false_reservation(
-    monkeypatch, capsys
+@pytest.mark.parametrize("memory_gib,warns", [(6, True), (7.8, False), (8, False), (12, False)])
+def test_desktop_memory_warning_respects_working_mac_reference(
+    monkeypatch, capsys, memory_gib, warns
 ):
-    info = {"OSType": "linux", "Architecture": "arm64", "MemTotal": 6 * 1024**3, "NCPU": 4}
+    info = {
+        "OSType": "linux",
+        "Architecture": "arm64",
+        "MemTotal": int(memory_gib * 1024**3),
+        "NCPU": 4,
+    }
     monkeypatch.setattr(
         ec2,
         "run",
@@ -43,8 +49,12 @@ def test_low_desktop_memory_is_an_actionable_recommendation_not_a_false_reservat
     )
     ec2.doctor()
     output = capsys.readouterr().out
-    assert "not a reservation" in output
-    assert "Limited RAM" in output
+    assert ("Limited RAM" in output) is warns
+    assert "12+ GiB" not in output
+    if warns:
+        assert "16 GB total and about 8 GiB" in output
+        assert "not a measured minimum" in output
+        assert "not a reservation" in output
 
 
 def test_windows_crlf_context_is_executable_and_has_native_arm_catalog(tmp_path):
